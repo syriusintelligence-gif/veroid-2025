@@ -4,7 +4,6 @@ import Index from './pages/Index';
 import Login from './pages/Login';
 import LoginV2 from './pages/Login-v2';
 import Cadastro from './pages/Cadastro';
-import CadastroV2 from './pages/Cadastro-v2';
 import Dashboard from './pages/Dashboard';
 import SignContent from './pages/SignContent';
 import Profile from './pages/Profile';
@@ -58,7 +57,6 @@ function App() {
         
         {/* Rotas de autenticação V2 (novas e melhoradas) */}
         <Route path="/login-v2" element={<LoginV2 />} />
-        <Route path="/cadastro-v2" element={<CadastroV2 />} />
         
         {/* Recuperação de senha */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
