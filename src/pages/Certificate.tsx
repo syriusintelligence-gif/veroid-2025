@@ -202,4 +202,144 @@ export default function Certificate() {
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
                 <div className="flex flex-wrap gap-2">
-                  {content.platforms.map(
+                  {content.platforms.map((platform) => (
+                    <div
+                      key={platform}
+                      className="inline-flex items-center gap-2 bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border-2 border-blue-200 text-xs sm:text-sm font-medium"
+                    >
+                      <span className="text-lg sm:text-xl">{platformIcons[platform] || '📱'}</span>
+                      <span>{platform}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Creator */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Criador do Conteúdo
+            </div>
+            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-words">
+              {content.creatorName}
+            </div>
+          </div>
+
+          {/* Date */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Data e Hora da Assinatura
+            </div>
+            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 flex items-center gap-2 flex-wrap">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+              <span className="break-words">{formattedDate} às {formattedTime}</span>
+            </div>
+          </div>
+
+          {/* ID */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              ID do Certificado
+            </div>
+            <div className="text-xs sm:text-sm font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all">
+              {content.id}
+            </div>
+          </div>
+
+          {/* Verification Code */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
+            <div className="text-xs sm:text-sm opacity-90 mb-2 sm:mb-3">Código de Verificação</div>
+            <div className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-[0.3em] sm:tracking-[0.5em] font-mono break-all">
+              {content.verificationCode}
+            </div>
+          </div>
+
+          {/* Copy Link Button */}
+          <div className="mb-6 sm:mb-8">
+            <Button
+              onClick={handleCopyLink}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-sm sm:text-base"
+              size="lg"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Link Copiado!
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Copiar Link do Certificado
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Public Key */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              <Key className="h-3 w-3 sm:h-4 sm:w-4" />
+              Chave Pública do Assinante
+            </div>
+            <div className="text-xs font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all leading-relaxed">
+              {content.publicKey}
+            </div>
+          </div>
+
+          {/* Hashes */}
+          <div className="space-y-4 sm:space-y-6 mb-6 sm:mb-8">
+            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Hash do Conteúdo (SHA-256)
+              </div>
+              <div className="text-xs font-mono text-gray-700 break-all leading-relaxed">
+                {content.contentHash}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Assinatura Digital
+              </div>
+              <div className="text-xs font-mono text-gray-700 break-all leading-relaxed">
+                {content.signature}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 p-4 sm:p-6 md:p-8 rounded-xl border-t-2 border-gray-200">
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4 sm:mb-6">
+              Este certificado comprova que o conteúdo foi assinado digitalmente por{' '}
+              <strong>{content.creatorName}</strong> e não foi alterado desde sua criação.
+              O código de verificação pode ser usado para confirmar a autenticidade deste documento.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Button
+                onClick={handleGoBack}
+                variant="outline"
+                className="flex-1 text-sm sm:text-base"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {isLoggedIn ? 'Voltar ao Dashboard' : 'Voltar ao Início'}
+              </Button>
+              <Button
+                onClick={handleDownloadCertificate}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-sm sm:text-base"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Baixar Certificado
+              </Button>
+            </div>
+
+            <p className="text-center text-xs text-gray-400 mt-4 sm:mt-6">
+              Certificado visualizado em {new Date().toLocaleString('pt-BR')} • © {new Date().getFullYear()} Vero iD
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
