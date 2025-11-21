@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SignedContent, incrementVerificationCount } from '@/lib/supabase-crypto';
+import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { Button } from '@/components/ui/button';
 import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
@@ -52,7 +52,16 @@ export default function Certificate() {
         // Incrementa contador de verificações quando o certificado é acessado via QR Code ou link
         await incrementVerificationCount(decodedContent.id);
         
-        setContent(decodedContent);
+        // Busca o conteúdo completo do banco de dados para obter o thumbnail
+        const fullContent = await getSignedContentById(decodedContent.id);
+        
+        if (fullContent) {
+          // Usa o conteúdo completo do banco (inclui thumbnail)
+          setContent(fullContent);
+        } else {
+          // Fallback: usa o conteúdo decodificado da URL (sem thumbnail)
+          setContent(decodedContent);
+        }
       }
       
       setLoading(false);
