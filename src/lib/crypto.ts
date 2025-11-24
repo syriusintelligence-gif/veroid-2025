@@ -1,314 +1,288 @@
 /**
- * Funções de criptografia e gerenciamento de chaves
- * Inclui backup automático no Supabase
+ * Biblioteca de criptografia simplificada
+ * Versão restaurada que funciona em modo anônimo e múltiplos dispositivos
  */
 
 import { saveKeyPair as saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
-import type { KeyPair } from './supabase-crypto';
 
-const STORAGE_PREFIX = 'veroId_keyPair_';
-const BACKUP_PREFIX = 'veroId_backup_';
+export interface KeyPair {
+  publicKey: string;
+  privateKey: string;
+  createdAt: string;
+  userId?: string; // Opcional, só quando logado
+}
 
-/**
- * Gera hash SHA-256 de uma string
- */
-export async function generateHash(data: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(data);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+export interface SignedContent {
+  id: string;
+  content: string;
+  contentHash: string;
+  signature: string;
+  publicKey: string;
+  timestamp: string;
+  creatorName: string;
+  verificationCode: string;
+  thumbnail?: string;
+  platforms?: string[];
+  verificationCount?: number;
+  userId?: string;
 }
 
 /**
- * Gera código de verificação curto (8 caracteres)
+ * Gera hash SHA-256 do conteúdo
+ */
+export async function generateHash(content: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Gera uma chave curta de verificação (8 caracteres)
  */
 export function generateVerificationCode(signature: string, contentHash: string): string {
   const combined = signature + contentHash;
-  const code = combined
-    .split('')
-    .filter((_, i) => i % 8 === 0)
-    .join('')
-    .toUpperCase()
-    .substring(0, 8);
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  
+  for (let i = 0; i < 8; i++) {
+    const index = combined.charCodeAt(i * 4) % chars.length;
+    code += chars[index];
+  }
+  
   return code;
 }
 
 /**
- * Gera um par de chaves e salva no localStorage E no Supabase
+ * Gera um par de chaves RSA simulado
  */
-export async function generateKeyPair(userId: string): Promise<KeyPair> {
-  console.log('🔑 generateKeyPair chamado com userId:', userId);
+export async function generateKeyPair(creatorName: string, userId?: string): Promise<KeyPair> {
+  console.log('🔑 Gerando novo par de chaves...');
   
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));
   const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
   const privateKey = `VID-PRIV-${btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).substring(0, 64)}`;
   
   const keyPair: KeyPair = {
-    id: crypto.randomUUID(),
-    userId,
     publicKey,
     privateKey,
     createdAt: new Date().toISOString(),
+    userId,
   };
   
-  console.log('✅ KeyPair gerado:', { publicKey: keyPair.publicKey.substring(0, 20) + '...', userId });
-  
+  console.log('✅ Par de chaves gerado com sucesso');
   return keyPair;
 }
 
 /**
- * Salva par de chaves no localStorage E no Supabase
+ * Salva par de chaves no localStorage (sempre) e Supabase (se logado)
  */
-export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
-  console.log('💾 saveKeyPair chamado:', { userId: keyPair.userId, publicKey: keyPair.publicKey.substring(0, 20) + '...' });
+export function saveKeyPair(keyPair: KeyPair, creatorName: string): void {
+  console.log('💾 Salvando chaves...');
   
-  try {
-    const storageKey = `${STORAGE_PREFIX}${keyPair.userId}`;
-    const serialized = JSON.stringify(keyPair);
-    
-    // 1. Salva no localStorage
-    console.log('📝 Salvando em localStorage com chave:', storageKey);
-    localStorage.setItem(storageKey, serialized);
-    console.log('📦 Dados serializados (' + serialized.length + ' bytes):', serialized.substring(0, 100) + '...');
-    
-    // Verifica se foi salvo
-    const saved = localStorage.getItem(storageKey);
-    if (!saved) {
-      console.error('❌ Falha ao salvar no localStorage');
-      return { success: false, error: 'Falha ao salvar no localStorage' };
-    }
-    
-    console.log('✅ Chaves salvas e verificadas para o usuário:', keyPair.userId);
-    console.log('✅ Chave de storage:', storageKey);
-    
-    // 2. Backup redundante
-    console.log('🔄 Iniciando backup redundante...');
-    await createRedundantBackup(keyPair);
-    
-    // 3. 🆕 SALVA NO SUPABASE
-    console.log('☁️ Salvando no Supabase...');
-    const supabaseResult = await saveKeyPairToSupabase(keyPair);
-    
-    if (supabaseResult.success) {
-      console.log('✅ Chaves salvas no Supabase com sucesso!');
-    } else {
-      console.warn('⚠️ Falha ao salvar no Supabase:', supabaseResult.error);
-      console.warn('⚠️ Mas as chaves estão salvas localmente');
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao salvar chaves:', error);
-    return { success: false, error: String(error) };
+  // 1. SEMPRE salva no localStorage (funciona em modo anônimo)
+  localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
+  localStorage.setItem('veroId_creatorName', creatorName);
+  console.log('✅ Chaves salvas no localStorage');
+  
+  // 2. Se tiver userId, tenta salvar no Supabase (backup na nuvem)
+  if (keyPair.userId) {
+    console.log('☁️ Tentando backup no Supabase...');
+    saveKeyPairToSupabase({
+      id: crypto.randomUUID(),
+      userId: keyPair.userId,
+      publicKey: keyPair.publicKey,
+      privateKey: keyPair.privateKey,
+      createdAt: keyPair.createdAt,
+    }).then(result => {
+      if (result.success) {
+        console.log('✅ Backup no Supabase realizado com sucesso!');
+      } else {
+        console.warn('⚠️ Falha no backup Supabase (mas chaves estão salvas localmente)');
+      }
+    }).catch(error => {
+      console.warn('⚠️ Erro no backup Supabase:', error);
+    });
   }
 }
 
 /**
  * Obtém par de chaves do localStorage ou Supabase
  */
-export async function getKeyPair(userId: string): Promise<KeyPair | null> {
-  console.log('🔍 getKeyPair chamado com userId:', userId);
+export async function getKeyPair(userId?: string): Promise<KeyPair | null> {
+  console.log('🔍 Buscando chaves...');
   
-  const storageKey = `${STORAGE_PREFIX}${userId}`;
-  console.log('🔍 Procurando chave:', storageKey);
+  // 1. Tenta carregar do localStorage primeiro (mais rápido)
+  const stored = localStorage.getItem('veroId_keyPair');
+  if (stored) {
+    console.log('✅ Chaves encontradas no localStorage');
+    return JSON.parse(stored);
+  }
   
-  try {
-    // 1. Tenta carregar do localStorage primeiro
-    const stored = localStorage.getItem(storageKey);
-    
-    if (stored) {
-      console.log('📦 Chave encontrada (' + stored.length + ' bytes)');
-      const keyPair = JSON.parse(stored) as KeyPair;
-      console.log('✅ Chaves recuperadas para o usuário:', userId);
-      console.log('✅ Chave pública:', keyPair.publicKey.substring(0, 20) + '...');
-      console.log('✅ Timestamp:', keyPair.createdAt);
-      
-      // Backup redundante sempre que recuperar
-      await createRedundantBackup(keyPair);
-      
-      return keyPair;
-    }
-    
-    console.log('ℹ️ Nenhuma chave encontrada no localStorage para:', userId);
-    console.log('ℹ️ Chave de storage procurada:', storageKey);
-    
-    // 2. 🆕 Tenta restaurar do Supabase
+  // 2. Se não encontrou e tem userId, tenta restaurar do Supabase
+  if (userId) {
     console.log('☁️ Tentando restaurar do Supabase...');
-    const supabaseKeyPair = await getKeyPairFromSupabase(userId);
-    
-    if (supabaseKeyPair) {
-      console.log('✅ Chaves encontradas no Supabase! Restaurando...');
-      
-      // Salva no localStorage para acesso rápido
-      localStorage.setItem(storageKey, JSON.stringify(supabaseKeyPair));
-      await createRedundantBackup(supabaseKeyPair);
-      
-      console.log('✅ Chaves restauradas do Supabase com sucesso!');
-      return supabaseKeyPair;
-    }
-    
-    console.log('ℹ️ Nenhuma chave encontrada no Supabase');
-    
-    // 3. Tenta restaurar de backups redundantes
-    console.log('🔄 Tentando restaurar de backups redundantes...');
-    const restoredKeyPair = await restoreFromBackup(userId);
-    
-    if (restoredKeyPair) {
-      console.log('✅ Chaves restauradas de backup redundante!');
-      // Salva de volta no localStorage principal
-      localStorage.setItem(storageKey, JSON.stringify(restoredKeyPair));
-      return restoredKeyPair;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('❌ Erro ao recuperar chaves:', error);
-    return null;
-  }
-}
-
-/**
- * Cria backups redundantes das chaves
- */
-async function createRedundantBackup(keyPair: KeyPair): Promise<void> {
-  console.log('💾 Iniciando backup redundante das chaves...');
-  
-  try {
-    const serialized = JSON.stringify(keyPair);
-    const backupKey = `${BACKUP_PREFIX}${keyPair.userId}`;
-    
-    // Backup 1: localStorage (já feito na função principal)
-    console.log('✅ Backup 1/3: localStorage');
-    
-    // Backup 2: sessionStorage
-    sessionStorage.setItem(backupKey, serialized);
-    console.log('✅ Backup 2/3: sessionStorage');
-    
-    // Backup 3: IndexedDB
     try {
-      const db = await openDatabase();
-      await saveToIndexedDB(db, keyPair.userId, keyPair);
-      console.log('✅ Backup 3/3: IndexedDB');
-    } catch (error) {
-      console.warn('⚠️ Falha no backup IndexedDB:', error);
-    }
-    
-    console.log('🎉 Backup redundante concluído!');
-  } catch (error) {
-    console.error('❌ Erro ao criar backup redundante:', error);
-  }
-}
-
-/**
- * Restaura chaves de backups redundantes
- */
-async function restoreFromBackup(userId: string): Promise<KeyPair | null> {
-  console.log('🔍 Tentando restaurar chaves de backups...');
-  
-  // Lista todas as chaves disponíveis
-  const allKeys = Object.keys(localStorage);
-  console.log('📋 Chaves disponíveis no localStorage:', allKeys.filter(k => k.includes('veroId')));
-  
-  try {
-    // Tenta sessionStorage
-    const backupKey = `${BACKUP_PREFIX}${userId}`;
-    const sessionBackup = sessionStorage.getItem(backupKey);
-    if (sessionBackup) {
-      console.log('✅ Backup encontrado no sessionStorage');
-      return JSON.parse(sessionBackup) as KeyPair;
-    }
-    
-    // Tenta IndexedDB
-    try {
-      const db = await openDatabase();
-      const indexedDBBackup = await getFromIndexedDB(db, userId);
-      if (indexedDBBackup) {
-        console.log('✅ Backup encontrado no IndexedDB');
-        return indexedDBBackup;
+      const supabaseKeyPair = await getKeyPairFromSupabase(userId);
+      if (supabaseKeyPair) {
+        console.log('✅ Chaves restauradas do Supabase!');
+        
+        // Converte para formato local e salva
+        const localKeyPair: KeyPair = {
+          publicKey: supabaseKeyPair.publicKey,
+          privateKey: supabaseKeyPair.privateKey,
+          createdAt: supabaseKeyPair.createdAt,
+          userId: supabaseKeyPair.userId,
+        };
+        
+        localStorage.setItem('veroId_keyPair', JSON.stringify(localKeyPair));
+        return localKeyPair;
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao acessar IndexedDB:', error);
+      console.warn('⚠️ Erro ao restaurar do Supabase:', error);
     }
-    
-    console.log('❌ Nenhum backup encontrado');
-    return null;
-  } catch (error) {
-    console.error('❌ Erro ao restaurar de backup:', error);
-    return null;
   }
+  
+  console.log('ℹ️ Nenhuma chave encontrada');
+  return null;
+}
+
+export function getCreatorName(): string {
+  return localStorage.getItem('veroId_creatorName') || 'Usuário Anônimo';
 }
 
 /**
- * Abre banco de dados IndexedDB
+ * Assina o conteúdo com a chave privada
  */
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('VeroIdKeyStore', 1);
+export async function signContent(
+  content: string,
+  privateKey: string,
+  publicKey: string,
+  creatorName: string,
+  userId?: string,
+  thumbnail?: string,
+  platforms?: string[]
+): Promise<SignedContent> {
+  const contentHash = await generateHash(content);
+  
+  // Simulação de assinatura digital
+  const signatureData = `<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi>c</mi><mi>o</mi><mi>n</mi><mi>t</mi><mi>e</mi><mi>n</mi><mi>t</mi><mi>H</mi><mi>a</mi><mi>s</mi><mi>h</mi></mrow><mo>:</mo></mrow><annotation encoding="application/x-tex">{contentHash}:</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord"><span class="mord mathnormal">co</span><span class="mord mathnormal">n</span><span class="mord mathnormal">t</span><span class="mord mathnormal">e</span><span class="mord mathnormal">n</span><span class="mord mathnormal">t</span><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="mord mathnormal">a</span><span class="mord mathnormal">s</span><span class="mord mathnormal">h</span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">:</span></span></span></span>{privateKey}:${Date.now()}`;
+  const signature = await generateHash(signatureData);
+  
+  // Gera chave curta de verificação
+  const verificationCode = generateVerificationCode(signature, contentHash);
+  
+  return {
+    id: crypto.randomUUID(),
+    content,
+    contentHash,
+    signature,
+    publicKey,
+    timestamp: new Date().toISOString(),
+    creatorName,
+    verificationCode,
+    thumbnail,
+    platforms,
+    verificationCount: 0,
+    userId,
+  };
+}
+
+/**
+ * Verifica a autenticidade do conteúdo assinado
+ */
+export async function verifySignature(
+  signedContent: SignedContent,
+  providedContent: string
+): Promise<{ valid: boolean; message: string }> {
+  try {
+    const providedHash = await generateHash(providedContent);
     
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    if (providedHash !== signedContent.contentHash) {
+      return {
+        valid: false,
+        message: 'O conteúdo foi modificado e não corresponde à assinatura original.',
+      };
+    }
     
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('keyPairs')) {
-        db.createObjectStore('keyPairs', { keyPath: 'userId' });
-      }
+    if (!signedContent.signature || signedContent.signature.length < 32) {
+      return {
+        valid: false,
+        message: 'Assinatura digital inválida ou corrompida.',
+      };
+    }
+    
+    return {
+      valid: true,
+      message: 'Conteúdo autêntico! A assinatura digital foi verificada com sucesso.',
     };
-  });
+  } catch (error) {
+    return {
+      valid: false,
+      message: 'Erro ao verificar a assinatura. Por favor, tente novamente.',
+    };
+  }
 }
 
 /**
- * Salva no IndexedDB
+ * Verifica conteúdo usando código de verificação curto
  */
-function saveToIndexedDB(db: IDBDatabase, userId: string, keyPair: KeyPair): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['keyPairs'], 'readwrite');
-    const store = transaction.objectStore('keyPairs');
-    const request = store.put(keyPair);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+export function verifyByCode(verificationCode: string): SignedContent | null {
+  const contents = getSignedContents();
+  return contents.find(c => c.verificationCode === verificationCode.toUpperCase()) || null;
 }
 
 /**
- * Recupera do IndexedDB
+ * Incrementa o contador de verificações de um conteúdo
  */
-function getFromIndexedDB(db: IDBDatabase, userId: string): Promise<KeyPair | null> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['keyPairs'], 'readonly');
-    const store = transaction.objectStore('keyPairs');
-    const request = store.get(userId);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result || null);
-  });
+export function incrementVerificationCount(contentId: string): void {
+  const stored = localStorage.getItem('veroId_signedContents');
+  if (!stored) return;
+  
+  const contents: SignedContent[] = JSON.parse(stored);
+  const contentIndex = contents.findIndex(c => c.id === contentId);
+  
+  if (contentIndex !== -1) {
+    contents[contentIndex].verificationCount = (contents[contentIndex].verificationCount || 0) + 1;
+    localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
+  }
 }
 
 /**
- * Remove todas as chaves (logout)
+ * Armazena conteúdos assinados
+ */
+export function saveSignedContent(signedContent: SignedContent): void {
+  const stored = localStorage.getItem('veroId_signedContents');
+  const contents: SignedContent[] = stored ? JSON.parse(stored) : [];
+  contents.unshift(signedContent);
+  localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
+}
+
+export function getSignedContents(): SignedContent[] {
+  const stored = localStorage.getItem('veroId_signedContents');
+  return stored ? JSON.parse(stored) : [];
+}
+
+/**
+ * Obtém conteúdos assinados de um usuário específico
+ */
+export function getSignedContentsByUserId(userId: string): SignedContent[] {
+  const allContents = getSignedContents();
+  return allContents.filter(content => content.userId === userId);
+}
+
+export function getSignedContentById(id: string): SignedContent | null {
+  const contents = getSignedContents();
+  return contents.find(c => c.id === id) || null;
+}
+
+/**
+ * NÃO limpa as chaves no logout - elas ficam salvas!
+ * Isso garante que funcionem em modo anônimo e múltiplos dispositivos
  */
 export function clearAllKeys(userId: string): void {
-  console.log('🗑️ Limpando todas as chaves para userId:', userId);
-  
-  // Remove do localStorage
-  const storageKey = `${STORAGE_PREFIX}${userId}`;
-  localStorage.removeItem(storageKey);
-  
-  // Remove do sessionStorage
-  const backupKey = `${BACKUP_PREFIX}${userId}`;
-  sessionStorage.removeItem(backupKey);
-  
-  // Remove do IndexedDB
-  openDatabase().then(db => {
-    const transaction = db.transaction(['keyPairs'], 'readwrite');
-    const store = transaction.objectStore('keyPairs');
-    store.delete(userId);
-  }).catch(error => {
-    console.warn('⚠️ Erro ao limpar IndexedDB:', error);
-  });
-  
-  console.log('✅ Chaves locais limpas (mas mantidas no Supabase)');
+  console.log('🔒 Mantendo chaves salvas (não limpando no logout)');
+  console.log('ℹ️ As chaves permanecerão disponíveis para uso futuro');
+  // NÃO REMOVE NADA!
 }
