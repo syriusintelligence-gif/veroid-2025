@@ -74,6 +74,7 @@ export default function SignContent() {
       console.log('✅ Dados carregados:', {
         user: user.email,
         hasKeys: !!userKeyPair,
+        hasSocialLinks: !!user.socialLinks,
       });
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);
@@ -154,6 +155,34 @@ ${content}
       `.trim();
       
       console.log('📝 Assinando conteúdo no localStorage...');
+      console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
+      
+      // 🆕 Normaliza os links sociais para garantir que tenham https://
+      const normalizedSocialLinks = currentUser.socialLinks ? {
+        instagram: currentUser.socialLinks.instagram?.startsWith('http') 
+          ? currentUser.socialLinks.instagram 
+          : currentUser.socialLinks.instagram ? `https://${currentUser.socialLinks.instagram}` : undefined,
+        facebook: currentUser.socialLinks.facebook?.startsWith('http')
+          ? currentUser.socialLinks.facebook
+          : currentUser.socialLinks.facebook ? `https://${currentUser.socialLinks.facebook}` : undefined,
+        twitter: currentUser.socialLinks.twitter?.startsWith('http')
+          ? currentUser.socialLinks.twitter
+          : currentUser.socialLinks.twitter ? `https://${currentUser.socialLinks.twitter}` : undefined,
+        tiktok: currentUser.socialLinks.tiktok?.startsWith('http')
+          ? currentUser.socialLinks.tiktok
+          : currentUser.socialLinks.tiktok ? `https://${currentUser.socialLinks.tiktok}` : undefined,
+        youtube: currentUser.socialLinks.youtube?.startsWith('http')
+          ? currentUser.socialLinks.youtube
+          : currentUser.socialLinks.youtube ? `https://${currentUser.socialLinks.youtube}` : undefined,
+        linkedin: currentUser.socialLinks.linkedin?.startsWith('http')
+          ? currentUser.socialLinks.linkedin
+          : currentUser.socialLinks.linkedin ? `https://${currentUser.socialLinks.linkedin}` : undefined,
+        website: currentUser.socialLinks.website?.startsWith('http')
+          ? currentUser.socialLinks.website
+          : currentUser.socialLinks.website ? `https://${currentUser.socialLinks.website}` : undefined,
+      } : undefined;
+      
+      console.log('✅ Links normalizados:', normalizedSocialLinks);
       
       const result = signContent(
         fullContent,
@@ -162,7 +191,8 @@ ${content}
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
         filePreview || undefined,
-        selectedPlatforms
+        selectedPlatforms,
+        normalizedSocialLinks // 🆕 Passa os links sociais normalizados
       );
       
       if (!result.success) {
@@ -171,6 +201,7 @@ ${content}
       }
       
       console.log('✅ Conteúdo assinado com sucesso!');
+      console.log('🔗 Links sociais incluídos no certificado:', result.signedContent?.creatorSocialLinks);
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
@@ -425,9 +456,11 @@ ${content}
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   <li>✅ Thumbnail do conteúdo (se imagem foi enviada)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
+                  <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
                   <li>✅ Hash SHA-256 do conteúdo completo</li>
                   <li>✅ Assinatura digital verificável</li>
+                  <li>✅ Código de verificação único</li>
                   <li>✅ QR Code para compartilhamento</li>
                 </ul>
               </div>
@@ -457,7 +490,7 @@ ${content}
             <Alert className="border-green-500 bg-green-50">
               <Shield className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Conteúdo assinado com sucesso! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail e plataformas.
+                Conteúdo assinado com sucesso! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail, plataformas e links clicáveis.
               </AlertDescription>
             </Alert>
             
