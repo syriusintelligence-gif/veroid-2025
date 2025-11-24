@@ -2,7 +2,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { Button } from '@/components/ui/button';
-import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check } from 'lucide-react';
+import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
 import { getCurrentUser } from '@/lib/supabase-auth-v2';
 
@@ -52,14 +52,14 @@ export default function Certificate() {
         // Incrementa contador de verificações quando o certificado é acessado via QR Code ou link
         await incrementVerificationCount(decodedContent.id);
         
-        // Busca o conteúdo completo do banco de dados para obter o thumbnail
+        // Busca o conteúdo completo do banco de dados para obter o thumbnail e links sociais
         const fullContent = await getSignedContentById(decodedContent.id);
         
         if (fullContent) {
-          // Usa o conteúdo completo do banco (inclui thumbnail)
+          // Usa o conteúdo completo do banco (inclui thumbnail e links sociais)
           setContent(fullContent);
         } else {
-          // Fallback: usa o conteúdo decodificado da URL (sem thumbnail)
+          // Fallback: usa o conteúdo decodificado da URL (sem thumbnail e links sociais)
           setContent(decodedContent);
         }
       }
@@ -131,6 +131,64 @@ export default function Certificate() {
     }
   };
 
+  const getSocialIcon = (platform: string) => {
+    switch (platform.toLowerCase()) {
+      case 'instagram': return <Instagram className="h-5 w-5" />;
+      case 'facebook': return <Facebook className="h-5 w-5" />;
+      case 'twitter': return <Twitter className="h-5 w-5" />;
+      case 'youtube': return <Youtube className="h-5 w-5" />;
+      case 'linkedin': return <Linkedin className="h-5 w-5" />;
+      case 'website': return <Globe className="h-5 w-5" />;
+      case 'tiktok': return <div className="h-5 w-5 font-bold text-sm flex items-center justify-center">TT</div>;
+      default: return <LinkIcon className="h-5 w-5" />;
+    }
+  };
+
+  const getPlatformLabel = (platform: string) => {
+    switch (platform.toLowerCase()) {
+      case 'instagram': return 'Instagram';
+      case 'facebook': return 'Facebook';
+      case 'tiktok': return 'TikTok';
+      case 'twitter': return 'Twitter/X';
+      case 'youtube': return 'YouTube';
+      case 'linkedin': return 'LinkedIn';
+      case 'website': return 'Website';
+      default: return platform;
+    }
+  };
+
+  // Filtra links sociais baseado nas plataformas selecionadas
+  const getRelevantSocialLinks = () => {
+    if (!content?.creatorSocialLinks || !content?.platforms) {
+      return [];
+    }
+
+    const relevantLinks: Array<{ platform: string; url: string }> = [];
+    
+    content.platforms.forEach((platform) => {
+      const platformKey = platform.toLowerCase();
+      const socialLinks = content.creatorSocialLinks!;
+      
+      if (platformKey === 'instagram' && socialLinks.instagram) {
+        relevantLinks.push({ platform: 'instagram', url: socialLinks.instagram });
+      } else if (platformKey === 'facebook' && socialLinks.facebook) {
+        relevantLinks.push({ platform: 'facebook', url: socialLinks.facebook });
+      } else if (platformKey === 'tiktok' && socialLinks.tiktok) {
+        relevantLinks.push({ platform: 'tiktok', url: socialLinks.tiktok });
+      } else if ((platformKey === 'twitter' || platformKey === 'x') && socialLinks.twitter) {
+        relevantLinks.push({ platform: 'twitter', url: socialLinks.twitter });
+      } else if (platformKey === 'youtube' && socialLinks.youtube) {
+        relevantLinks.push({ platform: 'youtube', url: socialLinks.youtube });
+      } else if (platformKey === 'linkedin' && socialLinks.linkedin) {
+        relevantLinks.push({ platform: 'linkedin', url: socialLinks.linkedin });
+      } else if (platformKey === 'website' && socialLinks.website) {
+        relevantLinks.push({ platform: 'website', url: socialLinks.website });
+      }
+    });
+
+    return relevantLinks;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
@@ -163,6 +221,7 @@ export default function Certificate() {
   }
 
   const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
+  const relevantSocialLinks = getRelevantSocialLinks();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
@@ -219,6 +278,35 @@ export default function Certificate() {
                       <span className="text-lg sm:text-xl">{platformIcons[platform] || '📱'}</span>
                       <span>{platform}</span>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Social Links */}
+          {relevantSocialLinks.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Perfis do Criador nas Plataformas
+              </div>
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-5 rounded-lg border-l-4 border-blue-600">
+                <p className="text-sm text-gray-700 mb-3">
+                  Visite os perfis oficiais de <strong>{content.creatorName}</strong> nas plataformas onde o conteúdo foi publicado:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {relevantSocialLinks.map(({ platform, url }) => (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-full border-2 border-blue-300 hover:border-blue-500 text-sm font-medium transition-all shadow-sm hover:shadow-md"
+                    >
+                      {getSocialIcon(platform)}
+                      <span>{getPlatformLabel(platform)}</span>
+                      <LinkIcon className="h-3.5 w-3.5 text-gray-400" />
+                    </a>
                   ))}
                 </div>
               </div>
