@@ -4,7 +4,7 @@
  */
 
 import { supabase } from './supabase';
-import type { Database } from './supabase';
+import type { Database, SocialLinks } from './supabase';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type UserInsert = Database['public']['Tables']['users']['Insert'];
@@ -22,6 +22,7 @@ export interface User {
   verified: boolean;
   isAdmin: boolean;
   blocked: boolean;
+  socialLinks?: SocialLinks;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -39,6 +40,7 @@ function dbUserToAppUser(dbUser: UserRow): User {
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
     blocked: dbUser.blocked || false,
+    socialLinks: dbUser.social_links || undefined,
   };
 }
 
@@ -55,6 +57,7 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
     blocked: appUser.blocked,
+    social_links: appUser.socialLinks || null,
   };
 }
 
@@ -97,7 +100,7 @@ export function isValidPassword(password: string): boolean {
  * Registra um novo usuário no Supabase
  */
 export async function registerUser(
-  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin' | 'blocked'>,
+  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin' | 'blocked' | 'socialLinks'>,
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
@@ -465,6 +468,7 @@ export async function updateUser(
     if (updates.verified !== undefined) dbUpdates.verified = updates.verified;
     if (updates.isAdmin !== undefined) dbUpdates.is_admin = updates.isAdmin;
     if (updates.blocked !== undefined) dbUpdates.blocked = updates.blocked;
+    if (updates.socialLinks !== undefined) dbUpdates.social_links = updates.socialLinks || null;
     
     const { data, error } = await supabase
       .from('users')
@@ -484,6 +488,41 @@ export async function updateUser(
     };
   } catch (error) {
     console.error('❌ Erro ao atualizar usuário:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
+  }
+}
+
+/**
+ * Atualiza os links de redes sociais do usuário
+ */
+export async function updateSocialLinks(
+  userId: string,
+  socialLinks: SocialLinks
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await getCurrentUser();
+    
+    // Verifica se o usuário tem permissão
+    if (currentUser?.id !== userId) {
+      return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
+    }
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ social_links: socialLinks })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar links sociais:', error);
+      return { success: false, error: 'Erro ao atualizar links das redes sociais' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao atualizar links sociais:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Erro desconhecido' 
