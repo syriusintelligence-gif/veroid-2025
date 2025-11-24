@@ -32,6 +32,7 @@ export interface Database {
           created_at: string;
           verified: boolean;
           is_admin: boolean;
+          blocked: boolean;
         };
         Insert: {
           id?: string;
@@ -45,6 +46,7 @@ export interface Database {
           created_at?: string;
           verified?: boolean;
           is_admin?: boolean;
+          blocked?: boolean;
         };
         Update: {
           id?: string;
@@ -58,6 +60,7 @@ export interface Database {
           created_at?: string;
           verified?: boolean;
           is_admin?: boolean;
+          blocked?: boolean;
         };
       };
       signed_contents: {
