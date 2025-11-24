@@ -40,7 +40,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, getUsers, User as UserType, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import { getSignedContents, SignedContent } from '@/lib/crypto';
-import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -104,7 +103,7 @@ export default function AdminDashboard() {
     
     try {
       // Carrega TODOS os conteúdos assinados do localStorage
-      const contents = getAllSignedContents();
+      const contents = getSignedContents();
       setAllContents(contents);
       
       // Carrega todos os usuários
