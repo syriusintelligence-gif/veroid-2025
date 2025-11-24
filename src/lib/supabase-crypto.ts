@@ -1,111 +1,353 @@
 /**
- * Biblioteca de criptografia simplificada para demonstração
- * Em produção, usar HSM/TPM e bibliotecas robustas como OpenSSL
+ * Integração de criptografia com Supabase
+ * Gerencia chaves e conteúdos assinados no banco de dados
  */
 
+import { supabase } from './supabase';
+import type { Database, SocialLinks } from './supabase';
+import { generateHash, generateVerificationCode } from './crypto';
+
+type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
+type KeyPairInsert = Database['public']['Tables']['key_pairs']['Insert'];
+type SignedContentRow = Database['public']['Tables']['signed_contents']['Row'];
+type SignedContentInsert = Database['public']['Tables']['signed_contents']['Insert'];
+
 export interface KeyPair {
+  id: string;
+  userId: string;
   publicKey: string;
   privateKey: string;
   createdAt: string;
-  userId?: string; // ID do usuário dono das chaves
 }
 
 export interface SignedContent {
   id: string;
+  userId: string;
   content: string;
   contentHash: string;
   signature: string;
   publicKey: string;
-  timestamp: string;
+  createdAt: string;
   creatorName: string;
   verificationCode: string;
-  thumbnail?: string; // URL ou base64 da imagem/preview do conteúdo
-  platforms?: string[]; // Plataformas onde foi postado (Instagram, Facebook, etc.)
-  verificationCount?: number; // Contador de verificações
-  userId?: string; // ID do usuário que assinou o conteúdo
+  thumbnail?: string;
+  platforms?: string[];
+  verificationCount: number;
+  creatorSocialLinks?: SocialLinks;
+}
+
+// Converte do formato do banco para o formato da aplicação
+function dbKeyPairToAppKeyPair(dbKeyPair: KeyPairRow): KeyPair {
+  return {
+    id: dbKeyPair.id,
+    userId: dbKeyPair.user_id,
+    publicKey: dbKeyPair.public_key,
+    privateKey: dbKeyPair.private_key,
+    createdAt: dbKeyPair.created_at,
+  };
+}
+
+function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): SignedContent {
+  return {
+    id: dbContent.id,
+    userId: dbContent.user_id,
+    content: dbContent.content,
+    contentHash: dbContent.content_hash,
+    signature: dbContent.signature,
+    publicKey: dbContent.public_key,
+    createdAt: dbContent.created_at,
+    creatorName: dbContent.creator_name,
+    verificationCode: dbContent.verification_code,
+    thumbnail: dbContent.thumbnail || undefined,
+    platforms: dbContent.platforms || undefined,
+    verificationCount: dbContent.verification_count,
+  };
 }
 
 /**
  * Gera um par de chaves RSA simulado
- * Em produção: usar Web Crypto API ou bibliotecas criptográficas reais
  */
-export async function generateKeyPair(creatorName: string, userId?: string): Promise<KeyPair> {
-  // Simulação de geração de chaves para demo
+export async function generateKeyPair(userId: string): Promise<KeyPair> {
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));
   const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
   const privateKey = `VID-PRIV-${btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).substring(0, 64)}`;
   
   return {
+    id: crypto.randomUUID(),
+    userId,
     publicKey,
     privateKey,
     createdAt: new Date().toISOString(),
-    userId,
   };
 }
 
 /**
- * Gera hash SHA-256 do conteúdo
+ * Salva par de chaves no Supabase
  */
-export async function generateHash(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-/**
- * Gera uma chave curta de verificação (8 caracteres)
- */
-export function generateVerificationCode(signature: string, contentHash: string): string {
-  const combined = signature + contentHash;
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres confusos (0, O, 1, I)
-  let code = '';
-  
-  for (let i = 0; i < 8; i++) {
-    const index = combined.charCodeAt(i * 4) % chars.length;
-    code += chars[index];
+export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('key_pairs')
+      .insert({
+        id: keyPair.id,
+        user_id: keyPair.userId,
+        public_key: keyPair.publicKey,
+        private_key: keyPair.privateKey,
+      });
+    
+    if (error) {
+      console.error('❌ Erro ao salvar chaves:', error);
+      return { success: false, error: 'Erro ao salvar chaves' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao salvar chaves:', error);
+    return { success: false, error: 'Erro desconhecido' };
   }
-  
-  return code;
 }
 
 /**
- * Assina o conteúdo com a chave privada
- * Em produção: usar algoritmos RSA/ECC reais
+ * Obtém o par de chaves do usuário
+ */
+export async function getKeyPair(userId: string): Promise<KeyPair | null> {
+  try {
+    const { data, error } = await supabase
+      .from('key_pairs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    return dbKeyPairToAppKeyPair(data);
+  } catch (error) {
+    console.error('❌ Erro ao buscar chaves:', error);
+    return null;
+  }
+}
+
+/**
+ * Assina conteúdo e salva no Supabase
  */
 export async function signContent(
   content: string,
   privateKey: string,
   publicKey: string,
   creatorName: string,
-  userId?: string,
+  userId: string,
   thumbnail?: string,
   platforms?: string[]
-): Promise<SignedContent> {
-  const contentHash = await generateHash(content);
-  
-  // Simulação de assinatura digital
-  const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
-  const signature = await generateHash(signatureData);
-  
-  // Gera chave curta de verificação
-  const verificationCode = generateVerificationCode(signature, contentHash);
-  
-  return {
-    id: crypto.randomUUID(),
-    content,
-    contentHash,
-    signature,
-    publicKey,
-    timestamp: new Date().toISOString(),
-    creatorName,
-    verificationCode,
-    thumbnail,
-    platforms,
-    verificationCount: 0, // Inicializa contador em 0
-    userId, // Associa ao usuário
-  };
+): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
+  try {
+    console.log('🔐 [1/7] Iniciando processo de assinatura...');
+    console.log('📊 Dados recebidos:', {
+      contentLength: content.length,
+      hasPrivateKey: !!privateKey,
+      hasPublicKey: !!publicKey,
+      creatorName,
+      userId,
+      hasThumbnail: !!thumbnail,
+      thumbnailSize: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
+      platforms: platforms?.join(', '),
+    });
+    
+    console.log('🔐 [2/7] Gerando hash do conteúdo...');
+    const contentHash = await generateHash(content);
+    console.log('✅ Hash gerado:', contentHash.substring(0, 16) + '...');
+    
+    console.log('🔐 [3/7] Gerando assinatura digital...');
+    const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
+    const signature = await generateHash(signatureData);
+    console.log('✅ Assinatura gerada:', signature.substring(0, 16) + '...');
+    
+    console.log('🔐 [4/7] Gerando código de verificação...');
+    const verificationCode = generateVerificationCode(signature, contentHash);
+    console.log('✅ Código de verificação:', verificationCode);
+    
+    console.log('🔐 [5/7] Preparando dados para inserção no Supabase...');
+    const signedContent: SignedContentInsert = {
+      user_id: userId,
+      content,
+      content_hash: contentHash,
+      signature,
+      public_key: publicKey,
+      creator_name: creatorName,
+      verification_code: verificationCode,
+      thumbnail: thumbnail || null,
+      platforms: platforms || null,
+      verification_count: 0,
+    };
+    
+    console.log('📊 Tamanho dos dados:', {
+      content: `${(content.length / 1024).toFixed(2)}KB`,
+      thumbnail: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
+      totalEstimate: `${((content.length + (thumbnail?.length || 0)) / 1024).toFixed(2)}KB`,
+    });
+    
+    console.log('🔐 [6/7] Salvando no Supabase...');
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .insert(signedContent)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [ERRO SUPABASE] Detalhes completos:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return { success: false, error: `Erro ao salvar: ${error.message}` };
+    }
+    
+    console.log('✅ [7/7] Conteúdo salvo com sucesso no Supabase!');
+    console.log('📄 ID do conteúdo:', data.id);
+    
+    return {
+      success: true,
+      signedContent: dbSignedContentToAppSignedContent(data),
+    };
+  } catch (error) {
+    console.error('❌ [ERRO CRÍTICO] Erro ao assinar conteúdo:', error);
+    console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'N/A');
+    return { success: false, error: `Erro crítico: ${error instanceof Error ? error.message : 'Erro desconhecido'}` };
+  }
+}
+
+/**
+ * Obtém todos os conteúdos assinados de um usuário
+ */
+export async function getSignedContentsByUserId(userId: string): Promise<SignedContent[]> {
+  try {
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Erro ao buscar conteúdos:', error);
+      return [];
+    }
+    
+    return data.map(dbSignedContentToAppSignedContent);
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdos:', error);
+    return [];
+  }
+}
+
+/**
+ * Obtém todos os conteúdos assinados (público)
+ */
+export async function getAllSignedContents(): Promise<SignedContent[]> {
+  try {
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Erro ao buscar conteúdos:', error);
+      return [];
+    }
+    
+    return data.map(dbSignedContentToAppSignedContent);
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdos:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca conteúdo por ID e inclui links sociais do criador
+ */
+export async function getSignedContentById(id: string): Promise<SignedContent | null> {
+  try {
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .select(`
+        *,
+        users!signed_contents_user_id_fkey(social_links)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    const content = dbSignedContentToAppSignedContent(data);
+    
+    // Adiciona links sociais do criador se disponíveis
+    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
+      content.creatorSocialLinks = data.users.social_links as SocialLinks || undefined;
+    }
+    
+    return content;
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdo:', error);
+    return null;
+  }
+}
+
+/**
+ * Busca conteúdo por código de verificação e inclui links sociais do criador
+ */
+export async function getSignedContentByVerificationCode(code: string): Promise<SignedContent | null> {
+  try {
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .select(`
+        *,
+        users!signed_contents_user_id_fkey(social_links)
+      `)
+      .eq('verification_code', code.toUpperCase())
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    const content = dbSignedContentToAppSignedContent(data);
+    
+    // Adiciona links sociais do criador se disponíveis
+    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
+      content.creatorSocialLinks = data.users.social_links as SocialLinks || undefined;
+    }
+    
+    return content;
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdo:', error);
+    return null;
+  }
+}
+
+/**
+ * Incrementa contador de verificações
+ */
+export async function incrementVerificationCount(contentId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase.rpc('increment_verification_count', {
+      content_id: contentId,
+    });
+    
+    if (error) {
+      console.error('❌ Erro ao incrementar contador:', error);
+      return { success: false, error: 'Erro ao incrementar contador' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao incrementar contador:', error);
+    return { success: false, error: 'Erro desconhecido' };
+  }
 }
 
 /**
@@ -127,7 +369,6 @@ export async function verifySignature(
     }
     
     // Verifica se a assinatura é válida
-    // Em produção: usar verificação criptográfica real com chave pública
     if (!signedContent.signature || signedContent.signature.length < 32) {
       return {
         valid: false,
@@ -145,74 +386,4 @@ export async function verifySignature(
       message: 'Erro ao verificar a assinatura. Por favor, tente novamente.',
     };
   }
-}
-
-/**
- * Verifica conteúdo usando código de verificação curto
- */
-export function verifyByCode(verificationCode: string): SignedContent | null {
-  const contents = getSignedContents();
-  return contents.find(c => c.verificationCode === verificationCode.toUpperCase()) || null;
-}
-
-/**
- * Incrementa o contador de verificações de um conteúdo
- */
-export function incrementVerificationCount(contentId: string): void {
-  const stored = localStorage.getItem('veroId_signedContents');
-  if (!stored) return;
-  
-  const contents: SignedContent[] = JSON.parse(stored);
-  const contentIndex = contents.findIndex(c => c.id === contentId);
-  
-  if (contentIndex !== -1) {
-    contents[contentIndex].verificationCount = (contents[contentIndex].verificationCount || 0) + 1;
-    localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
-  }
-}
-
-/**
- * Armazena chaves no localStorage (apenas para demo)
- * Em produção: usar HSM, TPM ou armazenamento seguro
- */
-export function saveKeyPair(keyPair: KeyPair, creatorName: string): void {
-  localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
-  localStorage.setItem('veroId_creatorName', creatorName);
-}
-
-export function getKeyPair(): KeyPair | null {
-  const stored = localStorage.getItem('veroId_keyPair');
-  return stored ? JSON.parse(stored) : null;
-}
-
-export function getCreatorName(): string {
-  return localStorage.getItem('veroId_creatorName') || 'Usuário Anônimo';
-}
-
-/**
- * Armazena conteúdos assinados
- */
-export function saveSignedContent(signedContent: SignedContent): void {
-  const stored = localStorage.getItem('veroId_signedContents');
-  const contents: SignedContent[] = stored ? JSON.parse(stored) : [];
-  contents.unshift(signedContent);
-  localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
-}
-
-export function getSignedContents(): SignedContent[] {
-  const stored = localStorage.getItem('veroId_signedContents');
-  return stored ? JSON.parse(stored) : [];
-}
-
-/**
- * Obtém conteúdos assinados de um usuário específico
- */
-export function getSignedContentsByUserId(userId: string): SignedContent[] {
-  const allContents = getSignedContents();
-  return allContents.filter(content => content.userId === userId);
-}
-
-export function getSignedContentById(id: string): SignedContent | null {
-  const contents = getSignedContents();
-  return contents.find(c => c.id === id) || null;
 }
