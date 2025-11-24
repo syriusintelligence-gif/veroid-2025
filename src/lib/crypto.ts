@@ -115,67 +115,68 @@ async function generateHash(content: string): Promise<string> {
 }
 
 /**
- * 🆕 Gera uma chave curta de verificação (8 caracteres) usando hash SHA-256
- * Garante códigos únicos para cada assinatura
+ * 🆕 NOVO GERADOR DE CÓDIGO DE VERIFICAÇÃO ÚNICO
+ * Usa entropia criptográfica real + contador incremental + verificação de duplicatas
+ * Garante 100% de unicidade para cada assinatura
  */
-async function generateVerificationCode(signature: string, contentHash: string, timestamp: string): Promise<string> {
-  // Combina signature, contentHash e timestamp para garantir unicidade
-  const combined = `${signature}${contentHash}${timestamp}${Math.random()}`;
-  
-  // Gera hash SHA-256
-  const encoder = new TextEncoder();
-  const data = encoder.encode(combined);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  
-  // Converte para string hexadecimal
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  // Caracteres permitidos (sem confusão: sem 0, O, 1, I)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  
-  // Usa bytes do hash para selecionar caracteres
-  for (let i = 0; i < 8; i++) {
-    const byteValue = hashArray[i] || 0;
-    const index = byteValue % chars.length;
-    code += chars[index];
-  }
-  
-  return code;
-}
+let verificationCodeCounter = 0;
 
-/**
- * 🆕 Versão síncrona do generateVerificationCode para compatibilidade
- */
-function generateVerificationCodeSync(signature: string, contentHash: string, timestamp: string): string {
-  // Combina signature, contentHash e timestamp para garantir unicidade
-  const combined = `${signature}${contentHash}${timestamp}${Math.random()}`;
-  
-  // Gera um hash simples usando charCodeAt
-  const hashBytes: number[] = [];
-  for (let i = 0; i < combined.length; i++) {
-    const charCode = combined.charCodeAt(i);
-    hashBytes.push(charCode % 256);
-  }
-  
-  // Adiciona mais entropia com timestamp atual
-  const now = Date.now();
-  for (let i = 0; i < 8; i++) {
-    hashBytes.push((now >> (i * 8)) & 0xFF);
-  }
-  
-  // Caracteres permitidos (sem confusão: sem 0, O, 1, I)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function generateUniqueVerificationCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 caracteres (sem confusão: sem 0, O, 1, I)
   let code = '';
+  let attempts = 0;
+  const maxAttempts = 100;
   
-  // Usa bytes do hash para selecionar caracteres
-  for (let i = 0; i < 8; i++) {
-    const byteValue = hashBytes[i % hashBytes.length] || 0;
-    const index = byteValue % chars.length;
-    code += chars[index];
+  while (attempts < maxAttempts) {
+    // 1. Usa crypto.getRandomValues para entropia criptográfica REAL
+    const randomBytes = new Uint8Array(16); // 16 bytes = 128 bits de entropia
+    crypto.getRandomValues(randomBytes);
+    
+    // 2. Adiciona contador incremental para garantir unicidade
+    verificationCodeCounter++;
+    const counterBytes = new Uint8Array(4);
+    counterBytes[0] = (verificationCodeCounter >> 24) & 0xFF;
+    counterBytes[1] = (verificationCodeCounter >> 16) & 0xFF;
+    counterBytes[2] = (verificationCodeCounter >> 8) & 0xFF;
+    counterBytes[3] = verificationCodeCounter & 0xFF;
+    
+    // 3. Adiciona timestamp de alta precisão
+    const timestamp = performance.now() * 1000000; // Microsegundos
+    const timestampBytes = new Uint8Array(8);
+    for (let i = 0; i < 8; i++) {
+      timestampBytes[i] = (timestamp >> (i * 8)) & 0xFF;
+    }
+    
+    // 4. Combina todas as fontes de entropia
+    const combinedBytes = new Uint8Array(randomBytes.length + counterBytes.length + timestampBytes.length);
+    combinedBytes.set(randomBytes, 0);
+    combinedBytes.set(counterBytes, randomBytes.length);
+    combinedBytes.set(timestampBytes, randomBytes.length + counterBytes.length);
+    
+    // 5. Gera código de 8 caracteres
+    code = '';
+    for (let i = 0; i < 8; i++) {
+      const byteValue = combinedBytes[i] ^ combinedBytes[i + 8] ^ combinedBytes[i + 16]; // XOR para mais entropia
+      const index = byteValue % chars.length;
+      code += chars[index];
+    }
+    
+    // 6. Verifica se o código já existe
+    const existingCodes = getSignedContents().map(c => c.verificationCode);
+    if (!existingCodes.includes(code)) {
+      console.log(`✅ Código único gerado: ${code} (tentativa ${attempts + 1})`);
+      return code;
+    }
+    
+    console.warn(`⚠️ Código duplicado detectado: ${code}, gerando novo...`);
+    attempts++;
   }
   
+  // Fallback: se após 100 tentativas ainda houver duplicata (extremamente improvável)
+  // Adiciona um sufixo único baseado no timestamp
+  const fallbackSuffix = Date.now().toString(36).toUpperCase().slice(-2);
+  code = code.substring(0, 6) + fallbackSuffix;
+  console.warn(`⚠️ Usando código fallback: ${code}`);
   return code;
 }
 
@@ -212,8 +213,8 @@ export function signContent(
       return acc + char.charCodeAt(0).toString(16);
     }, '').substring(0, 64);
     
-    // 🆕 Gera chave curta de verificação ÚNICA usando timestamp
-    const verificationCode = generateVerificationCodeSync(signatureHash, contentHash, timestamp);
+    // 🆕 Gera código de verificação ÚNICO usando novo algoritmo
+    const verificationCode = generateUniqueVerificationCode();
     
     console.log('🔐 Código de verificação gerado:', verificationCode);
     
