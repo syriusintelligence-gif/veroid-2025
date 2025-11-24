@@ -1,8 +1,10 @@
 import { SignedContent } from '@/lib/crypto';
+import type { SocialLinks } from '@/lib/supabase';
 
 /**
  * Compacta dados do certificado para reduzir tamanho da URL
  * IMPORTANTE: NÃO inclui thumbnail para evitar URLs muito longas
+ * 🆕 AGORA INCLUI creatorSocialLinks
  */
 function compactContentData(content: SignedContent): string {
   // Usa apenas os dados essenciais e trunca hashes longos
@@ -17,6 +19,7 @@ function compactContentData(content: SignedContent): string {
     n: content.creatorName,
     v: content.verificationCode,
     pl: content.platforms, // Plataformas (array de strings curtas)
+    sl: content.creatorSocialLinks, // 🆕 Links sociais do criador
   };
   
   const jsonStr = JSON.stringify(compact);
@@ -38,6 +41,7 @@ function expandContentData(compact: {
   n: string;
   v: string;
   pl?: string[];
+  sl?: SocialLinks; // 🆕 Links sociais
 }): SignedContent {
   return {
     id: compact.i,
@@ -50,6 +54,7 @@ function expandContentData(compact: {
     creatorName: compact.n,
     verificationCode: compact.v,
     platforms: compact.pl,
+    creatorSocialLinks: compact.sl, // 🆕 Links sociais
     verificationCount: 0,
     // thumbnail não vem da URL, será buscado do localStorage se disponível
   };
@@ -78,6 +83,7 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
       n: string;
       v: string;
       pl?: string[];
+      sl?: SocialLinks; // 🆕 Links sociais
     };
     
     return expandContentData(compact);
@@ -91,7 +97,7 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
  * Gera dados para QR Code que apontam para visualização pública do certificado
  */
 export function generateQRData(signedContent: SignedContent): string {
-  // Compacta dados para reduzir tamanho (sem thumbnail)
+  // Compacta dados para reduzir tamanho (sem thumbnail, mas COM links sociais)
   const encodedData = compactContentData(signedContent);
   
   // Cria URL pública que qualquer pessoa pode acessar
@@ -138,6 +144,67 @@ export function decodeQRData(qrUrl: string): { id?: string; code?: string; creat
     console.error('Erro ao decodificar QR Code:', error);
     return null;
   }
+}
+
+/**
+ * 🆕 Gera HTML para links sociais clicáveis
+ */
+function generateSocialLinksHtml(signedContent: SignedContent): string {
+  if (!signedContent.creatorSocialLinks || !signedContent.platforms) {
+    return '';
+  }
+
+  const relevantLinks: Array<{ platform: string; url: string; icon: string; label: string }> = [];
+  
+  signedContent.platforms.forEach((platform) => {
+    const platformKey = platform.toLowerCase();
+    const socialLinks = signedContent.creatorSocialLinks!;
+    
+    const platformMap: Record<string, { key: keyof SocialLinks; icon: string; label: string }> = {
+      'instagram': { key: 'instagram', icon: '📷', label: 'Instagram' },
+      'facebook': { key: 'facebook', icon: '👥', label: 'Facebook' },
+      'tiktok': { key: 'tiktok', icon: '🎵', label: 'TikTok' },
+      'twitter': { key: 'twitter', icon: '🐦', label: 'Twitter/X' },
+      'youtube': { key: 'youtube', icon: '📺', label: 'YouTube' },
+      'linkedin': { key: 'linkedin', icon: '💼', label: 'LinkedIn' },
+      'website': { key: 'website', icon: '🌐', label: 'Website' },
+    };
+    
+    const mapping = platformMap[platformKey];
+    if (mapping && socialLinks[mapping.key]) {
+      relevantLinks.push({
+        platform: platformKey,
+        url: socialLinks[mapping.key] as string,
+        icon: mapping.icon,
+        label: mapping.label,
+      });
+    }
+  });
+
+  if (relevantLinks.length === 0) {
+    return '';
+  }
+
+  return `
+    <div class="info-section" style="background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
+      <div class="info-label" style="color: #4b5563; margin-bottom: 12px;">Perfis do Criador nas Plataformas</div>
+      <p style="font-size: 14px; color: #6b7280; margin-bottom: 16px; line-height: 1.6;">
+        Visite os perfis oficiais de <strong>${signedContent.creatorName}</strong> nas plataformas onde o conteúdo foi publicado:
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        ${relevantLinks.map(({ url, icon, label }) => `
+          <a href="${url}" target="_blank" rel="noopener noreferrer" 
+             style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 10px 16px; border-radius: 25px; border: 2px solid #667eea; text-decoration: none; color: #1f2937; font-weight: 500; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+             onmouseover="this.style.background='#667eea'; this.style.color='white'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)';"
+             onmouseout="this.style.background='white'; this.style.color='#1f2937'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+            <span style="font-size: 20px;">${icon}</span>
+            <span>${label}</span>
+            <span style="font-size: 12px; opacity: 0.6;">🔗</span>
+          </a>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -193,6 +260,9 @@ export function generateCertificate(signedContent: SignedContent): string {
       </div>
     </div>
   ` : '';
+  
+  // 🆕 Gera HTML para links sociais clicáveis
+  const socialLinksHtml = generateSocialLinksHtml(signedContent);
   
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -395,6 +465,8 @@ export function generateCertificate(signedContent: SignedContent): string {
       ${thumbnailHtml}
       
       ${platformsHtml}
+      
+      ${socialLinksHtml}
       
       <div class="info-section">
         <div class="info-label">Criador do Conteúdo</div>
