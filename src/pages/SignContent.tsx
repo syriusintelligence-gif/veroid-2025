@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
 import { getKeyPair, signContent } from '@/lib/supabase-crypto';
-import type { KeyPair, SignedContent } from '@/lib/crypto';
+import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { compressImage, isImageDataUrl } from '@/lib/image-compression';
 
@@ -68,13 +68,15 @@ export default function SignContent() {
       
       setCurrentUser(user);
       
-      // Carrega chaves do usuário
-      const userKeyPair = getKeyPair(user.id);
+      // Carrega chaves do usuário do Supabase
+      const userKeyPair = await getKeyPair(user.id);
       setKeyPair(userKeyPair);
       
       console.log('✅ Dados carregados:', {
         user: user.email,
         hasKeys: !!userKeyPair,
+        publicKey: userKeyPair?.publicKey?.substring(0, 20) + '...',
+        privateKey: userKeyPair?.privateKey?.substring(0, 20) + '...',
         hasSocialLinks: !!user.socialLinks,
       });
     } catch (error) {
@@ -148,16 +150,38 @@ export default function SignContent() {
       return;
     }
     
-    if (!keyPair) {
-      alert('Você precisa gerar suas chaves primeiro');
-      navigate('/dashboard');
-      return;
-    }
-    
     if (!currentUser) {
       alert('Erro: usuário não identificado');
       return;
     }
+    
+    // 🆕 VALIDAÇÃO EXTRA: Verifica se as chaves existem e não estão vazias
+    if (!keyPair || !keyPair.publicKey || !keyPair.privateKey) {
+      console.error('❌ Chaves inválidas ou vazias:', {
+        hasKeyPair: !!keyPair,
+        hasPublicKey: !!keyPair?.publicKey,
+        hasPrivateKey: !!keyPair?.privateKey,
+      });
+      
+      alert('Erro: Chaves criptográficas não encontradas ou inválidas. Tente recarregar a página ou gerar novas chaves no Dashboard.');
+      return;
+    }
+    
+    // 🆕 VALIDAÇÃO EXTRA: Verifica se as chaves têm o formato correto
+    if (!keyPair.publicKey.startsWith('VID-PUB-') || !keyPair.privateKey.startsWith('VID-PRIV-')) {
+      console.error('❌ Formato de chaves inválido:', {
+        publicKeyPrefix: keyPair.publicKey.substring(0, 10),
+        privateKeyPrefix: keyPair.privateKey.substring(0, 10),
+      });
+      
+      alert('Erro: Formato de chaves inválido. Por favor, gere novas chaves no Dashboard.');
+      return;
+    }
+    
+    console.log('✅ Validação de chaves passou:', {
+      publicKey: keyPair.publicKey.substring(0, 20) + '...',
+      privateKey: keyPair.privateKey.substring(0, 20) + '...',
+    });
     
     setIsSigning(true);
     try {
@@ -172,35 +196,8 @@ Conteúdo:
 ${content}
       `.trim();
       
-      console.log('📝 Assinando conteúdo no localStorage...');
+      console.log('📝 Assinando conteúdo no Supabase...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
-      
-      // 🆕 Normaliza os links sociais para garantir que tenham https://
-      const normalizedSocialLinks = currentUser.socialLinks ? {
-        instagram: currentUser.socialLinks.instagram?.startsWith('http') 
-          ? currentUser.socialLinks.instagram 
-          : currentUser.socialLinks.instagram ? `https://${currentUser.socialLinks.instagram}` : undefined,
-        facebook: currentUser.socialLinks.facebook?.startsWith('http')
-          ? currentUser.socialLinks.facebook
-          : currentUser.socialLinks.facebook ? `https://${currentUser.socialLinks.facebook}` : undefined,
-        twitter: currentUser.socialLinks.twitter?.startsWith('http')
-          ? currentUser.socialLinks.twitter
-          : currentUser.socialLinks.twitter ? `https://${currentUser.socialLinks.twitter}` : undefined,
-        tiktok: currentUser.socialLinks.tiktok?.startsWith('http')
-          ? currentUser.socialLinks.tiktok
-          : currentUser.socialLinks.tiktok ? `https://${currentUser.socialLinks.tiktok}` : undefined,
-        youtube: currentUser.socialLinks.youtube?.startsWith('http')
-          ? currentUser.socialLinks.youtube
-          : currentUser.socialLinks.youtube ? `https://${currentUser.socialLinks.youtube}` : undefined,
-        linkedin: currentUser.socialLinks.linkedin?.startsWith('http')
-          ? currentUser.socialLinks.linkedin
-          : currentUser.socialLinks.linkedin ? `https://${currentUser.socialLinks.linkedin}` : undefined,
-        website: currentUser.socialLinks.website?.startsWith('http')
-          ? currentUser.socialLinks.website
-          : currentUser.socialLinks.website ? `https://${currentUser.socialLinks.website}` : undefined,
-      } : undefined;
-      
-      console.log('✅ Links normalizados:', normalizedSocialLinks);
       
       // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)
       let finalThumbnail = filePreview;
@@ -218,15 +215,14 @@ ${content}
         }
       }
       
-      const result = signContent(
+      const result = await signContent(
         fullContent,
         keyPair.privateKey,
         keyPair.publicKey,
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
         finalThumbnail || undefined,
-        selectedPlatforms,
-        normalizedSocialLinks // 🆕 Passa os links sociais normalizados
+        selectedPlatforms
       );
       
       if (!result.success) {
@@ -234,18 +230,11 @@ ${content}
         return;
       }
       
-      console.log('✅ Conteúdo assinado com sucesso!');
-      console.log('🔗 Links sociais incluídos no certificado:', result.signedContent?.creatorSocialLinks);
+      console.log('✅ Conteúdo assinado com sucesso no Supabase!');
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
-      
-      // Verifica se é erro de quota
-      if (error instanceof Error && error.name === 'QuotaExceededError') {
-        alert('❌ Erro: Armazenamento local cheio!\n\nVocê tem muitos conteúdos salvos. Por favor:\n1. Vá ao Dashboard\n2. Exclua alguns conteúdos antigos\n3. Tente novamente\n\nOu use imagens menores para reduzir o espaço usado.');
-      } else {
-        alert('Erro ao assinar conteúdo. Tente novamente.');
-      }
+      alert('Erro ao assinar conteúdo. Tente novamente.');
     } finally {
       setIsSigning(false);
     }
@@ -494,7 +483,7 @@ ${content}
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Thumbnail comprimida do conteúdo (máx 100KB)</li>
+                  <li>✅ Thumbnail comprimida do conteúdo (salva no Supabase)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -530,7 +519,7 @@ ${content}
             <Alert className="border-green-500 bg-green-50">
               <Shield className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Conteúdo assinado com sucesso! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail comprimida, plataformas e links clicáveis.
+                Conteúdo assinado com sucesso no Supabase! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail comprimida, plataformas e links clicáveis.
               </AlertDescription>
             </Alert>
             
