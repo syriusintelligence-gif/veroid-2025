@@ -35,10 +35,11 @@ import {
   Download,
   TrendingUp,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getSignedContents, SignedContent } from '@/lib/crypto';
 import { getCurrentUser, logout, getUsers, User as UserType, isCurrentUserAdmin } from '@/lib/supabase-auth';
+import { getAllSignedContents, SignedContent } from '@/lib/crypto';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -65,6 +66,7 @@ export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [allContents, setAllContents] = useState<SignedContent[]>([]);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Filtros
   const [searchTitle, setSearchTitle] = useState('');
@@ -92,13 +94,26 @@ export default function AdminDashboard() {
     
     setCurrentUser(user);
     
-    // Carrega TODOS os conteúdos assinados (de todos os usuários)
-    const contents = getSignedContents();
-    setAllContents(contents);
+    // Carrega dados do localStorage
+    await loadData();
+  };
+  
+  const loadData = async () => {
+    setIsLoading(true);
     
-    // Carrega todos os usuários
-    const users = await getUsers();
-    setAllUsers(users);
+    try {
+      // Carrega TODOS os conteúdos assinados do localStorage
+      const contents = getAllSignedContents();
+      setAllContents(contents);
+      
+      // Carrega todos os usuários
+      const users = await getUsers();
+      setAllUsers(users);
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleVerify = (id: string) => {
@@ -398,6 +413,15 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadData}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
