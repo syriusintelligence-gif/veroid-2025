@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/crypto';
+import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { Button } from '@/components/ui/button';
 import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
