@@ -1,4 +1,4 @@
-import { SignedContent } from '@/lib/crypto';
+import { SignedContent } from '@/lib/supabase-crypto';
 import type { SocialLinks } from './supabase';
 
 /**
@@ -46,7 +46,7 @@ function compactContentData(content: SignedContent): string {
     h: content.contentHash.substring(0, 32), // Primeiros 32 chars do hash
     s: content.signature.substring(0, 32), // Primeiros 32 chars da assinatura
     p: content.publicKey.substring(0, 32), // Primeiros 32 chars da chave
-    t: content.timestamp,
+    t: content.createdAt, // ✅ CORRIGIDO: usa createdAt em vez de timestamp
     n: content.creatorName,
     v: content.verificationCode,
     pl: content.platforms, // Plataformas (array de strings curtas)
@@ -87,7 +87,7 @@ function expandContentData(compact: {
     contentHash: compact.h,
     signature: compact.s,
     publicKey: compact.p,
-    timestamp: compact.t,
+    createdAt: compact.t, // ✅ CORRIGIDO: usa createdAt
     creatorName: compact.n,
     verificationCode: compact.v,
     platforms: compact.pl,
@@ -189,7 +189,9 @@ export function decodeQRData(qrUrl: string): { id?: string; code?: string; creat
  * 🆕 Gera HTML para links sociais clicáveis
  */
 function generateSocialLinksHtml(signedContent: SignedContent): string {
-  if (!signedContent.creatorSocialLinks || !signedContent.platforms) {
+  // ✅ CORRIGIDO: Verifica se existem links sociais E plataformas
+  if (!signedContent.creatorSocialLinks || !signedContent.platforms || signedContent.platforms.length === 0) {
+    console.log('⚠️ Sem links sociais ou plataformas para exibir no HTML');
     return '';
   }
 
@@ -221,8 +223,11 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
   });
 
   if (relevantLinks.length === 0) {
+    console.log('⚠️ Nenhum link social relevante encontrado');
     return '';
   }
+
+  console.log(`✅ Gerando HTML para ${relevantLinks.length} links sociais`);
 
   return `
     <div class="info-section" style="background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
@@ -250,7 +255,15 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
  * Gera certificado digital em formato HTML moderno
  */
 export function generateCertificate(signedContent: SignedContent): string {
-  const date = new Date(signedContent.timestamp);
+  // ✅ CORRIGIDO: usa createdAt em vez de timestamp
+  const date = new Date(signedContent.createdAt);
+  
+  // Verifica se a data é válida
+  if (isNaN(date.getTime())) {
+    console.error('❌ Data inválida no certificado:', signedContent.createdAt);
+    return '';
+  }
+  
   const formattedDate = date.toLocaleDateString('pt-BR', { 
     day: '2-digit', 
     month: 'long', 
@@ -260,6 +273,8 @@ export function generateCertificate(signedContent: SignedContent): string {
     hour: '2-digit', 
     minute: '2-digit' 
   });
+  
+  console.log(`📅 Data formatada: ${formattedDate} às ${formattedTime}`);
   
   // Gera HTML para thumbnail se existir
   const thumbnailHtml = signedContent.thumbnail ? `
@@ -503,10 +518,6 @@ export function generateCertificate(signedContent: SignedContent): string {
       
       ${thumbnailHtml}
       
-      ${platformsHtml}
-      
-      ${socialLinksHtml}
-      
       <div class="info-section">
         <div class="info-label">Criador do Conteúdo</div>
         <div class="info-value">${signedContent.creatorName}</div>
@@ -521,6 +532,10 @@ export function generateCertificate(signedContent: SignedContent): string {
         <div class="info-label">ID do Certificado</div>
         <div class="info-value">${signedContent.id}</div>
       </div>
+      
+      ${platformsHtml}
+      
+      ${socialLinksHtml}
       
       <div class="verification-code">
         <div class="verification-code-label">Código de Verificação</div>
