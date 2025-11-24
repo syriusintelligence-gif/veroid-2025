@@ -52,22 +52,29 @@ export default function Dashboard() {
     try {
       setIsLoading(true);
       
+      console.log('🔄 Iniciando carregamento de dados do usuário...');
+      
       // Verifica se usuário está logado
       const user = await getCurrentUser();
       if (!user) {
+        console.log('❌ Usuário não autenticado, redirecionando para login');
         navigate('/login');
         return;
       }
       
+      console.log('✅ Usuário autenticado:', user.email, 'ID:', user.id);
       setCurrentUser(user);
       
       // Verifica se é admin
       const adminStatus = await isCurrentUserAdmin();
       setIsAdmin(adminStatus);
+      console.log('👤 Status admin:', adminStatus);
       
       // Carrega chaves do usuário
+      console.log('🔍 Tentando carregar chaves para userId:', user.id);
       const userKeyPair = getKeyPair(user.id);
       setKeyPair(userKeyPair);
+      console.log('🔑 Resultado da busca de chaves:', userKeyPair ? 'ENCONTRADAS' : 'NÃO ENCONTRADAS');
       
       // Carrega conteúdos assinados do usuário
       const userContents = getSignedContentsByUserId(user.id);
@@ -75,6 +82,7 @@ export default function Dashboard() {
       
       console.log('✅ Dados do usuário carregados:', {
         user: user.email,
+        userId: user.id,
         hasKeys: !!userKeyPair,
         contentsCount: userContents.length,
       });
@@ -86,27 +94,62 @@ export default function Dashboard() {
   };
   
   const handleGenerateKeys = async () => {
+    console.log('🚀 === INICIANDO GERAÇÃO DE CHAVES ===');
+    
     if (!currentUser) {
+      console.error('❌ Erro: usuário não identificado');
       alert('Erro: usuário não identificado');
       return;
     }
     
+    console.log('👤 Usuário atual:', {
+      id: currentUser.id,
+      email: currentUser.email,
+      nome: currentUser.nomeCompleto,
+    });
+    
     setIsGenerating(true);
     try {
+      console.log('🔑 Chamando generateKeyPair com userId:', currentUser.id);
       const newKeyPair = generateKeyPair(currentUser.id);
+      
+      console.log('✅ KeyPair gerado com sucesso:', {
+        userId: newKeyPair.userId,
+        hasPublicKey: !!newKeyPair.publicKey,
+        hasPrivateKey: !!newKeyPair.privateKey,
+        publicKeyPreview: newKeyPair.publicKey.substring(0, 30) + '...',
+      });
+      
+      console.log('💾 Chamando saveKeyPair...');
       const result = saveKeyPair(newKeyPair);
       
+      console.log('📊 Resultado do saveKeyPair:', result);
+      
       if (result.success) {
+        console.log('✅ Chaves salvas com sucesso! Atualizando estado...');
         setKeyPair(newKeyPair);
-        console.log('✅ Chaves geradas e salvas com sucesso!');
+        
+        // Verifica imediatamente se foi salvo
+        console.log('🔍 Verificando se as chaves foram realmente salvas...');
+        const verification = getKeyPair(currentUser.id);
+        if (verification) {
+          console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão no localStorage!');
+        } else {
+          console.error('❌❌❌ ERRO CRÍTICO! Chaves NÃO foram salvas no localStorage!');
+          alert('ERRO: As chaves foram geradas mas não foram salvas. Verifique o console.');
+        }
+        
+        console.log('🎉 Processo de geração de chaves concluído com sucesso!');
       } else {
+        console.error('❌ Falha ao salvar chaves:', result.error);
         alert(result.error || 'Erro ao salvar chaves. Tente novamente.');
       }
     } catch (error) {
-      console.error('Erro ao gerar chaves:', error);
+      console.error('❌ Erro ao gerar chaves:', error);
       alert('Erro ao gerar chaves. Tente novamente.');
     } finally {
       setIsGenerating(false);
+      console.log('🏁 === FIM DO PROCESSO DE GERAÇÃO ===');
     }
   };
   
@@ -115,6 +158,7 @@ export default function Dashboard() {
   };
   
   const handleLogout = async () => {
+    console.log('👋 Fazendo logout...');
     await logout();
     navigate('/');
   };
