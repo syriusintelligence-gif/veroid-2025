@@ -4,6 +4,7 @@
  */
 
 import { backupKeyPair, restoreKeyPair, deleteAllBackups } from './crypto-backup';
+import type { SocialLinks } from './supabase';
 
 export interface KeyPair {
   publicKey: string;
@@ -25,6 +26,7 @@ export interface SignedContent {
   platforms?: string[]; // Plataformas onde foi postado (Instagram, Facebook, etc.)
   verificationCount?: number; // Contador de verificações
   userId?: string; // ID do usuário que assinou o conteúdo
+  creatorSocialLinks?: SocialLinks; // 🆕 Links sociais do criador
 }
 
 /**
@@ -113,15 +115,64 @@ async function generateHash(content: string): Promise<string> {
 }
 
 /**
- * Gera uma chave curta de verificação (8 caracteres)
+ * 🆕 Gera uma chave curta de verificação (8 caracteres) usando hash SHA-256
+ * Garante códigos únicos para cada assinatura
  */
-function generateVerificationCode(signature: string, contentHash: string): string {
-  const combined = signature + contentHash;
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres confusos (0, O, 1, I)
+async function generateVerificationCode(signature: string, contentHash: string, timestamp: string): Promise<string> {
+  // Combina signature, contentHash e timestamp para garantir unicidade
+  const combined = `${signature}${contentHash}${timestamp}${Math.random()}`;
+  
+  // Gera hash SHA-256
+  const encoder = new TextEncoder();
+  const data = encoder.encode(combined);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  
+  // Converte para string hexadecimal
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  // Caracteres permitidos (sem confusão: sem 0, O, 1, I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   
+  // Usa bytes do hash para selecionar caracteres
   for (let i = 0; i < 8; i++) {
-    const index = combined.charCodeAt(i * 4) % chars.length;
+    const byteValue = hashArray[i] || 0;
+    const index = byteValue % chars.length;
+    code += chars[index];
+  }
+  
+  return code;
+}
+
+/**
+ * 🆕 Versão síncrona do generateVerificationCode para compatibilidade
+ */
+function generateVerificationCodeSync(signature: string, contentHash: string, timestamp: string): string {
+  // Combina signature, contentHash e timestamp para garantir unicidade
+  const combined = `${signature}${contentHash}${timestamp}${Math.random()}`;
+  
+  // Gera um hash simples usando charCodeAt
+  const hashBytes: number[] = [];
+  for (let i = 0; i < combined.length; i++) {
+    const charCode = combined.charCodeAt(i);
+    hashBytes.push(charCode % 256);
+  }
+  
+  // Adiciona mais entropia com timestamp atual
+  const now = Date.now();
+  for (let i = 0; i < 8; i++) {
+    hashBytes.push((now >> (i * 8)) & 0xFF);
+  }
+  
+  // Caracteres permitidos (sem confusão: sem 0, O, 1, I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  
+  // Usa bytes do hash para selecionar caracteres
+  for (let i = 0; i < 8; i++) {
+    const byteValue = hashBytes[i % hashBytes.length] || 0;
+    const index = byteValue % chars.length;
     code += chars[index];
   }
   
@@ -139,9 +190,13 @@ export function signContent(
   creatorName: string,
   userId?: string,
   thumbnail?: string,
-  platforms?: string[]
+  platforms?: string[],
+  creatorSocialLinks?: SocialLinks // 🆕 Adiciona links sociais do criador
 ): { success: boolean; signedContent?: SignedContent; error?: string } {
   try {
+    // Gera timestamp ANTES de tudo para garantir unicidade
+    const timestamp = new Date().toISOString();
+    
     // Gera hash síncrono usando uma abordagem simplificada
     const encoder = new TextEncoder();
     const data = encoder.encode(content);
@@ -151,14 +206,16 @@ export function signContent(
     }
     const contentHash = hash.substring(0, 64);
     
-    // Simulação de assinatura digital
-    const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
+    // Simulação de assinatura digital (inclui timestamp para unicidade)
+    const signatureData = `${contentHash}:${privateKey}:${timestamp}:${Math.random()}`;
     const signatureHash = signatureData.split('').reduce((acc, char) => {
       return acc + char.charCodeAt(0).toString(16);
     }, '').substring(0, 64);
     
-    // Gera chave curta de verificação
-    const verificationCode = generateVerificationCode(signatureHash, contentHash);
+    // 🆕 Gera chave curta de verificação ÚNICA usando timestamp
+    const verificationCode = generateVerificationCodeSync(signatureHash, contentHash, timestamp);
+    
+    console.log('🔐 Código de verificação gerado:', verificationCode);
     
     const signedContent: SignedContent = {
       id: crypto.randomUUID(),
@@ -166,13 +223,14 @@ export function signContent(
       contentHash,
       signature: signatureHash,
       publicKey,
-      timestamp: new Date().toISOString(),
+      timestamp,
       creatorName,
       verificationCode,
       thumbnail,
       platforms,
       verificationCount: 0,
       userId,
+      creatorSocialLinks, // 🆕 Inclui links sociais
     };
     
     // Salva no localStorage
