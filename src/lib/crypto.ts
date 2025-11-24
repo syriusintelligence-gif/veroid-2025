@@ -6,7 +6,7 @@
 export interface KeyPair {
   publicKey: string;
   privateKey: string;
-  createdAt: string;
+  timestamp: string;
   userId?: string; // ID do usuário dono das chaves
 }
 
@@ -29,7 +29,7 @@ export interface SignedContent {
  * Gera um par de chaves RSA simulado
  * Em produção: usar Web Crypto API ou bibliotecas criptográficas reais
  */
-export async function generateKeyPair(creatorName: string, userId?: string): Promise<KeyPair> {
+export function generateKeyPair(userId?: string): KeyPair {
   // Simulação de geração de chaves para demo
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));
   const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
@@ -38,7 +38,7 @@ export async function generateKeyPair(creatorName: string, userId?: string): Pro
   return {
     publicKey,
     privateKey,
-    createdAt: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
     userId,
   };
 }
@@ -46,7 +46,7 @@ export async function generateKeyPair(creatorName: string, userId?: string): Pro
 /**
  * Gera hash SHA-256 do conteúdo
  */
-export async function generateHash(content: string): Promise<string> {
+async function generateHash(content: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -57,7 +57,7 @@ export async function generateHash(content: string): Promise<string> {
 /**
  * Gera uma chave curta de verificação (8 caracteres)
  */
-export function generateVerificationCode(signature: string, contentHash: string): string {
+function generateVerificationCode(signature: string, contentHash: string): string {
   const combined = signature + contentHash;
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres confusos (0, O, 1, I)
   let code = '';
@@ -74,7 +74,7 @@ export function generateVerificationCode(signature: string, contentHash: string)
  * Assina o conteúdo com a chave privada
  * Em produção: usar algoritmos RSA/ECC reais
  */
-export async function signContent(
+export function signContent(
   content: string,
   privateKey: string,
   publicKey: string,
@@ -82,30 +82,49 @@ export async function signContent(
   userId?: string,
   thumbnail?: string,
   platforms?: string[]
-): Promise<SignedContent> {
-  const contentHash = await generateHash(content);
-  
-  // Simulação de assinatura digital
-  const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
-  const signature = await generateHash(signatureData);
-  
-  // Gera chave curta de verificação
-  const verificationCode = generateVerificationCode(signature, contentHash);
-  
-  return {
-    id: crypto.randomUUID(),
-    content,
-    contentHash,
-    signature,
-    publicKey,
-    timestamp: new Date().toISOString(),
-    creatorName,
-    verificationCode,
-    thumbnail,
-    platforms,
-    verificationCount: 0, // Inicializa contador em 0
-    userId, // Associa ao usuário
-  };
+): { success: boolean; signedContent?: SignedContent; error?: string } {
+  try {
+    // Gera hash síncrono usando uma abordagem simplificada
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    let hash = '';
+    for (let i = 0; i < data.length; i++) {
+      hash += data[i].toString(16).padStart(2, '0');
+    }
+    const contentHash = hash.substring(0, 64);
+    
+    // Simulação de assinatura digital
+    const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
+    const signatureHash = signatureData.split('').reduce((acc, char) => {
+      return acc + char.charCodeAt(0).toString(16);
+    }, '').substring(0, 64);
+    
+    // Gera chave curta de verificação
+    const verificationCode = generateVerificationCode(signatureHash, contentHash);
+    
+    const signedContent: SignedContent = {
+      id: crypto.randomUUID(),
+      content,
+      contentHash,
+      signature: signatureHash,
+      publicKey,
+      timestamp: new Date().toISOString(),
+      creatorName,
+      verificationCode,
+      thumbnail,
+      platforms,
+      verificationCount: 0,
+      userId,
+    };
+    
+    // Salva no localStorage
+    saveSignedContent(signedContent);
+    
+    return { success: true, signedContent };
+  } catch (error) {
+    console.error('Erro ao assinar conteúdo:', error);
+    return { success: false, error: 'Erro ao assinar conteúdo' };
+  }
 }
 
 /**
@@ -127,7 +146,6 @@ export async function verifySignature(
     }
     
     // Verifica se a assinatura é válida
-    // Em produção: usar verificação criptográfica real com chave pública
     if (!signedContent.signature || signedContent.signature.length < 32) {
       return {
         valid: false,
@@ -175,18 +193,28 @@ export function incrementVerificationCount(contentId: string): void {
  * Armazena chaves no localStorage (apenas para demo)
  * Em produção: usar HSM, TPM ou armazenamento seguro
  */
-export function saveKeyPair(keyPair: KeyPair, creatorName: string): void {
-  localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
-  localStorage.setItem('veroId_creatorName', creatorName);
+export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: string } {
+  try {
+    localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao salvar chaves:', error);
+    return { success: false, error: 'Erro ao salvar chaves' };
+  }
 }
 
-export function getKeyPair(): KeyPair | null {
+export function getKeyPair(userId?: string): KeyPair | null {
   const stored = localStorage.getItem('veroId_keyPair');
-  return stored ? JSON.parse(stored) : null;
-}
-
-export function getCreatorName(): string {
-  return localStorage.getItem('veroId_creatorName') || 'Usuário Anônimo';
+  if (!stored) return null;
+  
+  const keyPair: KeyPair = JSON.parse(stored);
+  
+  // Se userId foi fornecido, verifica se as chaves pertencem ao usuário
+  if (userId && keyPair.userId !== userId) {
+    return null;
+  }
+  
+  return keyPair;
 }
 
 /**
@@ -202,6 +230,13 @@ export function saveSignedContent(signedContent: SignedContent): void {
 export function getSignedContents(): SignedContent[] {
   const stored = localStorage.getItem('veroId_signedContents');
   return stored ? JSON.parse(stored) : [];
+}
+
+/**
+ * Obtém TODOS os conteúdos assinados (para admin)
+ */
+export function getAllSignedContents(): SignedContent[] {
+  return getSignedContents();
 }
 
 /**
