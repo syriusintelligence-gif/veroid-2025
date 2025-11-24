@@ -5,8 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSignedContentById, incrementVerificationCount } from '@/lib/supabase-crypto';
-import { verifyByCode } from '@/lib/crypto';
+import { getSignedContentById, getSignedContentByVerificationCode } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 
 export default function Verify() {
@@ -23,7 +22,6 @@ export default function Verify() {
       h: content.contentHash.substring(0, 32),
       s: content.signature.substring(0, 32),
       p: content.publicKey.substring(0, 32),
-      t: content.timestamp,
       n: content.creatorName,
       v: content.verificationCode,
       pl: content.platforms,
@@ -49,11 +47,11 @@ export default function Verify() {
     }
   }, [searchParams]);
   
-  const handleVerifyById = (id: string) => {
+  const handleVerifyById = async (id: string) => {
     setIsVerifying(true);
     try {
       console.log('🔍 Buscando conteúdo por ID:', id);
-      const signedContent = getSignedContentById(id);
+      const signedContent = await getSignedContentById(id);
       
       if (!signedContent) {
         alert('Conteúdo não encontrado. Verifique o código e tente novamente.');
@@ -61,9 +59,6 @@ export default function Verify() {
       }
       
       console.log('✅ Conteúdo encontrado:', signedContent.verificationCode);
-      
-      // Incrementa contador de verificações
-      incrementVerificationCount(signedContent.id);
       
       // Redireciona para a página do certificado
       const encodedData = encodeContentToUrl(signedContent);
@@ -76,11 +71,11 @@ export default function Verify() {
     }
   };
   
-  const handleVerifyByCode = (code: string) => {
+  const handleVerifyByCode = async (code: string) => {
     setIsVerifying(true);
     try {
       console.log('🔍 Buscando conteúdo por código:', code);
-      const signedContent = verifyByCode(code);
+      const signedContent = await getSignedContentByVerificationCode(code);
       
       if (!signedContent) {
         alert('Código de verificação não encontrado. Verifique se o código está correto e tente novamente.');
@@ -88,9 +83,6 @@ export default function Verify() {
       }
       
       console.log('✅ Conteúdo encontrado:', signedContent.id);
-      
-      // Incrementa contador de verificações
-      incrementVerificationCount(signedContent.id);
       
       // Redireciona para a página do certificado
       const encodedData = encodeContentToUrl(signedContent);
@@ -184,7 +176,7 @@ export default function Verify() {
               <Label htmlFor="verificationCode">Código de Verificação</Label>
               <Input
                 id="verificationCode"
-                placeholder="Ex: BTDXECXU"
+                placeholder="Ex: 2ST3XZTC"
                 value={verificationCode}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
@@ -202,7 +194,7 @@ export default function Verify() {
               <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
                 <li>No certificado digital baixado</li>
                 <li>Na área destacada em roxo/azul do certificado</li>
-                <li>Formato: 8 letras e números (ex: BTDXECXU)</li>
+                <li>Formato: 8 letras e números (ex: 2ST3XZTC)</li>
               </ul>
             </div>
             
