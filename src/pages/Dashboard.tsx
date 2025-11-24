@@ -24,8 +24,8 @@ import { Shield, Key, FileText, TrendingUp, ArrowLeft, User, LogOut, Settings, H
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
-import { generateKeyPair, saveKeyPair, getKeyPair, getSignedContentsByUserId } from '@/lib/supabase-crypto';
-import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
+import { generateKeyPair, saveKeyPair, getKeyPair, getSignedContentsByUserId } from '@/lib/crypto';
+import type { KeyPair, SignedContent } from '@/lib/crypto';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
 
@@ -66,11 +66,11 @@ export default function Dashboard() {
       setIsAdmin(adminStatus);
       
       // Carrega chaves do usuário
-      const userKeyPair = await getKeyPair(user.id);
+      const userKeyPair = getKeyPair(user.id);
       setKeyPair(userKeyPair);
       
       // Carrega conteúdos assinados do usuário
-      const userContents = await getSignedContentsByUserId(user.id);
+      const userContents = getSignedContentsByUserId(user.id);
       setSignedContents(userContents);
       
       console.log('✅ Dados do usuário carregados:', {
@@ -93,8 +93,8 @@ export default function Dashboard() {
     
     setIsGenerating(true);
     try {
-      const newKeyPair = await generateKeyPair(currentUser.id);
-      const result = await saveKeyPair(newKeyPair);
+      const newKeyPair = generateKeyPair(currentUser.id);
+      const result = saveKeyPair(newKeyPair);
       
       if (result.success) {
         setKeyPair(newKeyPair);
@@ -150,7 +150,7 @@ export default function Dashboard() {
     if (filterDate !== 'all') {
       const now = new Date();
       filtered = filtered.filter(content => {
-        const contentDate = new Date(content.createdAt);
+        const contentDate = new Date(content.timestamp);
         const diffDays = Math.floor((now.getTime() - contentDate.getTime()) / (1000 * 60 * 60 * 24));
         
         switch (filterDate) {
@@ -181,7 +181,7 @@ export default function Dashboard() {
         break;
       case 'recent':
       default:
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         break;
     }
     
@@ -435,7 +435,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{content.content}</p>
                         <p className="text-xs text-muted-foreground">
-                          {content.creatorName} • {new Date(content.createdAt).toLocaleDateString('pt-BR')}
+                          {content.creatorName} • {new Date(content.timestamp).toLocaleDateString('pt-BR')}
                         </p>
                       </div>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-bold">
@@ -466,7 +466,7 @@ export default function Dashboard() {
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
-                  Suas chaves serão armazenadas de forma segura no Supabase. Em produção, recomendamos o uso de HSM (Hardware Security Module) ou TPM (Trusted Platform Module).
+                  Suas chaves serão armazenadas de forma segura no localStorage do navegador. Em produção, recomendamos o uso de HSM (Hardware Security Module) ou TPM (Trusted Platform Module).
                 </AlertDescription>
               </Alert>
               
@@ -518,7 +518,7 @@ export default function Dashboard() {
               </div>
               
               <div className="text-xs text-muted-foreground">
-                <p>Gerado em: {new Date(keyPair.createdAt).toLocaleString('pt-BR')}</p>
+                <p>Gerado em: {new Date(keyPair.timestamp).toLocaleString('pt-BR')}</p>
               </div>
             </CardContent>
           </Card>
@@ -692,10 +692,7 @@ export default function Dashboard() {
                     </div>
                   )}
                   <ContentCard
-                    content={{
-                      ...content,
-                      timestamp: content.createdAt,
-                    }}
+                    content={content}
                     onVerify={handleVerify}
                   />
                 </div>
