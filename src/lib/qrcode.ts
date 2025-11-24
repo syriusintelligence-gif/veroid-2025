@@ -1,15 +1,46 @@
 import { SignedContent } from '@/lib/crypto';
-import type { SocialLinks } from '@/lib/supabase';
+import type { SocialLinks } from './supabase';
+
+/**
+ * 🆕 Comprime thumbnail para incluir no QR Code (se for pequena o suficiente)
+ * Retorna null se thumbnail for muito grande
+ */
+function compressThumbnail(thumbnail: string | undefined): string | null {
+  if (!thumbnail) return null;
+  
+  // Se já for uma URL externa, não incluir (seria muito grande)
+  if (thumbnail.startsWith('http://') || thumbnail.startsWith('https://')) {
+    return null;
+  }
+  
+  // Se for Data URL, verifica o tamanho
+  if (thumbnail.startsWith('data:')) {
+    // Calcula tamanho aproximado em bytes
+    const base64Data = thumbnail.split(',')[1] || '';
+    const sizeInBytes = base64Data.length * 0.75; // Base64 é ~33% maior que binário
+    
+    // Se for menor que 2KB, pode incluir
+    if (sizeInBytes < 2048) {
+      console.log(`✅ Thumbnail pequena (${Math.round(sizeInBytes)} bytes), incluindo no QR Code`);
+      return thumbnail;
+    } else {
+      console.log(`⚠️ Thumbnail muito grande (${Math.round(sizeInBytes)} bytes), não incluindo no QR Code`);
+      return null;
+    }
+  }
+  
+  return null;
+}
 
 /**
  * Compacta dados do certificado para reduzir tamanho da URL
- * IMPORTANTE: NÃO inclui thumbnail para evitar URLs muito longas
- * 🆕 AGORA INCLUI creatorSocialLinks
+ * 🆕 AGORA TENTA INCLUIR thumbnail se for pequena o suficiente
  */
 function compactContentData(content: SignedContent): string {
-  // Usa apenas os dados essenciais e trunca hashes longos
-  // NÃO inclui thumbnail (th) pois tornaria a URL muito grande para QR Code
-  const compact = {
+  // Tenta comprimir thumbnail
+  const compressedThumbnail = compressThumbnail(content.thumbnail);
+  
+  const compact: Record<string, unknown> = {
     i: content.id,
     c: content.content.substring(0, 200), // Limita conteúdo a 200 chars
     h: content.contentHash.substring(0, 32), // Primeiros 32 chars do hash
@@ -19,8 +50,13 @@ function compactContentData(content: SignedContent): string {
     n: content.creatorName,
     v: content.verificationCode,
     pl: content.platforms, // Plataformas (array de strings curtas)
-    sl: content.creatorSocialLinks, // 🆕 Links sociais do criador
+    sl: content.creatorSocialLinks, // Links sociais do criador
   };
+  
+  // Adiciona thumbnail apenas se for pequena
+  if (compressedThumbnail) {
+    compact.th = compressedThumbnail;
+  }
   
   const jsonStr = JSON.stringify(compact);
   const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
@@ -41,7 +77,8 @@ function expandContentData(compact: {
   n: string;
   v: string;
   pl?: string[];
-  sl?: SocialLinks; // 🆕 Links sociais
+  sl?: SocialLinks;
+  th?: string; // 🆕 Thumbnail (opcional)
 }): SignedContent {
   return {
     id: compact.i,
@@ -54,9 +91,9 @@ function expandContentData(compact: {
     creatorName: compact.n,
     verificationCode: compact.v,
     platforms: compact.pl,
-    creatorSocialLinks: compact.sl, // 🆕 Links sociais
+    creatorSocialLinks: compact.sl,
+    thumbnail: compact.th, // 🆕 Thumbnail (se disponível)
     verificationCount: 0,
-    // thumbnail não vem da URL, será buscado do localStorage se disponível
   };
 }
 
@@ -83,7 +120,8 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
       n: string;
       v: string;
       pl?: string[];
-      sl?: SocialLinks; // 🆕 Links sociais
+      sl?: SocialLinks;
+      th?: string; // 🆕 Thumbnail (opcional)
     };
     
     return expandContentData(compact);
@@ -97,13 +135,14 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
  * Gera dados para QR Code que apontam para visualização pública do certificado
  */
 export function generateQRData(signedContent: SignedContent): string {
-  // Compacta dados para reduzir tamanho (sem thumbnail, mas COM links sociais)
+  // Compacta dados (COM thumbnail se for pequena, COM links sociais)
   const encodedData = compactContentData(signedContent);
   
   // Cria URL pública que qualquer pessoa pode acessar
-  // MUDANÇA: Usando /certificate ao invés de /c para evitar 404 no Vercel
   const baseUrl = window.location.origin;
   const certificateUrl = `${baseUrl}/certificate?d=${encodedData}`;
+  
+  console.log(`📊 URL do QR Code gerada (${certificateUrl.length} caracteres)`);
   
   return certificateUrl;
 }
