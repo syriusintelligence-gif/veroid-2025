@@ -7,7 +7,7 @@ export interface KeyPair {
   publicKey: string;
   privateKey: string;
   timestamp: string;
-  userId?: string; // ID do usuário dono das chaves
+  userId: string; // ID do usuário dono das chaves (OBRIGATÓRIO)
 }
 
 export interface SignedContent {
@@ -29,7 +29,11 @@ export interface SignedContent {
  * Gera um par de chaves RSA simulado
  * Em produção: usar Web Crypto API ou bibliotecas criptográficas reais
  */
-export function generateKeyPair(userId?: string): KeyPair {
+export function generateKeyPair(userId: string): KeyPair {
+  if (!userId) {
+    throw new Error('userId é obrigatório para gerar chaves');
+  }
+  
   // Simulação de geração de chaves para demo
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));
   const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
@@ -190,12 +194,21 @@ export function incrementVerificationCount(contentId: string): void {
 }
 
 /**
- * Armazena chaves no localStorage (apenas para demo)
- * Em produção: usar HSM, TPM ou armazenamento seguro
+ * Armazena chaves no localStorage POR USUÁRIO
+ * Cada usuário tem suas próprias chaves persistentes
  */
 export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: string } {
   try {
-    localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
+    if (!keyPair.userId) {
+      return { success: false, error: 'userId é obrigatório para salvar chaves' };
+    }
+    
+    // Salva as chaves com identificação única por usuário
+    const storageKey = `veroId_keyPair_${keyPair.userId}`;
+    localStorage.setItem(storageKey, JSON.stringify(keyPair));
+    
+    console.log(`✅ Chaves salvas para o usuário: ${keyPair.userId}`);
+    
     return { success: true };
   } catch (error) {
     console.error('Erro ao salvar chaves:', error);
@@ -203,18 +216,79 @@ export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: strin
   }
 }
 
-export function getKeyPair(userId?: string): KeyPair | null {
-  const stored = localStorage.getItem('veroId_keyPair');
-  if (!stored) return null;
-  
-  const keyPair: KeyPair = JSON.parse(stored);
-  
-  // Se userId foi fornecido, verifica se as chaves pertencem ao usuário
-  if (userId && keyPair.userId !== userId) {
+/**
+ * Recupera chaves do localStorage para um usuário específico
+ */
+export function getKeyPair(userId: string): KeyPair | null {
+  if (!userId) {
+    console.warn('⚠️ userId não fornecido para recuperar chaves');
     return null;
   }
   
-  return keyPair;
+  try {
+    const storageKey = `veroId_keyPair_${userId}`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (!stored) {
+      console.log(`ℹ️ Nenhuma chave encontrada para o usuário: ${userId}`);
+      return null;
+    }
+    
+    const keyPair: KeyPair = JSON.parse(stored);
+    
+    // Valida que as chaves pertencem ao usuário correto
+    if (keyPair.userId !== userId) {
+      console.error('❌ Chaves não pertencem ao usuário solicitado');
+      return null;
+    }
+    
+    console.log(`✅ Chaves recuperadas para o usuário: ${userId}`);
+    return keyPair;
+  } catch (error) {
+    console.error('Erro ao recuperar chaves:', error);
+    return null;
+  }
+}
+
+/**
+ * Remove chaves de um usuário específico
+ */
+export function deleteKeyPair(userId: string): { success: boolean; error?: string } {
+  try {
+    if (!userId) {
+      return { success: false, error: 'userId é obrigatório' };
+    }
+    
+    const storageKey = `veroId_keyPair_${userId}`;
+    localStorage.removeItem(storageKey);
+    
+    console.log(`✅ Chaves removidas para o usuário: ${userId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao remover chaves:', error);
+    return { success: false, error: 'Erro ao remover chaves' };
+  }
+}
+
+/**
+ * Lista todos os usuários que possuem chaves armazenadas
+ */
+export function listUsersWithKeys(): string[] {
+  const userIds: string[] = [];
+  
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('veroId_keyPair_')) {
+        const userId = key.replace('veroId_keyPair_', '');
+        userIds.push(userId);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao listar usuários com chaves:', error);
+  }
+  
+  return userIds;
 }
 
 /**
