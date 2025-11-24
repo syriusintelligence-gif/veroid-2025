@@ -5,12 +5,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera } from 'lucide-react';
-import { getCurrentUser, User as UserType } from '@/lib/supabase-auth';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit } from 'lucide-react';
+import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
+import { SocialLinks } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [isEditingSocial, setIsEditingSocial] = useState(false);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    twitter: '',
+    youtube: '',
+    linkedin: '',
+    website: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -23,6 +39,78 @@ export default function Profile() {
       return;
     }
     setCurrentUser(user);
+    
+    // Carrega links sociais existentes
+    if (user.socialLinks) {
+      setSocialLinks({
+        instagram: user.socialLinks.instagram || '',
+        facebook: user.socialLinks.facebook || '',
+        tiktok: user.socialLinks.tiktok || '',
+        twitter: user.socialLinks.twitter || '',
+        youtube: user.socialLinks.youtube || '',
+        linkedin: user.socialLinks.linkedin || '',
+        website: user.socialLinks.website || '',
+      });
+    }
+  };
+
+  const handleSaveSocialLinks = async () => {
+    if (!currentUser) return;
+    
+    setIsSaving(true);
+    
+    // Remove campos vazios
+    const cleanedLinks: SocialLinks = {};
+    Object.entries(socialLinks).forEach(([key, value]) => {
+      if (value && value.trim()) {
+        cleanedLinks[key as keyof SocialLinks] = value.trim();
+      }
+    });
+    
+    const result = await updateSocialLinks(currentUser.id, cleanedLinks);
+    
+    if (result.success) {
+      toast({
+        title: 'Links atualizados!',
+        description: 'Seus links de redes sociais foram salvos com sucesso.',
+      });
+      setIsEditingSocial(false);
+      await loadUser(); // Recarrega os dados
+    } else {
+      toast({
+        title: 'Erro ao salvar',
+        description: result.error || 'Não foi possível atualizar os links.',
+        variant: 'destructive',
+      });
+    }
+    
+    setIsSaving(false);
+  };
+
+  const getSocialIcon = (platform: string) => {
+    switch (platform) {
+      case 'instagram': return <Instagram className="h-4 w-4" />;
+      case 'facebook': return <Facebook className="h-4 w-4" />;
+      case 'tiktok': return <div className="h-4 w-4 font-bold text-xs flex items-center justify-center">TT</div>;
+      case 'twitter': return <Twitter className="h-4 w-4" />;
+      case 'youtube': return <Youtube className="h-4 w-4" />;
+      case 'linkedin': return <Linkedin className="h-4 w-4" />;
+      case 'website': return <Globe className="h-4 w-4" />;
+      default: return <LinkIcon className="h-4 w-4" />;
+    }
+  };
+
+  const getPlatformLabel = (platform: string) => {
+    switch (platform) {
+      case 'instagram': return 'Instagram';
+      case 'facebook': return 'Facebook';
+      case 'tiktok': return 'TikTok';
+      case 'twitter': return 'Twitter/X';
+      case 'youtube': return 'YouTube';
+      case 'linkedin': return 'LinkedIn';
+      case 'website': return 'Website';
+      default: return platform;
+    }
   };
 
   const getInitials = (name: string) => {
@@ -102,6 +190,122 @@ export default function Profile() {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Social Links Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <LinkIcon className="h-5 w-5" />
+                  Links de Redes Sociais
+                </CardTitle>
+                <CardDescription>
+                  Adicione seus perfis nas redes sociais. Estes links aparecerão nos certificados de autenticação.
+                </CardDescription>
+              </div>
+              {!isEditingSocial && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingSocial(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isEditingSocial ? (
+              <div className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {Object.entries(socialLinks).map(([platform, url]) => (
+                    <div key={platform} className="space-y-2">
+                      <Label htmlFor={platform} className="flex items-center gap-2">
+                        {getSocialIcon(platform)}
+                        {getPlatformLabel(platform)}
+                      </Label>
+                      <Input
+                        id={platform}
+                        type="url"
+                        placeholder={`https://${platform}.com/seu-perfil`}
+                        value={url}
+                        onChange={(e) => setSocialLinks({
+                          ...socialLinks,
+                          [platform]: e.target.value
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={handleSaveSocialLinks}
+                    disabled={isSaving}
+                    className="flex-1"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Salvando...' : 'Salvar Links'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingSocial(false);
+                      // Restaura os valores originais
+                      if (currentUser.socialLinks) {
+                        setSocialLinks({
+                          instagram: currentUser.socialLinks.instagram || '',
+                          facebook: currentUser.socialLinks.facebook || '',
+                          tiktok: currentUser.socialLinks.tiktok || '',
+                          twitter: currentUser.socialLinks.twitter || '',
+                          youtube: currentUser.socialLinks.youtube || '',
+                          linkedin: currentUser.socialLinks.linkedin || '',
+                          website: currentUser.socialLinks.website || '',
+                        });
+                      }
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {currentUser.socialLinks && Object.keys(currentUser.socialLinks).length > 0 ? (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {Object.entries(currentUser.socialLinks).map(([platform, url]) => (
+                      url && (
+                        <a
+                          key={platform}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          {getSocialIcon(platform)}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">{getPlatformLabel(platform)}</p>
+                            <p className="text-xs text-muted-foreground truncate">{url}</p>
+                          </div>
+                          <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                        </a>
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <LinkIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum link adicionado ainda</p>
+                    <p className="text-sm">Clique em "Editar" para adicionar seus perfis</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
