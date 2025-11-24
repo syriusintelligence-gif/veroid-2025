@@ -10,8 +10,8 @@ import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileTy
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
-import { getKeyPair, signContent } from '@/lib/supabase-crypto';
-import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
+import { getKeyPair, signContent } from '@/lib/crypto';
+import type { KeyPair, SignedContent } from '@/lib/crypto';
 import ContentCard from '@/components/ContentCard';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
@@ -68,7 +68,7 @@ export default function SignContent() {
       setCurrentUser(user);
       
       // Carrega chaves do usuário
-      const userKeyPair = await getKeyPair(user.id);
+      const userKeyPair = getKeyPair(user.id);
       setKeyPair(userKeyPair);
       
       console.log('✅ Dados carregados:', {
@@ -153,9 +153,9 @@ Conteúdo:
 ${content}
       `.trim();
       
-      console.log('📝 Assinando conteúdo no Supabase...');
+      console.log('📝 Assinando conteúdo no localStorage...');
       
-      const result = await signContent(
+      const result = signContent(
         fullContent,
         keyPair.privateKey,
         keyPair.publicKey,
@@ -461,10 +461,7 @@ ${content}
               </AlertDescription>
             </Alert>
             
-            <ContentCard content={{
-              ...signedContent,
-              timestamp: signedContent.createdAt,
-            }} />
+            <ContentCard content={signedContent} />
             
             <div className="flex gap-4">
               <Button onClick={handleNewSignature} variant="outline" className="flex-1">
