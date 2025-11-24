@@ -21,6 +21,7 @@ export interface User {
   createdAt: string;
   verified: boolean;
   isAdmin: boolean;
+  blocked: boolean;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -37,6 +38,7 @@ function dbUserToAppUser(dbUser: UserRow): User {
     createdAt: dbUser.created_at,
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
+    blocked: dbUser.blocked || false,
   };
 }
 
@@ -52,6 +54,7 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     selfie_url: appUser.selfieUrl,
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
+    blocked: appUser.blocked,
   };
 }
 
@@ -94,7 +97,7 @@ export function isValidPassword(password: string): boolean {
  * Registra um novo usuário no Supabase
  */
 export async function registerUser(
-  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'>,
+  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin' | 'blocked'>,
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
@@ -166,6 +169,7 @@ export async function registerUser(
       ...user,
       verified: true,
       isAdmin,
+      blocked: false,
     });
     
     const { data: userData, error: insertError } = await supabase
@@ -235,6 +239,12 @@ export async function loginUser(
     if (userError || !userData) {
       console.error('❌ Erro ao buscar dados do usuário:', userError);
       return { success: false, error: 'Erro ao carregar dados do usuário' };
+    }
+    
+    // Verifica se o usuário está bloqueado
+    if (userData.blocked) {
+      await supabase.auth.signOut();
+      return { success: false, error: 'Sua conta foi bloqueada. Entre em contato com o administrador.' };
     }
     
     console.log('✅ Login realizado com sucesso:', userData.email);
@@ -325,6 +335,73 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
 }
 
 /**
+ * Bloqueia um usuário (apenas admin)
+ */
+export async function blockUser(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const isAdmin = await isCurrentUserAdmin();
+    
+    if (!isAdmin) {
+      return { success: false, error: 'Apenas administradores podem bloquear usuários' };
+    }
+    
+    const currentUser = await getCurrentUser();
+    if (currentUser?.id === userId) {
+      return { success: false, error: 'Você não pode bloquear sua própria conta' };
+    }
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ blocked: true })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('❌ Erro ao bloquear usuário:', error);
+      return { success: false, error: 'Erro ao bloquear usuário' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao bloquear usuário:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
+  }
+}
+
+/**
+ * Desbloqueia um usuário (apenas admin)
+ */
+export async function unblockUser(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const isAdmin = await isCurrentUserAdmin();
+    
+    if (!isAdmin) {
+      return { success: false, error: 'Apenas administradores podem desbloquear usuários' };
+    }
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ blocked: false })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('❌ Erro ao desbloquear usuário:', error);
+      return { success: false, error: 'Erro ao desbloquear usuário' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao desbloquear usuário:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
+  }
+}
+
+/**
  * Deleta um usuário (apenas admin)
  */
 export async function deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
@@ -387,6 +464,7 @@ export async function updateUser(
     if (updates.selfieUrl) dbUpdates.selfie_url = updates.selfieUrl;
     if (updates.verified !== undefined) dbUpdates.verified = updates.verified;
     if (updates.isAdmin !== undefined) dbUpdates.is_admin = updates.isAdmin;
+    if (updates.blocked !== undefined) dbUpdates.blocked = updates.blocked;
     
     const { data, error } = await supabase
       .from('users')
