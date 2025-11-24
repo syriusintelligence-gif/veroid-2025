@@ -13,6 +13,7 @@ import type { User as UserType } from '@/lib/supabase-auth';
 import { getKeyPair, signContent } from '@/lib/crypto';
 import type { KeyPair, SignedContent } from '@/lib/crypto';
 import ContentCard from '@/components/ContentCard';
+import { compressImage, isImageDataUrl } from '@/lib/image-compression';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -83,7 +84,7 @@ export default function SignContent() {
     }
   };
   
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setUploadedFile(file);
@@ -91,8 +92,25 @@ export default function SignContent() {
       // Create preview for images
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          setFilePreview(reader.result as string);
+        reader.onloadend = async () => {
+          const originalDataUrl = reader.result as string;
+          
+          try {
+            // 🆕 Comprime a imagem automaticamente
+            console.log('🗜️ Comprimindo thumbnail...');
+            const compressedDataUrl = await compressImage(originalDataUrl, {
+              maxWidth: 800,
+              maxHeight: 600,
+              quality: 0.7,
+              maxSizeKB: 100,
+            });
+            
+            setFilePreview(compressedDataUrl);
+          } catch (error) {
+            console.error('❌ Erro ao comprimir imagem:', error);
+            // Fallback: usa imagem original se compressão falhar
+            setFilePreview(originalDataUrl);
+          }
         };
         reader.readAsDataURL(file);
       } else {
@@ -184,13 +202,29 @@ ${content}
       
       console.log('✅ Links normalizados:', normalizedSocialLinks);
       
+      // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)
+      let finalThumbnail = filePreview;
+      if (finalThumbnail && isImageDataUrl(finalThumbnail)) {
+        try {
+          finalThumbnail = await compressImage(finalThumbnail, {
+            maxWidth: 800,
+            maxHeight: 600,
+            quality: 0.7,
+            maxSizeKB: 100,
+          });
+          console.log('✅ Thumbnail final comprimida antes de assinar');
+        } catch (error) {
+          console.warn('⚠️ Erro ao comprimir thumbnail final, usando original:', error);
+        }
+      }
+      
       const result = signContent(
         fullContent,
         keyPair.privateKey,
         keyPair.publicKey,
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
-        filePreview || undefined,
+        finalThumbnail || undefined,
         selectedPlatforms,
         normalizedSocialLinks // 🆕 Passa os links sociais normalizados
       );
@@ -205,7 +239,13 @@ ${content}
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
-      alert('Erro ao assinar conteúdo. Tente novamente.');
+      
+      // Verifica se é erro de quota
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        alert('❌ Erro: Armazenamento local cheio!\n\nVocê tem muitos conteúdos salvos. Por favor:\n1. Vá ao Dashboard\n2. Exclua alguns conteúdos antigos\n3. Tente novamente\n\nOu use imagens menores para reduzir o espaço usado.');
+      } else {
+        alert('Erro ao assinar conteúdo. Tente novamente.');
+      }
     } finally {
       setIsSigning(false);
     }
@@ -333,7 +373,7 @@ ${content}
               
               {/* Upload de Arquivo */}
               <div className="space-y-3">
-                <Label htmlFor="file-upload">03 - Upload do Arquivo (Opcional - será usado como thumbnail)</Label>
+                <Label htmlFor="file-upload">03 - Upload do Arquivo (Opcional - será comprimido automaticamente)</Label>
                 <div className="space-y-3">
                   {!uploadedFile ? (
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
@@ -356,7 +396,7 @@ ${content}
                           Clique para fazer upload ou arraste o arquivo aqui
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {contentType === 'image' && 'Formatos: JPG, PNG, GIF, WebP (será usado como thumbnail)'}
+                          {contentType === 'image' && 'Formatos: JPG, PNG, GIF, WebP (será comprimido automaticamente)'}
                           {contentType === 'video' && 'Formatos: MP4, MOV, AVI, WebM'}
                           {contentType === 'music' && 'Formatos: MP3, WAV, OGG, M4A'}
                           {contentType === 'document' && 'Formatos: PDF, DOC, DOCX, TXT'}
@@ -385,7 +425,7 @@ ${content}
                           </p>
                           {filePreview && (
                             <p className="text-xs text-green-600 mt-1">
-                              ✓ Será usado como thumbnail no certificado
+                              ✓ Comprimida e otimizada para o certificado
                             </p>
                           )}
                         </div>
@@ -454,7 +494,7 @@ ${content}
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Thumbnail do conteúdo (se imagem foi enviada)</li>
+                  <li>✅ Thumbnail comprimida do conteúdo (máx 100KB)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -490,7 +530,7 @@ ${content}
             <Alert className="border-green-500 bg-green-50">
               <Shield className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Conteúdo assinado com sucesso! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail, plataformas e links clicáveis.
+                Conteúdo assinado com sucesso! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail comprimida, plataformas e links clicáveis.
               </AlertDescription>
             </Alert>
             
