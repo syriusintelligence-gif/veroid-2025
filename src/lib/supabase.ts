@@ -15,6 +15,17 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder-key'
 );
 
+// Interface para links de redes sociais
+export interface SocialLinks {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  twitter?: string;
+  youtube?: string;
+  linkedin?: string;
+  website?: string;
+}
+
 // Tipos do banco de dados
 export interface Database {
   public: {
@@ -33,6 +44,7 @@ export interface Database {
           verified: boolean;
           is_admin: boolean;
           blocked: boolean;
+          social_links: SocialLinks | null;
         };
         Insert: {
           id?: string;
@@ -47,6 +59,7 @@ export interface Database {
           verified?: boolean;
           is_admin?: boolean;
           blocked?: boolean;
+          social_links?: SocialLinks | null;
         };
         Update: {
           id?: string;
@@ -61,6 +74,7 @@ export interface Database {
           verified?: boolean;
           is_admin?: boolean;
           blocked?: boolean;
+          social_links?: SocialLinks | null;
         };
       };
       signed_contents: {
