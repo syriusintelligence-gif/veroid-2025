@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSignedContentById, getSignedContentByVerificationCode, incrementVerificationCount } from '@/lib/supabase-crypto';
-import type { SignedContent } from '@/lib/supabase-crypto';
+import { getSignedContentById, verifyByCode, incrementVerificationCount } from '@/lib/crypto';
+import type { SignedContent } from '@/lib/crypto';
 
 export default function Verify() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function Verify() {
       h: content.contentHash.substring(0, 32),
       s: content.signature.substring(0, 32),
       p: content.publicKey.substring(0, 32),
-      t: content.createdAt,
+      t: content.timestamp,
       n: content.creatorName,
       v: content.verificationCode,
       pl: content.platforms,
@@ -48,11 +48,11 @@ export default function Verify() {
     }
   }, [searchParams]);
   
-  const handleVerifyById = async (id: string) => {
+  const handleVerifyById = (id: string) => {
     setIsVerifying(true);
     try {
       console.log('🔍 Buscando conteúdo por ID:', id);
-      const signedContent = await getSignedContentById(id);
+      const signedContent = getSignedContentById(id);
       
       if (!signedContent) {
         alert('Conteúdo não encontrado. Verifique o código e tente novamente.');
@@ -62,7 +62,7 @@ export default function Verify() {
       console.log('✅ Conteúdo encontrado:', signedContent.verificationCode);
       
       // Incrementa contador de verificações
-      await incrementVerificationCount(signedContent.id);
+      incrementVerificationCount(signedContent.id);
       
       // Redireciona para a página do certificado
       const encodedData = encodeContentToUrl(signedContent);
@@ -75,11 +75,11 @@ export default function Verify() {
     }
   };
   
-  const handleVerifyByCode = async (code: string) => {
+  const handleVerifyByCode = (code: string) => {
     setIsVerifying(true);
     try {
       console.log('🔍 Buscando conteúdo por código:', code);
-      const signedContent = await getSignedContentByVerificationCode(code);
+      const signedContent = verifyByCode(code);
       
       if (!signedContent) {
         alert('Código de verificação não encontrado. Verifique se o código está correto e tente novamente.');
@@ -89,7 +89,7 @@ export default function Verify() {
       console.log('✅ Conteúdo encontrado:', signedContent.id);
       
       // Incrementa contador de verificações
-      await incrementVerificationCount(signedContent.id);
+      incrementVerificationCount(signedContent.id);
       
       // Redireciona para a página do certificado
       const encodedData = encodeContentToUrl(signedContent);
@@ -102,7 +102,7 @@ export default function Verify() {
     }
   };
   
-  const handleVerify = async () => {
+  const handleVerify = () => {
     const code = verificationCode.trim().toUpperCase();
     
     if (!code) {
@@ -116,10 +116,10 @@ export default function Verify() {
       // Verifica se parece ser um UUID (ID antigo) ou código de verificação
       if (code.length === 36 && code.includes('-')) {
         // É um UUID, usa método antigo
-        await handleVerifyById(code);
+        handleVerifyById(code);
       } else {
         // É um código de verificação
-        await handleVerifyByCode(code);
+        handleVerifyByCode(code);
       }
     } finally {
       setIsVerifying(false);
