@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
+import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/crypto';
 import { Button } from '@/components/ui/button';
 import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
@@ -50,13 +50,13 @@ export default function Certificate() {
       
       if (decodedContent) {
         // Incrementa contador de verificações quando o certificado é acessado via QR Code ou link
-        await incrementVerificationCount(decodedContent.id);
+        incrementVerificationCount(decodedContent.id);
         
-        // Busca o conteúdo completo do banco de dados para obter o thumbnail e links sociais
-        const fullContent = await getSignedContentById(decodedContent.id);
+        // Busca o conteúdo completo do localStorage para obter o thumbnail e links sociais
+        const fullContent = getSignedContentById(decodedContent.id);
         
         if (fullContent) {
-          // Usa o conteúdo completo do banco (inclui thumbnail e links sociais)
+          // Usa o conteúdo completo do localStorage (inclui thumbnail e links sociais)
           setContent(fullContent);
         } else {
           // Fallback: usa o conteúdo decodificado da URL (sem thumbnail e links sociais)
@@ -220,7 +220,7 @@ export default function Certificate() {
     );
   }
 
-  const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
+  const { date: formattedDate, time: formattedTime } = formatDate(content.timestamp);
   const relevantSocialLinks = getRelevantSocialLinks();
 
   return (
