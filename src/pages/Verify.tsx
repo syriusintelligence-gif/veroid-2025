@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSignedContentById, verifyByCode, incrementVerificationCount } from '@/lib/crypto';
-import type { SignedContent } from '@/lib/crypto';
+import { getSignedContentById, incrementVerificationCount } from '@/lib/supabase-crypto';
+import { verifyByCode } from '@/lib/crypto';
+import type { SignedContent } from '@/lib/supabase-crypto';
 
 export default function Verify() {
   const navigate = useNavigate();
