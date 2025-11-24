@@ -3,6 +3,8 @@
  * Em produção, usar HSM/TPM e bibliotecas robustas como OpenSSL
  */
 
+import { backupKeyPair, restoreKeyPair, deleteAllBackups } from './crypto-backup';
+
 export interface KeyPair {
   publicKey: string;
   privateKey: string;
@@ -246,7 +248,7 @@ export function incrementVerificationCount(contentId: string): void {
 }
 
 /**
- * Armazena chaves no localStorage POR USUÁRIO
+ * Armazena chaves no localStorage POR USUÁRIO com BACKUP REDUNDANTE
  * Cada usuário tem suas próprias chaves persistentes
  */
 export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: string } {
@@ -295,6 +297,12 @@ export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: strin
     console.log(`✅ Chaves salvas e verificadas para o usuário: ${keyPair.userId}`);
     console.log(`✅ Chave de storage: ${storageKey}`);
     
+    // 🆕 BACKUP REDUNDANTE - Salva em múltiplos storages
+    console.log('🔄 Iniciando backup redundante...');
+    backupKeyPair(keyPair).catch(err => {
+      console.warn('⚠️ Erro no backup redundante (não crítico):', err);
+    });
+    
     return { success: true };
   } catch (error) {
     console.error('❌ Erro ao salvar chaves:', error);
@@ -304,6 +312,7 @@ export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: strin
 
 /**
  * Recupera chaves do localStorage para um usuário específico
+ * 🆕 AGORA COM RESTAURAÇÃO AUTOMÁTICA DE BACKUPS
  */
 export function getKeyPair(userId: string): KeyPair | null {
   console.log('🔍 getKeyPair chamado com userId:', userId);
@@ -325,8 +334,20 @@ export function getKeyPair(userId: string): KeyPair | null {
     const stored = localStorage.getItem(storageKey);
     
     if (!stored) {
-      console.log(`ℹ️ Nenhuma chave encontrada para o usuário: ${userId}`);
+      console.log(`ℹ️ Nenhuma chave encontrada no localStorage para: ${userId}`);
       console.log(`ℹ️ Chave de storage procurada: ${storageKey}`);
+      
+      // 🆕 TENTA RESTAURAR DE BACKUPS
+      console.log('🔄 Tentando restaurar de backups redundantes...');
+      restoreKeyPair(userId).then(restored => {
+        if (restored) {
+          console.log('✅ Chaves restauradas com sucesso de backup!');
+        } else {
+          console.log('❌ Nenhum backup disponível');
+        }
+      }).catch(err => {
+        console.error('❌ Erro ao restaurar backup:', err);
+      });
       
       // Lista todas as chaves disponíveis para debug
       console.log('📋 Chaves disponíveis no localStorage:');
@@ -356,6 +377,11 @@ export function getKeyPair(userId: string): KeyPair | null {
     console.log(`✅ Chave pública: ${keyPair.publicKey.substring(0, 20)}...`);
     console.log(`✅ Timestamp: ${keyPair.timestamp}`);
     
+    // 🆕 Sincroniza com backups se necessário
+    backupKeyPair(keyPair).catch(err => {
+      console.warn('⚠️ Erro ao sincronizar backup (não crítico):', err);
+    });
+    
     return keyPair;
   } catch (error) {
     console.error('❌ Erro ao recuperar chaves:', error);
@@ -364,7 +390,7 @@ export function getKeyPair(userId: string): KeyPair | null {
 }
 
 /**
- * Remove chaves de um usuário específico
+ * Remove chaves de um usuário específico de TODOS os storages
  */
 export function deleteKeyPair(userId: string): { success: boolean; error?: string } {
   console.log('🗑️ deleteKeyPair chamado com userId:', userId);
@@ -376,6 +402,11 @@ export function deleteKeyPair(userId: string): { success: boolean; error?: strin
     
     const storageKey = `veroId_keyPair_${userId}`;
     localStorage.removeItem(storageKey);
+    
+    // 🆕 Remove de todos os backups também
+    deleteAllBackups(userId).catch(err => {
+      console.warn('⚠️ Erro ao remover backups (não crítico):', err);
+    });
     
     console.log(`✅ Chaves removidas para o usuário: ${userId}`);
     return { success: true };
