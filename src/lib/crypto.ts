@@ -26,12 +26,56 @@ export interface SignedContent {
 }
 
 /**
+ * Verifica se localStorage está disponível
+ */
+function isLocalStorageAvailable(): boolean {
+  try {
+    const test = '__localStorage_test__';
+    localStorage.setItem(test, test);
+    localStorage.removeItem(test);
+    return true;
+  } catch (e) {
+    console.error('❌ localStorage não está disponível:', e);
+    return false;
+  }
+}
+
+/**
+ * Função de diagnóstico - chame no console para verificar o estado
+ */
+export function diagnosticKeyPairs(): void {
+  console.log('🔍 === DIAGNÓSTICO DE CHAVES ===');
+  console.log('localStorage disponível:', isLocalStorageAvailable());
+  
+  const allKeys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('veroId_keyPair_')) {
+      allKeys.push(key);
+      const value = localStorage.getItem(key);
+      console.log(`📦 ${key}:`, value ? JSON.parse(value) : null);
+    }
+  }
+  
+  console.log(`Total de chaves encontradas: ${allKeys.length}`);
+  console.log('=================================');
+}
+
+/**
  * Gera um par de chaves RSA simulado
  * Em produção: usar Web Crypto API ou bibliotecas criptográficas reais
  */
 export function generateKeyPair(userId: string): KeyPair {
+  console.log('🔑 generateKeyPair chamado com userId:', userId);
+  
   if (!userId) {
-    throw new Error('userId é obrigatório para gerar chaves');
+    const error = 'userId é obrigatório para gerar chaves';
+    console.error('❌', error);
+    throw new Error(error);
+  }
+  
+  if (!isLocalStorageAvailable()) {
+    throw new Error('localStorage não está disponível');
   }
   
   // Simulação de geração de chaves para demo
@@ -39,12 +83,20 @@ export function generateKeyPair(userId: string): KeyPair {
   const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
   const privateKey = `VID-PRIV-${btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).substring(0, 64)}`;
   
-  return {
+  const keyPair: KeyPair = {
     publicKey,
     privateKey,
     timestamp: new Date().toISOString(),
     userId,
   };
+  
+  console.log('✅ KeyPair gerado:', {
+    userId: keyPair.userId,
+    publicKey: keyPair.publicKey.substring(0, 20) + '...',
+    timestamp: keyPair.timestamp,
+  });
+  
+  return keyPair;
 }
 
 /**
@@ -198,21 +250,55 @@ export function incrementVerificationCount(contentId: string): void {
  * Cada usuário tem suas próprias chaves persistentes
  */
 export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: string } {
+  console.log('💾 saveKeyPair chamado:', {
+    userId: keyPair.userId,
+    hasPublicKey: !!keyPair.publicKey,
+    hasPrivateKey: !!keyPair.privateKey,
+    timestamp: keyPair.timestamp,
+  });
+  
   try {
     if (!keyPair.userId) {
-      return { success: false, error: 'userId é obrigatório para salvar chaves' };
+      const error = 'userId é obrigatório para salvar chaves';
+      console.error('❌', error);
+      return { success: false, error };
+    }
+    
+    if (!isLocalStorageAvailable()) {
+      const error = 'localStorage não está disponível';
+      console.error('❌', error);
+      return { success: false, error };
     }
     
     // Salva as chaves com identificação única por usuário
     const storageKey = `veroId_keyPair_${keyPair.userId}`;
-    localStorage.setItem(storageKey, JSON.stringify(keyPair));
+    const serialized = JSON.stringify(keyPair);
     
-    console.log(`✅ Chaves salvas para o usuário: ${keyPair.userId}`);
+    console.log(`📝 Salvando em localStorage com chave: ${storageKey}`);
+    console.log(`📦 Dados serializados (${serialized.length} bytes):`, serialized.substring(0, 100) + '...');
+    
+    localStorage.setItem(storageKey, serialized);
+    
+    // Verifica se foi salvo corretamente
+    const verification = localStorage.getItem(storageKey);
+    if (!verification) {
+      console.error('❌ Falha ao verificar salvamento - chave não encontrada após setItem');
+      return { success: false, error: 'Falha ao salvar no localStorage' };
+    }
+    
+    const parsed = JSON.parse(verification);
+    if (parsed.userId !== keyPair.userId) {
+      console.error('❌ Falha ao verificar salvamento - userId não corresponde');
+      return { success: false, error: 'Dados corrompidos no localStorage' };
+    }
+    
+    console.log(`✅ Chaves salvas e verificadas para o usuário: ${keyPair.userId}`);
+    console.log(`✅ Chave de storage: ${storageKey}`);
     
     return { success: true };
   } catch (error) {
-    console.error('Erro ao salvar chaves:', error);
-    return { success: false, error: 'Erro ao salvar chaves' };
+    console.error('❌ Erro ao salvar chaves:', error);
+    return { success: false, error: `Erro ao salvar chaves: ${error}` };
   }
 }
 
@@ -220,32 +306,59 @@ export function saveKeyPair(keyPair: KeyPair): { success: boolean; error?: strin
  * Recupera chaves do localStorage para um usuário específico
  */
 export function getKeyPair(userId: string): KeyPair | null {
+  console.log('🔍 getKeyPair chamado com userId:', userId);
+  
   if (!userId) {
     console.warn('⚠️ userId não fornecido para recuperar chaves');
     return null;
   }
   
+  if (!isLocalStorageAvailable()) {
+    console.error('❌ localStorage não está disponível');
+    return null;
+  }
+  
   try {
     const storageKey = `veroId_keyPair_${userId}`;
+    console.log(`🔍 Procurando chave: ${storageKey}`);
+    
     const stored = localStorage.getItem(storageKey);
     
     if (!stored) {
       console.log(`ℹ️ Nenhuma chave encontrada para o usuário: ${userId}`);
+      console.log(`ℹ️ Chave de storage procurada: ${storageKey}`);
+      
+      // Lista todas as chaves disponíveis para debug
+      console.log('📋 Chaves disponíveis no localStorage:');
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('veroId_keyPair_')) {
+          console.log(`  - ${key}`);
+        }
+      }
+      
       return null;
     }
+    
+    console.log(`📦 Chave encontrada (${stored.length} bytes)`);
     
     const keyPair: KeyPair = JSON.parse(stored);
     
     // Valida que as chaves pertencem ao usuário correto
     if (keyPair.userId !== userId) {
       console.error('❌ Chaves não pertencem ao usuário solicitado');
+      console.error(`   Esperado: ${userId}`);
+      console.error(`   Encontrado: ${keyPair.userId}`);
       return null;
     }
     
     console.log(`✅ Chaves recuperadas para o usuário: ${userId}`);
+    console.log(`✅ Chave pública: ${keyPair.publicKey.substring(0, 20)}...`);
+    console.log(`✅ Timestamp: ${keyPair.timestamp}`);
+    
     return keyPair;
   } catch (error) {
-    console.error('Erro ao recuperar chaves:', error);
+    console.error('❌ Erro ao recuperar chaves:', error);
     return null;
   }
 }
@@ -254,6 +367,8 @@ export function getKeyPair(userId: string): KeyPair | null {
  * Remove chaves de um usuário específico
  */
 export function deleteKeyPair(userId: string): { success: boolean; error?: string } {
+  console.log('🗑️ deleteKeyPair chamado com userId:', userId);
+  
   try {
     if (!userId) {
       return { success: false, error: 'userId é obrigatório' };
@@ -284,6 +399,8 @@ export function listUsersWithKeys(): string[] {
         userIds.push(userId);
       }
     }
+    
+    console.log(`📋 Usuários com chaves armazenadas (${userIds.length}):`, userIds);
   } catch (error) {
     console.error('Erro ao listar usuários com chaves:', error);
   }
