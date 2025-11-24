@@ -1,4 +1,4 @@
-import { SignedContent } from '@/lib/supabase-crypto';
+import { SignedContent } from '@/lib/crypto';
 
 /**
  * Compacta dados do certificado para reduzir tamanho da URL
@@ -13,7 +13,7 @@ function compactContentData(content: SignedContent): string {
     h: content.contentHash.substring(0, 32), // Primeiros 32 chars do hash
     s: content.signature.substring(0, 32), // Primeiros 32 chars da assinatura
     p: content.publicKey.substring(0, 32), // Primeiros 32 chars da chave
-    t: content.createdAt,
+    t: content.timestamp,
     n: content.creatorName,
     v: content.verificationCode,
     pl: content.platforms, // Plataformas (array de strings curtas)
@@ -46,7 +46,7 @@ function expandContentData(compact: {
     contentHash: compact.h,
     signature: compact.s,
     publicKey: compact.p,
-    createdAt: compact.t,
+    timestamp: compact.t,
     creatorName: compact.n,
     verificationCode: compact.v,
     platforms: compact.pl,
@@ -144,7 +144,7 @@ export function decodeQRData(qrUrl: string): { id?: string; code?: string; creat
  * Gera certificado digital em formato HTML moderno
  */
 export function generateCertificate(signedContent: SignedContent): string {
-  const date = new Date(signedContent.createdAt);
+  const date = new Date(signedContent.timestamp);
   const formattedDate = date.toLocaleDateString('pt-BR', { 
     day: '2-digit', 
     month: 'long', 
