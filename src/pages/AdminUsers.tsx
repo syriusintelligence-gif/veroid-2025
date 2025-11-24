@@ -18,12 +18,23 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban, UserX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getUsers, getCurrentUser, User, isCurrentUserAdmin, deleteUser } from '@/lib/supabase-auth';
+import { getUsers, getCurrentUser, User, isCurrentUserAdmin, deleteUser, updateUser, blockUser, unblockUser } from '@/lib/supabase-auth';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -32,7 +43,17 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados para edição
+  const [editNomeCompleto, setEditNomeCompleto] = useState('');
+  const [editNomePublico, setEditNomePublico] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editTelefone, setEditTelefone] = useState('');
   
   useEffect(() => {
     checkAuthAndLoadData();
@@ -87,16 +108,84 @@ export default function AdminUsers() {
     setIsDialogOpen(true);
   };
   
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
-      const result = await deleteUser(userId);
-      if (result.success) {
-        await loadUsers();
-        setIsDialogOpen(false);
-        alert('Usuário excluído com sucesso!');
-      } else {
-        alert(result.error || 'Erro ao excluir usuário');
-      }
+  const handleOpenEditDialog = (user: User) => {
+    setSelectedUser(user);
+    setEditNomeCompleto(user.nomeCompleto);
+    setEditNomePublico(user.nomePublico);
+    setEditEmail(user.email);
+    setEditTelefone(user.telefone);
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!selectedUser) return;
+    
+    setIsLoading(true);
+    
+    const result = await updateUser(selectedUser.id, {
+      nomeCompleto: editNomeCompleto,
+      nomePublico: editNomePublico,
+      email: editEmail,
+      telefone: editTelefone,
+    });
+    
+    setIsLoading(false);
+    
+    if (result.success) {
+      await loadUsers();
+      setIsEditDialogOpen(false);
+      alert('Usuário atualizado com sucesso!');
+    } else {
+      alert(result.error || 'Erro ao atualizar usuário');
+    }
+  };
+  
+  const handleOpenBlockDialog = (user: User) => {
+    setSelectedUser(user);
+    setIsBlockDialogOpen(true);
+  };
+  
+  const handleToggleBlock = async () => {
+    if (!selectedUser) return;
+    
+    setIsLoading(true);
+    
+    const result = selectedUser.blocked 
+      ? await unblockUser(selectedUser.id)
+      : await blockUser(selectedUser.id);
+    
+    setIsLoading(false);
+    
+    if (result.success) {
+      await loadUsers();
+      setIsBlockDialogOpen(false);
+      alert(selectedUser.blocked ? 'Usuário desbloqueado com sucesso!' : 'Usuário bloqueado com sucesso!');
+    } else {
+      alert(result.error || 'Erro ao alterar status do usuário');
+    }
+  };
+  
+  const handleOpenDeleteDialog = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    
+    setIsLoading(true);
+    
+    const result = await deleteUser(selectedUser.id);
+    
+    setIsLoading(false);
+    
+    if (result.success) {
+      await loadUsers();
+      setIsDeleteDialogOpen(false);
+      setIsDialogOpen(false);
+      alert('Usuário excluído com sucesso!');
+    } else {
+      alert(result.error || 'Erro ao excluir usuário');
     }
   };
   
@@ -190,14 +279,14 @@ export default function AdminUsers() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <CardTitle className="text-sm font-medium">Bloqueados</CardTitle>
+              <Ban className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {users.filter(u => !u.verified).length}
+              <div className="text-2xl font-bold text-red-600">
+                {users.filter(u => u.blocked).length}
               </div>
-              <p className="text-xs text-muted-foreground">Aguardando verificação</p>
+              <p className="text-xs text-muted-foreground">Usuários bloqueados</p>
             </CardContent>
           </Card>
           
@@ -299,11 +388,18 @@ export default function AdminUsers() {
                               {user.nomePublico && user.nomePublico !== user.nomeCompleto && (
                                 <p className="text-xs text-muted-foreground">@{user.nomePublico}</p>
                               )}
-                              {user.isAdmin && (
-                                <Badge className="bg-red-100 text-red-800 text-xs mt-1">
-                                  Admin
-                                </Badge>
-                              )}
+                              <div className="flex gap-1 mt-1">
+                                {user.isAdmin && (
+                                  <Badge className="bg-red-100 text-red-800 text-xs">
+                                    Admin
+                                  </Badge>
+                                )}
+                                {user.blocked && (
+                                  <Badge className="bg-gray-100 text-gray-800 text-xs">
+                                    Bloqueado
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -327,13 +423,44 @@ export default function AdminUsers() {
                           {formatDate(user.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(user)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(user)}
+                              title="Ver detalhes"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(user)}
+                              title="Editar usuário"
+                            >
+                              <Edit className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            {!user.isAdmin && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenBlockDialog(user)}
+                                  title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                                >
+                                  <Ban className={`h-4 w-4 ${user.blocked ? 'text-green-600' : 'text-orange-600'}`} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenDeleteDialog(user)}
+                                  title="Excluir usuário"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -390,6 +517,12 @@ export default function AdminUsers() {
                             <Badge className="bg-red-100 text-red-800">
                               <Lock className="h-3 w-3 mr-1" />
                               Administrador
+                            </Badge>
+                          )}
+                          {selectedUser.blocked && (
+                            <Badge className="bg-gray-100 text-gray-800">
+                              <Ban className="h-3 w-3 mr-1" />
+                              Bloqueado
                             </Badge>
                           )}
                         </div>
@@ -469,19 +602,174 @@ export default function AdminUsers() {
                     Fechar
                   </Button>
                   {!selectedUser.isAdmin && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDeleteUser(selectedUser.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir Usuário
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          handleOpenEditDialog(selectedUser);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          handleOpenBlockDialog(selectedUser);
+                        }}
+                      >
+                        <Ban className="h-4 w-4 mr-2" />
+                        {selectedUser.blocked ? 'Desbloquear' : 'Bloquear'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          handleOpenDeleteDialog(selectedUser);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+        
+        {/* Dialog de Edição */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogDescription>
+                Atualize as informações do usuário
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedUser && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-nome-completo">Nome Completo</Label>
+                  <Input
+                    id="edit-nome-completo"
+                    value={editNomeCompleto}
+                    onChange={(e) => setEditNomeCompleto(e.target.value)}
+                    placeholder="Nome completo do usuário"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-nome-publico">Nome Público</Label>
+                  <Input
+                    id="edit-nome-publico"
+                    value={editNomePublico}
+                    onChange={(e) => setEditNomePublico(e.target.value)}
+                    placeholder="Nome público do usuário"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="email@exemplo.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-telefone">Telefone</Label>
+                  <Input
+                    id="edit-telefone"
+                    value={editTelefone}
+                    onChange={(e) => setEditTelefone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isLoading}>
+                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* AlertDialog de Bloqueio */}
+        <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {selectedUser?.blocked ? 'Desbloquear Usuário?' : 'Bloquear Usuário?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedUser?.blocked ? (
+                  <>
+                    Você está prestes a <strong>desbloquear</strong> o usuário <strong>{selectedUser?.nomeCompleto}</strong>.
+                    <br /><br />
+                    O usuário poderá fazer login e usar o sistema normalmente.
+                  </>
+                ) : (
+                  <>
+                    Você está prestes a <strong>bloquear</strong> o usuário <strong>{selectedUser?.nomeCompleto}</strong>.
+                    <br /><br />
+                    O usuário não poderá fazer login no sistema até ser desbloqueado.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleToggleBlock} disabled={isLoading}>
+                {isLoading ? 'Processando...' : (selectedUser?.blocked ? 'Desbloquear' : 'Bloquear')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* AlertDialog de Exclusão */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Usuário Permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Você está prestes a <strong className="text-red-600">excluir permanentemente</strong> o usuário <strong>{selectedUser?.nomeCompleto}</strong>.
+                <br /><br />
+                <strong className="text-red-600">Esta ação não pode ser desfeita!</strong>
+                <br /><br />
+                Todos os dados do usuário serão removidos do sistema, incluindo:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Informações pessoais</li>
+                  <li>Documentos de verificação</li>
+                  <li>Conteúdos assinados</li>
+                  <li>Histórico de atividades</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteUser} 
+                disabled={isLoading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isLoading ? 'Excluindo...' : 'Excluir Permanentemente'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
