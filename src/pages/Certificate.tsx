@@ -1,11 +1,10 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
-import type { SignedContent } from '@/lib/supabase-crypto';
+import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { Button } from '@/components/ui/button';
-import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe } from 'lucide-react';
+import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
-import { getCurrentUser } from '@/lib/supabase-auth-v2';
+import { getCurrentUser } from '@/lib/supabase-auth';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -27,6 +26,7 @@ export default function Certificate() {
   const [content, setContent] = useState<SignedContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -50,17 +50,20 @@ export default function Certificate() {
       const decodedContent = decodeContentFromUrl(dataParam);
       
       if (decodedContent) {
-        // Incrementa contador de verificações quando o certificado é acessado via QR Code ou link
-        incrementVerificationCount(decodedContent.id);
+        console.log('📄 Conteúdo decodificado da URL:', decodedContent.id);
         
-        // Busca o conteúdo completo do localStorage para obter o thumbnail e links sociais
-        const fullContent = getSignedContentById(decodedContent.id);
+        // Busca o conteúdo completo do Supabase (inclui thumbnail e links sociais)
+        const fullContent = await getSignedContentById(decodedContent.id);
         
         if (fullContent) {
-          // Usa o conteúdo completo do localStorage (inclui thumbnail e links sociais)
+          console.log('✅ Conteúdo completo carregado do Supabase');
           setContent(fullContent);
+          
+          // Incrementa contador de verificações
+          await incrementVerificationCount(fullContent.id);
         } else {
-          // Fallback: usa o conteúdo decodificado da URL (sem thumbnail e links sociais)
+          console.warn('⚠️ Conteúdo não encontrado no Supabase, usando dados da URL');
+          // Fallback: usa o conteúdo decodificado da URL
           setContent(decodedContent);
         }
       }
@@ -93,6 +96,17 @@ export default function Certificate() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Erro ao copiar link:', err);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!content) return;
+    try {
+      await navigator.clipboard.writeText(content.verificationCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar código:', err);
     }
   };
   
@@ -221,7 +235,7 @@ export default function Certificate() {
     );
   }
 
-  const { date: formattedDate, time: formattedTime } = formatDate(content.timestamp);
+  const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
   const relevantSocialLinks = getRelevantSocialLinks();
 
   return (
@@ -262,6 +276,37 @@ export default function Certificate() {
               </div>
             </div>
           )}
+
+          {/* Creator */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Criador do Conteúdo
+            </div>
+            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-words">
+              {content.creatorName}
+            </div>
+          </div>
+
+          {/* Date */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Data e Hora da Assinatura
+            </div>
+            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 flex items-center gap-2 flex-wrap">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+              <span className="break-words">{formattedDate} às {formattedTime}</span>
+            </div>
+          </div>
+
+          {/* ID */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              ID do Certificado
+            </div>
+            <div className="text-xs sm:text-sm font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all">
+              {content.id}
+            </div>
+          </div>
 
           {/* Platforms */}
           {content.platforms && content.platforms.length > 0 && (
@@ -314,43 +359,30 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* Creator */}
-          <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Criador do Conteúdo
-            </div>
-            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-words">
-              {content.creatorName}
-            </div>
-          </div>
-
-          {/* Date */}
-          <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Data e Hora da Assinatura
-            </div>
-            <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 flex items-center gap-2 flex-wrap">
-              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
-              <span className="break-words">{formattedDate} às {formattedTime}</span>
-            </div>
-          </div>
-
-          {/* ID */}
-          <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              ID do Certificado
-            </div>
-            <div className="text-xs sm:text-sm font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all">
-              {content.id}
-            </div>
-          </div>
-
           {/* Verification Code */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
             <div className="text-xs sm:text-sm opacity-90 mb-2 sm:mb-3">Código de Verificação</div>
-            <div className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-[0.3em] sm:tracking-[0.5em] font-mono break-all">
+            <div className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-[0.3em] sm:tracking-[0.5em] font-mono break-all mb-4">
               {content.verificationCode}
             </div>
+            <Button
+              onClick={handleCopyCode}
+              variant="secondary"
+              size="sm"
+              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+            >
+              {copiedCode ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar Código
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Copy Link Button */}
