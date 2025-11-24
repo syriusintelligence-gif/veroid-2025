@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, getUsers, User as UserType, isCurrentUserAdmin } from '@/lib/supabase-auth';
-import { getSignedContents, SignedContent } from '@/lib/crypto';
+import { getAllSignedContents, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
     
     setCurrentUser(user);
     
-    // Carrega dados do localStorage
+    // Carrega dados do Supabase
     await loadData();
   };
   
@@ -102,12 +102,16 @@ export default function AdminDashboard() {
     setIsLoading(true);
     
     try {
-      // Carrega TODOS os conteúdos assinados do localStorage
-      const contents = getSignedContents();
+      console.log('📊 [Admin] Carregando TODOS os conteúdos do Supabase...');
+      
+      // Carrega TODOS os conteúdos assinados do Supabase
+      const contents = await getAllSignedContents();
+      console.log(`✅ [Admin] ${contents.length} conteúdos carregados do Supabase`);
       setAllContents(contents);
       
       // Carrega todos os usuários
       const users = await getUsers();
+      console.log(`✅ [Admin] ${users.length} usuários carregados`);
       setAllUsers(users);
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);
@@ -161,7 +165,7 @@ export default function AdminDashboard() {
     if (filterDate !== 'all') {
       const now = new Date();
       filtered = filtered.filter(content => {
-        const contentDate = new Date(content.timestamp);
+        const contentDate = new Date(content.createdAt);
         const diffDays = Math.floor((now.getTime() - contentDate.getTime()) / (1000 * 60 * 60 * 24));
         
         switch (filterDate) {
@@ -192,7 +196,7 @@ export default function AdminDashboard() {
         break;
       case 'recent':
       default:
-        filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         break;
     }
     
@@ -228,7 +232,7 @@ export default function AdminDashboard() {
     });
     
     allContents.forEach(content => {
-      const date = content.timestamp.split('T')[0];
+      const date = content.createdAt.split('T')[0];
       if (dataMap.has(date)) {
         const entry = dataMap.get(date)!;
         entry.assinaturas += 1;
@@ -295,7 +299,7 @@ export default function AdminDashboard() {
     const tableData = filteredContents.map(content => [
       content.content.substring(0, 50) + (content.content.length > 50 ? '...' : ''),
       content.creatorName,
-      new Date(content.timestamp).toLocaleDateString('pt-BR'),
+      new Date(content.createdAt).toLocaleDateString('pt-BR'),
       (content.verificationCount || 0).toString(),
       content.platforms?.join(', ') || 'N/A',
     ]);
@@ -318,8 +322,8 @@ export default function AdminDashboard() {
     const data = filteredContents.map(content => ({
       'Conteúdo': content.content,
       'Criador': content.creatorName,
-      'Data': new Date(content.timestamp).toLocaleDateString('pt-BR'),
-      'Hora': new Date(content.timestamp).toLocaleTimeString('pt-BR'),
+      'Data': new Date(content.createdAt).toLocaleDateString('pt-BR'),
+      'Hora': new Date(content.createdAt).toLocaleTimeString('pt-BR'),
       'Verificações': content.verificationCount || 0,
       'Plataformas': content.platforms?.join(', ') || 'N/A',
       'Código de Verificação': content.verificationCode,
@@ -367,7 +371,7 @@ export default function AdminDashboard() {
     filteredContents.forEach((content, index) => {
       txt += `[${index + 1}] ${content.content}\n`;
       txt += `    Criador: ${content.creatorName}\n`;
-      txt += `    Data: ${new Date(content.timestamp).toLocaleString('pt-BR')}\n`;
+      txt += `    Data: ${new Date(content.createdAt).toLocaleString('pt-BR')}\n`;
       txt += `    Verificações: ${content.verificationCount || 0}\n`;
       txt += `    Plataformas: ${content.platforms?.join(', ') || 'N/A'}\n`;
       txt += `    Código: ${content.verificationCode}\n`;
