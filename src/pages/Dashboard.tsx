@@ -2,7 +2,16 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -30,6 +39,12 @@ export default function Dashboard() {
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
   const [signedContents, setSignedContents] = useState<SignedContent[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Filtros
+  const [searchTitle, setSearchTitle] = useState('');
+  const [filterPlatform, setFilterPlatform] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('recent');
   
   useEffect(() => {
     loadUserData();
@@ -144,6 +159,77 @@ export default function Dashboard() {
       .toUpperCase()
       .slice(0, 2);
   };
+  
+  // Função para filtrar e ordenar conteúdos
+  const getFilteredAndSortedContents = () => {
+    let filtered = [...signedContents];
+    
+    // Filtro por título
+    if (searchTitle.trim()) {
+      filtered = filtered.filter(content =>
+        content.content.toLowerCase().includes(searchTitle.toLowerCase())
+      );
+    }
+    
+    // Filtro por plataforma
+    if (filterPlatform !== 'all') {
+      filtered = filtered.filter(content =>
+        content.platforms?.includes(filterPlatform)
+      );
+    }
+    
+    // Filtro por data
+    if (filterDate !== 'all') {
+      const now = new Date();
+      filtered = filtered.filter(content => {
+        const contentDate = new Date(content.createdAt);
+        const diffDays = Math.floor((now.getTime() - contentDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        switch (filterDate) {
+          case 'today':
+            return diffDays === 0;
+          case 'week':
+            return diffDays <= 7;
+          case 'month':
+            return diffDays <= 30;
+          case 'year':
+            return diffDays <= 365;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Ordenação
+    switch (sortBy) {
+      case 'oldest':
+        filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        break;
+      case 'alphabetical':
+        filtered.sort((a, b) => a.content.localeCompare(b.content));
+        break;
+      case 'most-verified':
+        filtered.sort((a, b) => (b.verificationCount || 0) - (a.verificationCount || 0));
+        break;
+      case 'recent':
+      default:
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+    }
+    
+    return filtered;
+  };
+  
+  // Obter todas as plataformas únicas
+  const getAllPlatforms = () => {
+    const platforms = new Set<string>();
+    signedContents.forEach(content => {
+      content.platforms?.forEach(platform => platforms.add(platform));
+    });
+    return Array.from(platforms).sort();
+  };
+  
+  const filteredContents = getFilteredAndSortedContents();
   
   if (isLoading) {
     return (
@@ -402,11 +488,133 @@ export default function Dashboard() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6">
-                {signedContents.map((content) => (
-                  <ContentCard key={content.id} content={content} />
-                ))}
-              </div>
+              <>
+                {/* Filtros */}
+                <Card className="mb-6 bg-muted/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Search className="h-5 w-5" />
+                      Filtros e Ordenação
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="search-title" className="text-sm font-medium">
+                          Buscar por Título
+                        </Label>
+                        <Input
+                          id="search-title"
+                          placeholder="Digite o título..."
+                          value={searchTitle}
+                          onChange={(e) => setSearchTitle(e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="filter-platform" className="text-sm font-medium">
+                          Plataforma
+                        </Label>
+                        <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+                          <SelectTrigger id="filter-platform">
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas as plataformas</SelectItem>
+                            {getAllPlatforms().map(platform => (
+                              <SelectItem key={platform} value={platform}>
+                                {platform}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="filter-date" className="text-sm font-medium">
+                          Data
+                        </Label>
+                        <Select value={filterDate} onValueChange={setFilterDate}>
+                          <SelectTrigger id="filter-date">
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas as datas</SelectItem>
+                            <SelectItem value="today">Hoje</SelectItem>
+                            <SelectItem value="week">Última semana</SelectItem>
+                            <SelectItem value="month">Último mês</SelectItem>
+                            <SelectItem value="year">Último ano</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="sort-by" className="text-sm font-medium">
+                          Ordenar por
+                        </Label>
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                          <SelectTrigger id="sort-by">
+                            <SelectValue placeholder="Ordenar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="recent">Mais Recentes</SelectItem>
+                            <SelectItem value="oldest">Mais Antigos</SelectItem>
+                            <SelectItem value="alphabetical">Alfabética (A-Z)</SelectItem>
+                            <SelectItem value="most-verified">Mais Verificados</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    {(searchTitle || filterPlatform !== 'all' || filterDate !== 'all' || sortBy !== 'recent') && (
+                      <div className="mt-4 flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          Mostrando {filteredContents.length} de {signedContents.length} conteúdos
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearchTitle('');
+                            setFilterPlatform('all');
+                            setFilterDate('all');
+                            setSortBy('recent');
+                          }}
+                        >
+                          Limpar Filtros
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                {/* Lista de Conteúdos */}
+                {filteredContents.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-4">
+                      Nenhum conteúdo encontrado com os filtros aplicados
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTitle('');
+                        setFilterPlatform('all');
+                        setFilterDate('all');
+                        setSortBy('recent');
+                      }}
+                    >
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {filteredContents.map((content) => (
+                      <ContentCard key={content.id} content={content} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
