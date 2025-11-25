@@ -437,27 +437,73 @@ export default function AdminDashboard() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+              <DropdownMenuContent className="w-80" align="end">
+                <div className="px-4 py-3">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar className="h-12 w-12 border-2 border-blue-600">
+                      <AvatarImage src={currentUser.selfieUrl} alt={currentUser.nomeCompleto} />
+                      <AvatarFallback className="bg-blue-600 text-white text-lg">
+                        {getInitials(currentUser.nomeCompleto)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">Administrador Sistema</p>
+                      <p className="text-xs text-muted-foreground truncate">@{currentUser.nomePublico || 'Admin'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
+                      <Badge className="bg-red-100 text-red-800 text-xs mt-1">Admin</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-3 space-y-1 text-sm">
+                    <div className="font-semibold mb-2">Informações do Perfil</div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">CPF/CNPJ:</span>
+                      <span className="font-medium">{currentUser.cpfCnpj || '000000000000'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Telefone:</span>
+                      <span className="font-medium">{currentUser.telefone || '(00) 00000-0000'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium text-green-600">Verificado</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Membro desde:</span>
+                      <span className="font-medium">{new Date(currentUser.createdAt).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                </div>
+                
                 <DropdownMenuSeparator />
+                
                 <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
                   <Home className="mr-2 h-4 w-4" />
                   <span>Dashboard</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" />
-                  <span>Perfil</span>
+                  <span>Meu Perfil</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Configurações</span>
                 </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer">
+                
+                <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer text-red-600">
                   <Users className="mr-2 h-4 w-4" />
                   <span>Gerenciar Usuários</span>
                 </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer text-red-600">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  <span>Dashboard Admin</span>
+                </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
+                
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sair</span>
