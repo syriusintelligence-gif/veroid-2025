@@ -2,15 +2,25 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout } from '@/lib/supabase-auth';
+import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
 import { generateKeyPair, saveKeyPair, getKeyPair } from '@/lib/crypto';
 import type { KeyPair } from '@/lib/supabase-crypto';
 import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -19,6 +29,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
   const [signedContents, setSignedContents] = useState<SignedContent[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   useEffect(() => {
     loadUserData();
@@ -39,6 +50,10 @@ export default function Dashboard() {
       console.log('✅ Usuário autenticado:', user.email, 'ID:', user.id);
       console.log('👤 Status admin:', user.isAdmin);
       setCurrentUser(user);
+      
+      // Verifica se é admin
+      const adminStatus = await isCurrentUserAdmin();
+      setIsAdmin(adminStatus);
       
       // 🆕 Tenta carregar chaves (localStorage ou Supabase)
       console.log('🔍 Tentando carregar chaves para userId:', user.id);
@@ -121,6 +136,15 @@ export default function Dashboard() {
     }
   };
   
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -148,14 +172,102 @@ export default function Dashboard() {
             </span>
           </button>
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate('/profile')}>
-              <User className="mr-2 h-4 w-4" />
-              Perfil
-            </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10 border-2 border-blue-600">
+                    <AvatarImage src={currentUser?.selfieUrl} alt={currentUser?.nomeCompleto} />
+                    <AvatarFallback className="bg-blue-600 text-white">
+                      {currentUser ? getInitials(currentUser.nomeCompleto) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-80" align="end">
+                {currentUser && (
+                  <>
+                    <div className="px-4 py-3">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="h-12 w-12 border-2 border-blue-600">
+                          <AvatarImage src={currentUser.selfieUrl} alt={currentUser.nomeCompleto} />
+                          <AvatarFallback className="bg-blue-600 text-white text-lg">
+                            {getInitials(currentUser.nomeCompleto)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">
+                            {isAdmin ? 'Administrador Sistema' : currentUser.nomeCompleto}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">@{currentUser.nomePublico || 'User'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
+                          {isAdmin && (
+                            <Badge className="bg-red-100 text-red-800 text-xs mt-1">Admin</Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="border-t pt-3 space-y-1 text-sm">
+                        <div className="font-semibold mb-2">Informações do Perfil</div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">CPF/CNPJ:</span>
+                          <span className="font-medium">{currentUser.cpfCnpj || '000000000000'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Telefone:</span>
+                          <span className="font-medium">{currentUser.telefone || '(00) 00000-0000'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Status:</span>
+                          <span className="font-medium text-green-600">Verificado</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Membro desde:</span>
+                          <span className="font-medium">{new Date(currentUser.createdAt).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
+                      <Home className="mr-2 h-4 w-4" />
+                      <span>Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Meu Perfil</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Configurações</span>
+                    </DropdownMenuItem>
+                    
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer text-red-600">
+                          <Users className="mr-2 h-4 w-4" />
+                          <span>Gerenciar Usuários</span>
+                        </DropdownMenuItem>
+                        
+                        <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer text-red-600">
+                          <BarChart3 className="mr-2 h-4 w-4" />
+                          <span>Dashboard Admin</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sair</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
