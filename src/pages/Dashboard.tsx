@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -39,6 +39,11 @@ export default function Dashboard() {
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
   const [signedContents, setSignedContents] = useState<SignedContent[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Estados para copiar chaves
+  const [copiedPublicKey, setCopiedPublicKey] = useState(false);
+  const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
   
   // Filtros
   const [searchTitle, setSearchTitle] = useState('');
@@ -137,6 +142,28 @@ export default function Dashboard() {
     } finally {
       setIsGeneratingKeys(false);
       console.log('🏁 === FIM DO PROCESSO DE GERAÇÃO ===');
+    }
+  };
+  
+  const handleCopyPublicKey = async () => {
+    if (!keyPair) return;
+    try {
+      await navigator.clipboard.writeText(keyPair.publicKey);
+      setCopiedPublicKey(true);
+      setTimeout(() => setCopiedPublicKey(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar chave pública:', err);
+    }
+  };
+  
+  const handleCopyPrivateKey = async () => {
+    if (!keyPair) return;
+    try {
+      await navigator.clipboard.writeText(keyPair.privateKey);
+      setCopiedPrivateKey(true);
+      setTimeout(() => setCopiedPrivateKey(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar chave privada:', err);
     }
   };
   
@@ -377,28 +404,122 @@ export default function Dashboard() {
               Status das Chaves Criptográficas
             </CardTitle>
             <CardDescription>
-              Suas chaves são armazenadas localmente E no Supabase para backup automático
+              Suas chaves são armazenadas de forma segura e sincronizadas com o Supabase
             </CardDescription>
           </CardHeader>
           <CardContent>
             {keyPair ? (
-              <Alert className="border-green-500 bg-green-50">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  <div className="space-y-2">
-                    <p className="font-medium">✅ Chaves ativas e sincronizadas com o Supabase!</p>
-                    <p className="text-sm">
-                      Chave Pública: <code className="text-xs bg-white/50 px-2 py-1 rounded">{keyPair.publicKey.substring(0, 32)}...</code>
-                    </p>
-                    <p className="text-xs text-green-700">
-                      💾 Backup automático ativo: localStorage + sessionStorage + IndexedDB + Supabase
-                    </p>
-                    <p className="text-xs text-green-700">
-                      🔄 Suas chaves serão restauradas automaticamente no próximo login
-                    </p>
+              <div className="space-y-4">
+                {/* Status Badge */}
+                <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-900">Chaves Ativas</p>
+                    <p className="text-sm text-green-700">Sincronizadas e prontas para uso</p>
                   </div>
-                </AlertDescription>
-              </Alert>
+                </div>
+                
+                {/* Chave Pública */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Key className="h-4 w-4 text-blue-600" />
+                      Chave Pública
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyPublicKey}
+                      className="h-8"
+                    >
+                      {copiedPublicKey ? (
+                        <>
+                          <Check className="h-4 w-4 mr-1 text-green-600" />
+                          <span className="text-green-600">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-1" />
+                          Copiar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg border">
+                    <code className="text-xs font-mono break-all block">
+                      {keyPair.publicKey}
+                    </code>
+                  </div>
+                </div>
+                
+                {/* Chave Privada */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Key className="h-4 w-4 text-red-600" />
+                      Chave Privada
+                      <Badge variant="destructive" className="text-xs">Confidencial</Badge>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowPrivateKey(!showPrivateKey)}
+                        className="h-8"
+                      >
+                        {showPrivateKey ? (
+                          <>
+                            <EyeOff className="h-4 w-4 mr-1" />
+                            Ocultar
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4 mr-1" />
+                            Mostrar
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCopyPrivateKey}
+                        className="h-8"
+                        disabled={!showPrivateKey}
+                      >
+                        {copiedPrivateKey ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1 text-green-600" />
+                            <span className="text-green-600">Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copiar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg border">
+                    <code className="text-xs font-mono break-all block">
+                      {showPrivateKey ? keyPair.privateKey : '•'.repeat(keyPair.privateKey.length)}
+                    </code>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ⚠️ Nunca compartilhe sua chave privada. Ela é usada para assinar seu conteúdo digitalmente.
+                  </p>
+                </div>
+                
+                {/* Info adicional */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-blue-900">
+                    <strong>💾 Backup Automático:</strong> Suas chaves estão salvas no Supabase e serão restauradas automaticamente no próximo login.
+                  </p>
+                  <p className="text-sm text-blue-900">
+                    <strong>🔒 Segurança:</strong> As chaves são criptografadas e armazenadas de forma segura.
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 <Alert>
