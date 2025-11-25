@@ -52,7 +52,7 @@ export default function Index() {
             Criptografia de Ponta para Validação de Conteúdo
           </div>
           
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight text-gray-900">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
             O Fim da Desinformação<br />
             <span className="text-blue-600">Começa com a Sua Assinatura.</span>
           </h1>
@@ -118,9 +118,9 @@ export default function Index() {
                 <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
                   <QrCode className="h-10 w-10 text-green-600" />
                 </div>
-                <CardTitle className="text-2xl mb-3">3. Compartilhe com QR Code</CardTitle>
+                <CardTitle className="text-2xl mb-3">3. Compartilhe</CardTitle>
                 <CardDescription className="text-base text-gray-600">
-                  Qualquer pessoa pode verificar a autenticidade instantaneamente escaneando o QR Code
+                  Compartilhe seu conteúdo com suas assinaturas e qualquer pessoa pode verificar a autenticidade instantaneamente
                 </CardDescription>
               </CardHeader>
             </Card>
