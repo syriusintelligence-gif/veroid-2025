@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SignedContent } from '@/lib/crypto';
+import { SignedContent } from '@/lib/supabase-crypto';
 import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
@@ -121,7 +121,7 @@ export default function ContentCard({ content, onVerify }: ContentCardProps) {
             </CardTitle>
             <CardDescription className="flex items-center gap-2 mt-2">
               <Calendar className="h-4 w-4" />
-              {new Date(content.timestamp).toLocaleString('pt-BR')}
+              {new Date(content.createdAt).toLocaleString('pt-BR')}
             </CardDescription>
             {/* Contador de Verificações */}
             <CardDescription className="flex items-center gap-2 mt-1">
