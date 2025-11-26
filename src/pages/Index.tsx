@@ -4,12 +4,13 @@ import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3 } from 'lucide
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
-import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import { motion, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollProgressBar } from '@/components/ScrollProgressBar';
 
 export default function Index() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const heroRef = useRef(null);
   const howItWorksRef = useRef(null);
   const benefitsRef = useRef(null);
@@ -35,32 +36,32 @@ export default function Index() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
+        staggerChildren: shouldReduceMotion ? 0 : 0.1,
+        delayChildren: shouldReduceMotion ? 0 : 0.2
       }
     }
   };
   
   const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 30 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6,
+        duration: shouldReduceMotion ? 0.01 : 0.6,
         ease: [0.22, 1, 0.36, 1]
       }
     }
   };
   
   const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 50 },
     visible: (custom: number) => ({
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6,
-        delay: custom * 0.1,
+        duration: shouldReduceMotion ? 0.01 : 0.6,
+        delay: shouldReduceMotion ? 0 : custom * 0.1,
         ease: [0.22, 1, 0.36, 1]
       }
     })
@@ -73,50 +74,51 @@ export default function Index() {
       
       {/* Header */}
       <motion.header 
-        initial={{ y: -100, opacity: 0 }}
+        initial={{ y: shouldReduceMotion ? 0 : -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="border-b border-white/10 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50 shadow-lg shadow-blue-500/10"
       >
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <motion.div 
             className="flex items-center gap-2"
-            whileHover={{ scale: 1.05 }}
+            whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
             transition={{ duration: 0.2 }}
           >
             <motion.div
-              animate={{ 
+              animate={shouldReduceMotion ? {} : { 
                 rotate: [0, 5, -5, 0],
                 scale: [1, 1.1, 1]
               }}
-              transition={{ 
+              transition={shouldReduceMotion ? {} : { 
                 duration: 3,
                 repeat: Infinity,
                 repeatDelay: 5
               }}
             >
-              <Shield className="h-8 w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+              <Shield className="h-7 w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
             </motion.div>
-            <span className="text-2xl font-bold text-white tracking-tight">
+            <span className="text-xl md:text-2xl font-bold text-white tracking-tight">
               Vero iD
             </span>
           </motion.div>
-          <nav className="flex gap-3">
+          <nav className="flex gap-2 md:gap-3">
             {isAdmin && (
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="outline" onClick={() => navigate('/admin/dashboard')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Admin Dashboard
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
+                <Button variant="outline" onClick={() => navigate('/admin/dashboard')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 text-xs md:text-sm px-2 md:px-4">
+                  <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                  <span className="hidden sm:inline">Admin Dashboard</span>
+                  <span className="sm:hidden">Admin</span>
                 </Button>
               </motion.div>
             )}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 font-semibold">
+            <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
+              <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 font-semibold text-xs md:text-sm px-3 md:px-4">
                 Entrar
               </Button>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all">
+            <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
+              <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all text-xs md:text-sm px-3 md:px-4">
                 Cadastro
               </Button>
             </motion.div>
@@ -125,28 +127,28 @@ export default function Index() {
       </motion.header>
       
       {/* Hero Section */}
-      <section ref={heroRef} className="relative container mx-auto px-4 py-24 text-center overflow-hidden">
+      <section ref={heroRef} className="relative container mx-auto px-4 py-12 md:py-20 lg:py-24 text-center overflow-hidden">
         {/* Background decorativo com grid - com parallax */}
         <motion.div 
-          style={{ y: backgroundY }}
+          style={{ y: shouldReduceMotion ? 0 : backgroundY }}
           className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none" 
         />
         
         <motion.div 
-          className="relative z-10 max-w-5xl mx-auto space-y-8"
+          className="relative z-10 max-w-5xl mx-auto space-y-6 md:space-y-8"
           variants={containerVariants}
           initial="hidden"
           animate={heroInView ? "visible" : "hidden"}
         >
           <motion.div 
             variants={itemVariants}
-            className="inline-flex items-center gap-2 px-4 py-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-full text-sm font-semibold shadow-2xl"
+            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-full text-xs md:text-sm font-semibold shadow-2xl"
           >
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              animate={shouldReduceMotion ? {} : { rotate: 360 }}
+              transition={shouldReduceMotion ? {} : { duration: 20, repeat: Infinity, ease: "linear" }}
             >
-              <Shield className="h-4 w-4 text-cyan-400" />
+              <Shield className="h-3 w-3 md:h-4 md:w-4 text-cyan-400" />
             </motion.div>
             <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
               Criptografia de Ponta para Validação de Conteúdo
@@ -155,16 +157,16 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-12"
+            className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
             <span className="text-white">O Fim da Desinformação</span>
             <br />
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
-              animate={{
+              animate={shouldReduceMotion ? {} : {
                 backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
               }}
-              transition={{
+              transition={shouldReduceMotion ? {} : {
                 duration: 5,
                 repeat: Infinity,
                 ease: "linear"
@@ -177,32 +179,34 @@ export default function Index() {
             </motion.span>
           </motion.h1>
           
-          <motion.div variants={itemVariants} className="space-y-6 max-w-4xl mx-auto">
-            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-center px-4">
+          <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
+            <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
               Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
             </p>
           </motion.div>
           
           <motion.div 
             variants={itemVariants}
-            className="flex gap-4 justify-center flex-wrap pt-4"
+            className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center pt-4 px-4"
           >
             <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              <Button size="lg" onClick={() => navigate('/cadastro')} className="text-lg px-8 py-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-2xl shadow-cyan-500/40 hover:shadow-cyan-500/60 transition-all">
+              <Button size="lg" onClick={() => navigate('/cadastro')} className="w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-2xl shadow-cyan-500/40 hover:shadow-cyan-500/60 transition-all">
                 Começar Agora
-                <Shield className="ml-2 h-5 w-5" />
+                <Shield className="ml-2 h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </motion.div>
             <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              <Button size="lg" variant="outline" onClick={() => navigate('/verify')} className="text-lg px-8 py-6 border-2 border-white/20 !bg-transparent text-cyan-400 hover:border-cyan-400/50 hover:!bg-white/5 hover:text-cyan-300 backdrop-blur-sm transition-all font-semibold">
+              <Button size="lg" variant="outline" onClick={() => navigate('/verify')} className="w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 border-2 border-white/20 !bg-transparent text-cyan-400 hover:border-cyan-400/50 hover:!bg-white/5 hover:text-cyan-300 backdrop-blur-sm transition-all font-semibold">
                 Verificar Autenticidade
-                <CheckCircle className="ml-2 h-5 w-5" />
+                <CheckCircle className="ml-2 h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </motion.div>
           </motion.div>
@@ -210,25 +214,25 @@ export default function Index() {
       </section>
       
       {/* Como Funciona */}
-      <section ref={howItWorksRef} className="relative bg-gradient-to-b from-slate-900 to-slate-950 py-20 overflow-hidden">
+      <section ref={howItWorksRef} className="relative bg-gradient-to-b from-slate-900 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Grid pattern decorativo */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
         
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.6 }}
+            className="text-center mb-10 md:mb-16"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 tracking-tight px-4">
               <span className="text-white">Como </span>
               <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Funciona</span>
             </h2>
-            <p className="text-xl text-gray-400">Processo simples e seguro em 3 passos</p>
+            <p className="text-lg md:text-xl text-gray-400 px-4">Processo simples e seguro em 3 passos</p>
           </motion.div>
           
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
             {[
               {
                 icon: Lock,
@@ -261,20 +265,20 @@ export default function Index() {
                 variants={cardVariants}
                 initial="hidden"
                 animate={howItWorksInView ? "visible" : "hidden"}
-                whileHover={{ scale: 1.05, y: -10 }}
-                transition={{ duration: 0.3 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -10 }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
-                <Card className={`text-center backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${step.hoverColor}-400/50 hover:bg-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-${step.hoverColor}-500/20`}>
-                  <CardHeader>
+                <Card className={`text-center backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${step.hoverColor}-400/50 hover:bg-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-${step.hoverColor}-500/20 h-full`}>
+                  <CardHeader className="pb-4">
                     <motion.div 
-                      className={`mx-auto w-20 h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-${step.hoverColor}-500/50`}
-                      whileHover={{ rotate: 360, scale: 1.1 }}
-                      transition={{ duration: 0.6 }}
+                      className={`mx-auto w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg shadow-${step.hoverColor}-500/50`}
+                      whileHover={shouldReduceMotion ? {} : { rotate: 360, scale: 1.1 }}
+                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
                     >
-                      <step.icon className="h-10 w-10 text-white" />
+                      <step.icon className="h-8 w-8 md:h-10 md:w-10 text-white" />
                     </motion.div>
-                    <CardTitle className="text-2xl mb-3 text-white font-bold">{step.title}</CardTitle>
-                    <CardDescription className="text-base text-gray-300">
+                    <CardTitle className="text-xl md:text-2xl mb-2 md:mb-3 text-white font-bold">{step.title}</CardTitle>
+                    <CardDescription className="text-sm md:text-base text-gray-300 leading-relaxed">
                       {step.description}
                     </CardDescription>
                   </CardHeader>
@@ -286,22 +290,22 @@ export default function Index() {
       </section>
       
       {/* Benefícios */}
-      <section ref={benefitsRef} className="relative py-20 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden">
+      <section ref={benefitsRef} className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden">
         {/* Grid pattern decorativo */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
         
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.6 }}
+            className="text-center mb-10 md:mb-16"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl font-black mb-4 text-white tracking-tight">Por Que Escolher o Vero iD</h2>
-            <p className="text-xl text-gray-400">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 text-white tracking-tight px-4">Por Que Escolher o Vero iD</h2>
+            <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
           </motion.div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
             {[
               {
                 icon: Shield,
@@ -370,21 +374,21 @@ export default function Index() {
                 variants={cardVariants}
                 initial="hidden"
                 animate={benefitsInView ? "visible" : "hidden"}
-                whileHover={{ scale: 1.05, y: -10 }}
-                transition={{ duration: 0.3 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -10 }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
                 <Card className={`h-full backdrop-blur-xl bg-white/5 border-2 border-white/10 ${benefit.borderColor} hover:bg-white/10 transition-all duration-500 hover:shadow-2xl ${benefit.shadowColor}`}>
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <motion.div
-                      whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
-                      transition={{ duration: 0.5 }}
+                      whileHover={shouldReduceMotion ? {} : { rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
+                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.5 }}
                     >
-                      <benefit.icon className={`h-12 w-12 ${benefit.iconColor} mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
+                      <benefit.icon className={`h-10 w-10 md:h-12 md:w-12 ${benefit.iconColor} mb-2 md:mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
                     </motion.div>
-                    <CardTitle className="text-xl text-white font-bold mb-3">{benefit.title}</CardTitle>
+                    <CardTitle className="text-lg md:text-xl text-white font-bold mb-2 md:mb-3">{benefit.title}</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-300 leading-relaxed">
+                  <CardContent className="pt-0">
+                    <p className="text-sm md:text-base text-gray-300 leading-relaxed">
                       {benefit.description}
                     </p>
                   </CardContent>
@@ -396,15 +400,15 @@ export default function Index() {
       </section>
       
       {/* CTA Final */}
-      <section ref={ctaRef} className="relative bg-gradient-to-br from-blue-950 via-purple-950 to-slate-950 py-20 overflow-hidden">
+      <section ref={ctaRef} className="relative bg-gradient-to-br from-blue-950 via-purple-950 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Efeito de brilho animado */}
         <motion.div 
           className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.1),transparent_50%)] pointer-events-none"
-          animate={{
+          animate={shouldReduceMotion ? {} : {
             scale: [1, 1.2, 1],
             opacity: [0.3, 0.5, 0.3]
           }}
-          transition={{
+          transition={shouldReduceMotion ? {} : {
             duration: 4,
             repeat: Infinity,
             ease: "easeInOut"
@@ -413,16 +417,16 @@ export default function Index() {
         
         <div className="relative z-10 container mx-auto px-4 text-center">
           <motion.div 
-            className="max-w-3xl mx-auto space-y-6"
-            initial={{ opacity: 0, y: 30 }}
-            animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.6 }}
+            className="max-w-3xl mx-auto space-y-4 md:space-y-6"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
           >
             <motion.h2 
-              className="text-4xl md:text-5xl font-black tracking-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight px-4"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.2 }}
             >
               <span className="text-white">Pronto para </span>
               <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
@@ -430,23 +434,24 @@ export default function Index() {
               </span>
             </motion.h2>
             <motion.p 
-              className="text-xl text-gray-300"
-              initial={{ opacity: 0, y: 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
+              className="text-lg md:text-xl text-gray-300 px-4"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.4 }}
             >
               Junte-se aos criadores de conteúdo que já estão combatendo deepfakes e fake news com tecnologia de ponta
             </motion.p>
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.6 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+              className="pt-2"
             >
-              <Button size="lg" onClick={() => navigate('/cadastro')} className="text-lg px-8 py-6 bg-white text-blue-600 hover:bg-gray-100 shadow-2xl hover:shadow-white/20 transition-all font-bold">
+              <Button size="lg" onClick={() => navigate('/cadastro')} className="text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-white text-blue-600 hover:bg-gray-100 shadow-2xl hover:shadow-white/20 transition-all font-bold">
                 Começar Agora
-                <Shield className="ml-2 h-5 w-5" />
+                <Shield className="ml-2 h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </motion.div>
           </motion.div>
@@ -455,15 +460,15 @@ export default function Index() {
       
       {/* Footer */}
       <motion.footer 
-        className="border-t border-white/10 bg-slate-950/50 backdrop-blur-xl py-8"
+        className="border-t border-white/10 bg-slate-950/50 backdrop-blur-xl py-6 md:py-8"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
         viewport={{ once: true }}
       >
         <div className="container mx-auto px-4 text-center text-gray-400">
-          <p className="font-semibold text-white">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
-          <p className="text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
+          <p className="font-semibold text-white text-sm md:text-base">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
+          <p className="text-xs md:text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
         </div>
       </motion.footer>
     </div>
