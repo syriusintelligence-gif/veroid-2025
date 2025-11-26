@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SignedContent } from '@/lib/supabase-crypto';
-import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye } from 'lucide-react';
+import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye, FileText, Image as ImageIcon, Video, Music, File } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
 import { useState, useRef } from 'react';
@@ -16,6 +16,7 @@ interface ContentCardProps {
 export default function ContentCard({ content, onVerify }: ContentCardProps) {
   const qrData = generateQRData(content);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Log QR data for debugging
@@ -105,6 +106,25 @@ export default function ContentCard({ content, onVerify }: ContentCardProps) {
     }
   };
   
+  // Determina o ícone baseado no tipo de conteúdo (se houver plataformas)
+  const getContentIcon = () => {
+    if (!content.platforms || content.platforms.length === 0) {
+      return <FileText className="h-12 w-12 text-muted-foreground" />;
+    }
+    
+    const platform = content.platforms[0].toLowerCase();
+    if (platform.includes('imagem') || platform.includes('instagram') || platform.includes('pinterest')) {
+      return <ImageIcon className="h-12 w-12 text-blue-500" />;
+    }
+    if (platform.includes('vídeo') || platform.includes('youtube') || platform.includes('tiktok')) {
+      return <Video className="h-12 w-12 text-red-500" />;
+    }
+    if (platform.includes('música') || platform.includes('spotify') || platform.includes('soundcloud')) {
+      return <Music className="h-12 w-12 text-green-500" />;
+    }
+    return <File className="h-12 w-12 text-purple-500" />;
+  };
+  
   // URL do certificado para compartilhamento
   const certificateUrl = qrData;
   const shareTitle = `Certificado Digital - ${content.creatorName}`;
@@ -137,6 +157,28 @@ export default function ContentCard({ content, onVerify }: ContentCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Thumbnail do Conteúdo */}
+        {content.thumbnail && !imageError ? (
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
+            <img
+              src={content.thumbnail}
+              alt="Thumbnail do conteúdo"
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              onError={() => setImageError(true)}
+            />
+            <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md">
+              <p className="text-xs font-semibold text-blue-900">Preview</p>
+            </div>
+          </div>
+        ) : (
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-dashed border-blue-300 flex items-center justify-center">
+            {getContentIcon()}
+            <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md">
+              <p className="text-xs font-semibold text-muted-foreground">Sem preview</p>
+            </div>
+          </div>
+        )}
+        
         {/* Nome do Criador */}
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
           <p className="text-xs font-semibold text-blue-900 mb-1">Assinado por</p>
