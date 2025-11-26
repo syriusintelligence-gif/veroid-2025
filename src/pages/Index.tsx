@@ -66,7 +66,7 @@ export default function Index() {
           </h1>
           
           <div className="space-y-6 max-w-4xl mx-auto">
-            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-justify px-4" style={{ hyphens: 'none' }}>
+            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-center px-4">
               Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
             </p>
           </div>
@@ -170,18 +170,6 @@ export default function Index() {
               <CardContent>
                 <p className="text-gray-300">
                   Seu público saberá que o conteúdo é autêntico e não foi manipulado por IA ou terceiros
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-blue-400/50 hover:bg-white/10 hover:scale-105 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20">
-              <CardHeader>
-                <Shield className="h-12 w-12 text-blue-400 mb-3 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                <CardTitle className="text-xl text-white font-bold">Combate à Desinformação</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-300">
-                  Ajude a criar um ambiente digital mais seguro, transparente e confiável
                 </p>
               </CardContent>
             </Card>
