@@ -323,3 +323,110 @@
   border-radius: inherit;
   animation: noise 8s steps(10) infinite;
 }
+
+/* Advanced Typography: Text Rendering Optimization */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+  font-kerning: normal;
+}
+
+/* Advanced Typography: Display Headings (Hero, Large Titles) */
+.text-display {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* Advanced Typography: Heading 1 (Section Titles) */
+.text-heading-1 {
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Advanced Typography: Heading 2 (Card Titles) */
+.text-heading-2 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Advanced Typography: Heading 3 (Small Titles) */
+.text-heading-3 {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Body Large (Hero Description) */
+.text-body-large {
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.7;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Advanced Typography: Body (Regular Text) */
+.text-body {
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.6;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Body Small (Card Descriptions) */
+.text-body-small {
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.5;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Caption (Small Text) */
+.text-caption {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Badge/Label (Uppercase Small Text) */
+.text-label {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  font-feature-settings: "kern" 1, "smcp" 1;
+}
+
+/* Advanced Typography: Button Text */
+.text-button {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Emphasized Text */
+.text-emphasized {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-feature-settings: "kern" 1;
+}
+
+/* Advanced Typography: Gradient Text Enhancement */
+.text-gradient-enhanced {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
