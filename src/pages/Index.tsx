@@ -29,12 +29,12 @@ export default function Index() {
           </div>
           <nav className="flex gap-3">
             {isAdmin && (
-              <Button variant="outline" onClick={() => navigate('/admin/dashboard')} className="border-white/20 text-white hover:bg-white/10 hover:border-cyan-400/50">
+              <Button variant="outline" onClick={() => navigate('/admin/dashboard')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300">
                 <BarChart3 className="mr-2 h-4 w-4" />
                 Admin Dashboard
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 text-white hover:bg-white/10 hover:border-cyan-400/50">
+            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 font-semibold">
               Entrar
             </Button>
             <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all">
@@ -80,7 +80,7 @@ export default function Index() {
               Começar Agora
               <Shield className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('/verify')} className="text-lg px-8 py-6 border-2 border-white/20 text-white hover:border-cyan-400/50 hover:bg-white/5 backdrop-blur-sm transition-all">
+            <Button size="lg" variant="outline" onClick={() => navigate('/verify')} className="text-lg px-8 py-6 border-2 border-white/20 !bg-transparent text-cyan-400 hover:border-cyan-400/50 hover:!bg-white/5 hover:text-cyan-300 backdrop-blur-sm transition-all font-semibold">
               Verificar Autenticidade
               <CheckCircle className="ml-2 h-5 w-5" />
             </Button>
