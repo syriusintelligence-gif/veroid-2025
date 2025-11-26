@@ -636,7 +636,7 @@ export default function Dashboard() {
                           <SelectTrigger id="filter-platform">
                             <SelectValue placeholder="Todas" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white">
                             <SelectItem value="all">Todas as plataformas</SelectItem>
                             {getAllPlatforms().map(platform => (
                               <SelectItem key={platform} value={platform}>
@@ -655,7 +655,7 @@ export default function Dashboard() {
                           <SelectTrigger id="filter-date">
                             <SelectValue placeholder="Todas" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white">
                             <SelectItem value="all">Todas as datas</SelectItem>
                             <SelectItem value="today">Hoje</SelectItem>
                             <SelectItem value="week">Última semana</SelectItem>
@@ -673,7 +673,7 @@ export default function Dashboard() {
                           <SelectTrigger id="sort-by">
                             <SelectValue placeholder="Ordenar" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-white">
                             <SelectItem value="recent">Mais Recentes</SelectItem>
                             <SelectItem value="oldest">Mais Antigos</SelectItem>
                             <SelectItem value="alphabetical">Alfabética (A-Z)</SelectItem>
