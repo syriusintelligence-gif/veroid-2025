@@ -82,12 +82,12 @@ export default function Index() {
       {/* Scroll Progress Bar */}
       <ScrollProgressBar />
       
-      {/* Header */}
+      {/* Header with Glassmorphism */}
       <motion.header 
         initial={{ y: shouldReduceMotion ? 0 : -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="border-b border-white/10 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50 shadow-lg shadow-blue-500/10"
+        className="glass-header sticky top-0 z-50 shadow-lg shadow-blue-500/10"
       >
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <motion.div 
@@ -179,7 +179,7 @@ export default function Index() {
           <motion.div 
             variants={itemVariants}
             whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-full text-xs md:text-sm font-semibold shadow-2xl transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/30"
+            className="glass-badge inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-all duration-300"
           >
             <motion.div
               animate={shouldReduceMotion ? {} : { rotate: 360 }}
@@ -298,7 +298,7 @@ export default function Index() {
                 title: "1. Gere suas Chaves",
                 description: "Crie um par de chaves criptográficas único (pública e privada) com tecnologia RSA",
                 gradient: "from-cyan-500 to-blue-600",
-                hoverColor: "cyan",
+                shadowClass: "glass-shadow-cyan",
                 delay: 0
               },
               {
@@ -306,7 +306,7 @@ export default function Index() {
                 title: "2. Assine o Conteúdo",
                 description: "Adicione uma assinatura digital criptografada e matematicamente verificável ao seu conteúdo",
                 gradient: "from-purple-500 to-pink-600",
-                hoverColor: "purple",
+                shadowClass: "glass-shadow-purple",
                 delay: 1
               },
               {
@@ -314,7 +314,7 @@ export default function Index() {
                 title: "3. Compartilhe",
                 description: "Compartilhe seu conteúdo com suas assinaturas e qualquer pessoa pode verificar a autenticidade instantaneamente",
                 gradient: "from-green-500 to-emerald-600",
-                hoverColor: "green",
+                shadowClass: "glass-shadow-green",
                 delay: 2
               }
             ].map((step, index) => (
@@ -327,10 +327,10 @@ export default function Index() {
                 whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -12 }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
-                <Card className={`text-center backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${step.hoverColor}-400/50 hover:bg-white/10 transition-all duration-300 hover:shadow-2xl hover:shadow-${step.hoverColor}-500/30 h-full cursor-pointer`}>
+                <Card className={`glass-card glass-noise ${step.shadowClass} text-center h-full cursor-pointer transition-all duration-300`}>
                   <CardHeader className="pb-4">
                     <motion.div 
-                      className={`mx-auto w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg shadow-${step.hoverColor}-500/50 transition-all duration-300`}
+                      className={`mx-auto w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg transition-all duration-300`}
                       whileHover={shouldReduceMotion ? {} : { 
                         rotate: 360, 
                         scale: 1.15,
@@ -374,60 +374,48 @@ export default function Index() {
                 icon: Shield,
                 title: "Plataforma Única",
                 description: "A única plataforma que utiliza criptografia de ponta para validar a origem do seu conteúdo e neutralizar manipulações por IA",
-                color: "cyan",
                 iconColor: "text-cyan-400",
-                borderColor: "hover:border-cyan-400/50",
-                shadowColor: "hover:shadow-cyan-500/30",
+                shadowClass: "glass-shadow-cyan",
                 delay: 0
               },
               {
                 icon: CheckCircle,
                 title: "Credibilidade Aumentada",
                 description: "Seu público saberá que o conteúdo é autêntico e não foi manipulado por IA ou terceiros",
-                color: "green",
                 iconColor: "text-green-400",
-                borderColor: "hover:border-green-400/50",
-                shadowColor: "hover:shadow-green-500/30",
+                shadowClass: "glass-shadow-green",
                 delay: 1
               },
               {
                 icon: Zap,
                 title: "Verificação Instantânea",
                 description: "Qualquer pessoa pode verificar a autenticidade do conteúdo em segundos",
-                color: "yellow",
                 iconColor: "text-yellow-400",
-                borderColor: "hover:border-yellow-400/50",
-                shadowColor: "hover:shadow-yellow-500/30",
+                shadowClass: "glass-shadow-cyan",
                 delay: 2
               },
               {
                 icon: Lock,
                 title: "Criptografia Avançada",
                 description: "Tecnologia de ponta baseada em algoritmos SHA-256 e RSA de nível militar",
-                color: "purple",
                 iconColor: "text-purple-400",
-                borderColor: "hover:border-purple-400/50",
-                shadowColor: "hover:shadow-purple-500/30",
+                shadowClass: "glass-shadow-purple",
                 delay: 3
               },
               {
                 icon: Globe,
                 title: "Parcerias Comerciais",
                 description: "Marcas confiarão mais em criadores de conteúdo com autenticidade garantida",
-                color: "indigo",
                 iconColor: "text-indigo-400",
-                borderColor: "hover:border-indigo-400/50",
-                shadowColor: "hover:shadow-indigo-500/30",
+                shadowClass: "glass-shadow-purple",
                 delay: 4
               },
               {
                 icon: QrCode,
                 title: "Fácil de Usar",
                 description: "Interface intuitiva com QR Code para verificação simplificada e rápida",
-                color: "pink",
                 iconColor: "text-pink-400",
-                borderColor: "hover:border-pink-400/50",
-                shadowColor: "hover:shadow-pink-500/30",
+                shadowClass: "glass-shadow-purple",
                 delay: 5
               }
             ].map((benefit, index) => (
@@ -440,7 +428,7 @@ export default function Index() {
                 whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -12 }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
-                <Card className={`h-full backdrop-blur-xl bg-white/5 border-2 border-white/10 ${benefit.borderColor} hover:bg-white/10 transition-all duration-300 hover:shadow-2xl ${benefit.shadowColor} cursor-pointer`}>
+                <Card className={`glass-card glass-noise ${benefit.shadowClass} h-full cursor-pointer transition-all duration-300`}>
                   <CardHeader className="pb-3">
                     <motion.div
                       whileHover={shouldReduceMotion ? {} : { 
@@ -536,7 +524,7 @@ export default function Index() {
       
       {/* Footer */}
       <motion.footer 
-        className="border-t border-white/10 bg-slate-950/50 backdrop-blur-xl py-6 md:py-8"
+        className="glass-header py-6 md:py-8"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
