@@ -34,7 +34,7 @@ export default function Index() {
                 Admin Dashboard
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 font-semibold">
+            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 !bg-white text-slate-900 hover:bg-gray-100 hover:border-cyan-400/50 hover:text-slate-800 font-semibold">
               Entrar
             </Button>
             <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all">
@@ -66,7 +66,7 @@ export default function Index() {
           </h1>
           
           <div className="space-y-6 max-w-3xl mx-auto">
-            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed">
+            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-justify hyphens-auto" lang="pt-BR">
               Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
             </p>
             
