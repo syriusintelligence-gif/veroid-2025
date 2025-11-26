@@ -16,10 +16,11 @@ export default function Index() {
   const benefitsRef = useRef(null);
   const ctaRef = useRef(null);
   
-  const heroInView = useInView(heroRef, { once: true, amount: 0.3 });
-  const howItWorksInView = useInView(howItWorksRef, { once: true, amount: 0.2 });
+  // Melhorado: threshold mais baixo (0.2) para animações mais responsivas
+  const heroInView = useInView(heroRef, { once: true, amount: 0.2 });
+  const howItWorksInView = useInView(howItWorksRef, { once: true, amount: 0.15 });
   const benefitsInView = useInView(benefitsRef, { once: true, amount: 0.1 });
-  const ctaInView = useInView(ctaRef, { once: true, amount: 0.3 });
+  const ctaInView = useInView(ctaRef, { once: true, amount: 0.2 });
   
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
@@ -31,38 +32,51 @@ export default function Index() {
     }
   }, []);
   
+  // Melhorado: containerVariants com stagger mais pronunciado
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: shouldReduceMotion ? 0 : 0.1,
-        delayChildren: shouldReduceMotion ? 0 : 0.2
+        staggerChildren: shouldReduceMotion ? 0 : 0.15,
+        delayChildren: shouldReduceMotion ? 0 : 0.1
       }
     }
   };
   
+  // Melhorado: itemVariants com animação mais suave e profissional
   const itemVariants = {
-    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 30 },
+    hidden: { 
+      opacity: 0, 
+      y: shouldReduceMotion ? 0 : 40,
+      scale: shouldReduceMotion ? 1 : 0.95
+    },
     visible: {
       opacity: 1,
       y: 0,
+      scale: 1,
       transition: {
-        duration: shouldReduceMotion ? 0.01 : 0.6,
-        ease: [0.22, 1, 0.36, 1]
+        duration: shouldReduceMotion ? 0.01 : 0.7,
+        ease: [0.25, 0.1, 0.25, 1] // Cubic bezier mais suave
       }
     }
   };
   
+  // Melhorado: cardVariants com animação mais dramática
   const cardVariants = {
-    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 50 },
+    hidden: { 
+      opacity: 0, 
+      y: shouldReduceMotion ? 0 : 60,
+      scale: shouldReduceMotion ? 1 : 0.9
+    },
     visible: (custom: number) => ({
       opacity: 1,
       y: 0,
+      scale: 1,
       transition: {
-        duration: shouldReduceMotion ? 0.01 : 0.6,
-        delay: shouldReduceMotion ? 0 : custom * 0.1,
-        ease: [0.22, 1, 0.36, 1]
+        duration: shouldReduceMotion ? 0.01 : 0.7,
+        delay: shouldReduceMotion ? 0 : custom * 0.15, // Delay aumentado para stagger mais visível
+        ease: [0.25, 0.1, 0.25, 1]
       }
     })
   };
@@ -221,9 +235,9 @@ export default function Index() {
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
             className="text-center mb-10 md:mb-16"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.25, 0.1, 0.25, 1] }}
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 tracking-tight px-4">
               <span className="text-white">Como </span>
@@ -297,9 +311,9 @@ export default function Index() {
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
             className="text-center mb-10 md:mb-16"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.25, 0.1, 0.25, 1] }}
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 text-white tracking-tight px-4">Por Que Escolher o Vero iD</h2>
             <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
@@ -418,15 +432,15 @@ export default function Index() {
         <div className="relative z-10 container mx-auto px-4 text-center">
           <motion.div 
             className="max-w-3xl mx-auto space-y-4 md:space-y-6"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-            transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.25, 0.1, 0.25, 1] }}
           >
             <motion.h2 
               className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight px-4"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.2 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.2, ease: [0.25, 0.1, 0.25, 1] }}
             >
               <span className="text-white">Pronto para </span>
               <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
@@ -435,16 +449,16 @@ export default function Index() {
             </motion.h2>
             <motion.p 
               className="text-lg md:text-xl text-gray-300 px-4"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.4 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.4, ease: [0.25, 0.1, 0.25, 1] }}
             >
               Junte-se aos criadores de conteúdo que já estão combatendo deepfakes e fake news com tecnologia de ponta
             </motion.p>
             <motion.div
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, delay: shouldReduceMotion ? 0 : 0.6 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.6, ease: [0.25, 0.1, 0.25, 1] }}
               whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
               className="pt-2"
