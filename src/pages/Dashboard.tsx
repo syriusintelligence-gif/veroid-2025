@@ -296,7 +296,7 @@ export default function Dashboard() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-80" align="end">
+              <DropdownMenuContent className="w-80 bg-white" align="end">
                 {currentUser && (
                   <>
                     <div className="px-4 py-3">
