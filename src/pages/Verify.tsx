@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSignedContentById, getSignedContentByVerificationCode } from '@/lib/supabase-crypto';
+import { getSignedContentById, getSignedContentByVerificationCode, getCurrentUser } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 
 export default function Verify() {
@@ -13,6 +13,11 @@ export default function Verify() {
   const [searchParams] = useSearchParams();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  const handleLogoClick = async () => {
+    const user = await getCurrentUser();
+    navigate(user ? '/dashboard' : '/');
+  };
   
   // Função para codificar conteúdo para URL
   const encodeContentToUrl = (content: SignedContent): string => {
@@ -137,15 +142,19 @@ export default function Verify() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Vero iD"
+            >
               <Shield className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Vero iD
               </span>
-            </div>
+            </button>
           </div>
           <Button onClick={() => navigate('/dashboard')}>
             Dashboard

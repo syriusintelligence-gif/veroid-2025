@@ -13,6 +13,7 @@ import {
   isValidCPF,
   isValidCNPJ,
   isValidPassword,
+  getCurrentUser,
 } from '@/lib/supabase-auth';
 
 // Funções auxiliares para validação e processamento
@@ -119,6 +120,11 @@ export default function Cadastro() {
       });
     }
   }, [stream, webcamActive]);
+
+  const handleLogoClick = async () => {
+    const user = await getCurrentUser();
+    navigate(user ? '/dashboard' : '/');
+  };
   
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -347,15 +353,19 @@ export default function Cadastro() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Vero iD"
+            >
               <Shield className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Vero iD
               </span>
-            </div>
+            </button>
           </div>
           <Button variant="outline" onClick={() => navigate('/login')}>
             Já tenho conta

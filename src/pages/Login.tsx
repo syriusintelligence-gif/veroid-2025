@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, isValidEmail } from '@/lib/supabase-auth-v2';
+import { loginUser, isValidEmail, getCurrentUser } from '@/lib/supabase-auth-v2';
 
 interface DebugInfo {
   step: string;
@@ -44,6 +44,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  
+  const handleLogoClick = async () => {
+    const user = await getCurrentUser();
+    navigate(user ? '/dashboard' : '/');
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,15 +102,19 @@ export default function Login() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Ir para Home"
+            >
               <Shield className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Vero iD
               </span>
-            </div>
+            </button>
           </div>
           <Button variant="outline" onClick={() => navigate('/cadastro')}>
             Criar Conta

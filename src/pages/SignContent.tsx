@@ -86,6 +86,11 @@ export default function SignContent() {
     }
   };
   
+  const handleLogoClick = async () => {
+    const user = await getCurrentUser();
+    navigate(user ? '/dashboard' : '/');
+  };
+  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -287,11 +292,11 @@ ${content}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <button 
-              onClick={() => navigate('/dashboard')} 
+              onClick={handleLogoClick}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
               title="Ir para Dashboard"
             >

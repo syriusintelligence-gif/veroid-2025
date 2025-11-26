@@ -1,10 +1,9 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
+import { SignedContent, incrementVerificationCount, getSignedContentById, getCurrentUser } from '@/lib/supabase-crypto';
 import { Button } from '@/components/ui/button';
 import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
-import { getCurrentUser } from '@/lib/supabase-auth';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {

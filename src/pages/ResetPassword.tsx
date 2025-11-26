@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Lock, Loader2, CheckCircle2, Eye, EyeOff, Hash } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { resetPassword, isValidPassword } from '@/lib/auth';
+import { resetPassword, isValidPassword, getCurrentUser } from '@/lib/auth';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -28,6 +28,11 @@ export default function ResetPassword() {
       setEmail(emailFromUrl);
     }
   }, [emailFromUrl]);
+
+  const handleLogoClick = async () => {
+    const user = await getCurrentUser();
+    navigate(user ? '/dashboard' : '/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,18 +141,21 @@ export default function ResetPassword() {
         {/* Header */}
         <div className="text-center">
           <button
-            onClick={() => navigate('/forgot-password')}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </button>
-          <div className="flex items-center justify-center gap-2 mb-2">
+          <button 
+            onClick={handleLogoClick}
+            className="flex items-center justify-center gap-2 mb-2 w-full hover:opacity-80 transition-opacity cursor-pointer"
+          >
             <Shield className="h-10 w-10 text-blue-600" />
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Vero iD
             </h1>
-          </div>
+          </button>
           <p className="text-muted-foreground">Redefinir Senha</p>
         </div>
 
