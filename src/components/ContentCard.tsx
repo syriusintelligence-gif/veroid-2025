@@ -146,15 +146,15 @@ export default function ContentCard({ content, onVerify }: ContentCardProps) {
         {/* Código de Verificação */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-xl text-white">
           <p className="text-sm opacity-90 mb-2 text-center">Código de Verificação</p>
-          <div className="flex items-center justify-center gap-3">
-            <p className="text-3xl font-bold tracking-[0.5em] font-mono">
+          <div className="flex items-center justify-between gap-2 px-2">
+            <p className="text-2xl font-bold tracking-[0.3em] font-mono flex-1 text-center">
               {content.verificationCode}
             </p>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleCopyCode}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 flex-shrink-0"
               title="Copiar código"
             >
               {copiedCode ? (
