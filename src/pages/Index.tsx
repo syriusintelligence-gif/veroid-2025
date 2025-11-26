@@ -16,7 +16,6 @@ export default function Index() {
   const benefitsRef = useRef(null);
   const ctaRef = useRef(null);
   
-  // Melhorado: threshold mais baixo (0.2) para animações mais responsivas
   const heroInView = useInView(heroRef, { once: true, amount: 0.2 });
   const howItWorksInView = useInView(howItWorksRef, { once: true, amount: 0.15 });
   const benefitsInView = useInView(benefitsRef, { once: true, amount: 0.1 });
@@ -32,7 +31,6 @@ export default function Index() {
     }
   }, []);
   
-  // Melhorado: containerVariants com stagger mais pronunciado
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -44,7 +42,6 @@ export default function Index() {
     }
   };
   
-  // Melhorado: itemVariants com animação mais suave e profissional
   const itemVariants = {
     hidden: { 
       opacity: 0, 
@@ -57,12 +54,11 @@ export default function Index() {
       scale: 1,
       transition: {
         duration: shouldReduceMotion ? 0.01 : 0.7,
-        ease: [0.25, 0.1, 0.25, 1] // Cubic bezier mais suave
+        ease: [0.25, 0.1, 0.25, 1]
       }
     }
   };
   
-  // Melhorado: cardVariants com animação mais dramática
   const cardVariants = {
     hidden: { 
       opacity: 0, 
@@ -75,7 +71,7 @@ export default function Index() {
       scale: 1,
       transition: {
         duration: shouldReduceMotion ? 0.01 : 0.7,
-        delay: shouldReduceMotion ? 0 : custom * 0.15, // Delay aumentado para stagger mais visível
+        delay: shouldReduceMotion ? 0 : custom * 0.15,
         ease: [0.25, 0.1, 0.25, 1]
       }
     })
@@ -109,6 +105,7 @@ export default function Index() {
                 repeat: Infinity,
                 repeatDelay: 5
               }}
+              whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
             >
               <Shield className="h-7 w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
             </motion.div>
@@ -118,21 +115,46 @@ export default function Index() {
           </motion.div>
           <nav className="flex gap-2 md:gap-3">
             {isAdmin && (
-              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
-                <Button variant="outline" onClick={() => navigate('/admin/dashboard')} className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 text-xs md:text-sm px-2 md:px-4">
-                  <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+              <motion.div 
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+                whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+              >
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/admin/dashboard')} 
+                  className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+                >
+                  <motion.div
+                    whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                  </motion.div>
                   <span className="hidden sm:inline">Admin Dashboard</span>
                   <span className="sm:hidden">Admin</span>
                 </Button>
               </motion.div>
             )}
-            <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
-              <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 font-semibold text-xs md:text-sm px-3 md:px-4">
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/login')} 
+                className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-3 md:px-4 transition-all duration-300"
+              >
                 Entrar
               </Button>
             </motion.div>
-            <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
-              <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all text-xs md:text-sm px-3 md:px-4">
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                onClick={() => navigate('/cadastro')} 
+                className="button-ripple bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-3 md:px-4"
+              >
                 Cadastro
               </Button>
             </motion.div>
@@ -156,11 +178,13 @@ export default function Index() {
         >
           <motion.div 
             variants={itemVariants}
-            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-full text-xs md:text-sm font-semibold shadow-2xl"
+            whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 backdrop-blur-xl bg-white/5 border border-white/20 rounded-full text-xs md:text-sm font-semibold shadow-2xl transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/30"
           >
             <motion.div
               animate={shouldReduceMotion ? {} : { rotate: 360 }}
               transition={shouldReduceMotion ? {} : { duration: 20, repeat: Infinity, ease: "linear" }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.2 }}
             >
               <Shield className="h-3 w-3 md:h-4 md:w-4 text-cyan-400" />
             </motion.div>
@@ -204,23 +228,44 @@ export default function Index() {
             className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center pt-4 px-4"
           >
             <motion.div
-              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.08, y: -5 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
               className="w-full sm:w-auto"
             >
-              <Button size="lg" onClick={() => navigate('/cadastro')} className="w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-2xl shadow-cyan-500/40 hover:shadow-cyan-500/60 transition-all">
+              <Button 
+                size="lg" 
+                onClick={() => navigate('/cadastro')} 
+                className="button-ripple w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-2xl shadow-cyan-500/40 hover:shadow-3xl hover:shadow-cyan-500/60 transition-all duration-300"
+              >
                 Começar Agora
-                <Shield className="ml-2 h-4 w-4 md:h-5 md:w-5" />
+                <motion.div
+                  whileHover={shouldReduceMotion ? {} : { rotate: 360, scale: 1.2 }}
+                  transition={{ duration: 0.5 }}
+                  className="ml-2"
+                >
+                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                </motion.div>
               </Button>
             </motion.div>
             <motion.div
-              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.08, y: -5 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
               className="w-full sm:w-auto"
             >
-              <Button size="lg" variant="outline" onClick={() => navigate('/verify')} className="w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 border-2 border-white/20 !bg-transparent text-cyan-400 hover:border-cyan-400/50 hover:!bg-white/5 hover:text-cyan-300 backdrop-blur-sm transition-all font-semibold">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                onClick={() => navigate('/verify')} 
+                className="button-ripple w-full sm:w-auto text-base md:text-lg px-6 md:px-8 py-5 md:py-6 border-2 border-white/20 !bg-transparent text-cyan-400 hover:border-cyan-400/50 hover:!bg-white/5 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-sm transition-all duration-300 font-semibold"
+              >
                 Verificar Autenticidade
-                <CheckCircle className="ml-2 h-4 w-4 md:h-5 md:w-5" />
+                <motion.div
+                  whileHover={shouldReduceMotion ? {} : { scale: 1.2 }}
+                  transition={{ duration: 0.3 }}
+                  className="ml-2"
+                >
+                  <CheckCircle className="h-4 w-4 md:h-5 md:w-5" />
+                </motion.div>
               </Button>
             </motion.div>
           </motion.div>
@@ -279,14 +324,18 @@ export default function Index() {
                 variants={cardVariants}
                 initial="hidden"
                 animate={howItWorksInView ? "visible" : "hidden"}
-                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -10 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -12 }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
-                <Card className={`text-center backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${step.hoverColor}-400/50 hover:bg-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-${step.hoverColor}-500/20 h-full`}>
+                <Card className={`text-center backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${step.hoverColor}-400/50 hover:bg-white/10 transition-all duration-300 hover:shadow-2xl hover:shadow-${step.hoverColor}-500/30 h-full cursor-pointer`}>
                   <CardHeader className="pb-4">
                     <motion.div 
-                      className={`mx-auto w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg shadow-${step.hoverColor}-500/50`}
-                      whileHover={shouldReduceMotion ? {} : { rotate: 360, scale: 1.1 }}
+                      className={`mx-auto w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg shadow-${step.hoverColor}-500/50 transition-all duration-300`}
+                      whileHover={shouldReduceMotion ? {} : { 
+                        rotate: 360, 
+                        scale: 1.15,
+                        boxShadow: `0 20px 40px rgba(6, 182, 212, 0.4)`
+                      }}
                       transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
                     >
                       <step.icon className="h-8 w-8 md:h-10 md:w-10 text-white" />
@@ -328,7 +377,7 @@ export default function Index() {
                 color: "cyan",
                 iconColor: "text-cyan-400",
                 borderColor: "hover:border-cyan-400/50",
-                shadowColor: "hover:shadow-cyan-500/20",
+                shadowColor: "hover:shadow-cyan-500/30",
                 delay: 0
               },
               {
@@ -338,7 +387,7 @@ export default function Index() {
                 color: "green",
                 iconColor: "text-green-400",
                 borderColor: "hover:border-green-400/50",
-                shadowColor: "hover:shadow-green-500/20",
+                shadowColor: "hover:shadow-green-500/30",
                 delay: 1
               },
               {
@@ -348,7 +397,7 @@ export default function Index() {
                 color: "yellow",
                 iconColor: "text-yellow-400",
                 borderColor: "hover:border-yellow-400/50",
-                shadowColor: "hover:shadow-yellow-500/20",
+                shadowColor: "hover:shadow-yellow-500/30",
                 delay: 2
               },
               {
@@ -358,7 +407,7 @@ export default function Index() {
                 color: "purple",
                 iconColor: "text-purple-400",
                 borderColor: "hover:border-purple-400/50",
-                shadowColor: "hover:shadow-purple-500/20",
+                shadowColor: "hover:shadow-purple-500/30",
                 delay: 3
               },
               {
@@ -368,7 +417,7 @@ export default function Index() {
                 color: "indigo",
                 iconColor: "text-indigo-400",
                 borderColor: "hover:border-indigo-400/50",
-                shadowColor: "hover:shadow-indigo-500/20",
+                shadowColor: "hover:shadow-indigo-500/30",
                 delay: 4
               },
               {
@@ -378,7 +427,7 @@ export default function Index() {
                 color: "pink",
                 iconColor: "text-pink-400",
                 borderColor: "hover:border-pink-400/50",
-                shadowColor: "hover:shadow-pink-500/20",
+                shadowColor: "hover:shadow-pink-500/30",
                 delay: 5
               }
             ].map((benefit, index) => (
@@ -388,14 +437,17 @@ export default function Index() {
                 variants={cardVariants}
                 initial="hidden"
                 animate={benefitsInView ? "visible" : "hidden"}
-                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -10 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -12 }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
               >
-                <Card className={`h-full backdrop-blur-xl bg-white/5 border-2 border-white/10 ${benefit.borderColor} hover:bg-white/10 transition-all duration-500 hover:shadow-2xl ${benefit.shadowColor}`}>
+                <Card className={`h-full backdrop-blur-xl bg-white/5 border-2 border-white/10 ${benefit.borderColor} hover:bg-white/10 transition-all duration-300 hover:shadow-2xl ${benefit.shadowColor} cursor-pointer`}>
                   <CardHeader className="pb-3">
                     <motion.div
-                      whileHover={shouldReduceMotion ? {} : { rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
-                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.5 }}
+                      whileHover={shouldReduceMotion ? {} : { 
+                        rotate: [0, -15, 15, -15, 0], 
+                        scale: 1.3 
+                      }}
+                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
                     >
                       <benefit.icon className={`h-10 w-10 md:h-12 md:w-12 ${benefit.iconColor} mb-2 md:mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
                     </motion.div>
@@ -459,13 +511,23 @@ export default function Index() {
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
               animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
               transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -5 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.08, y: -8 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
               className="pt-2"
             >
-              <Button size="lg" onClick={() => navigate('/cadastro')} className="text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-white text-blue-600 hover:bg-gray-100 shadow-2xl hover:shadow-white/20 transition-all font-bold">
+              <Button 
+                size="lg" 
+                onClick={() => navigate('/cadastro')} 
+                className="button-ripple text-base md:text-lg px-6 md:px-8 py-5 md:py-6 bg-white text-blue-600 hover:bg-gray-100 shadow-2xl hover:shadow-3xl hover:shadow-white/30 transition-all duration-300 font-bold"
+              >
                 Começar Agora
-                <Shield className="ml-2 h-4 w-4 md:h-5 md:w-5" />
+                <motion.div
+                  whileHover={shouldReduceMotion ? {} : { rotate: 360, scale: 1.2 }}
+                  transition={{ duration: 0.5 }}
+                  className="ml-2"
+                >
+                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                </motion.div>
               </Button>
             </motion.div>
           </motion.div>
