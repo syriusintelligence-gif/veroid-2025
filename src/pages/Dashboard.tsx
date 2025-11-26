@@ -509,16 +509,6 @@ export default function Dashboard() {
                     ⚠️ Nunca compartilhe sua chave privada. Ela é usada para assinar seu conteúdo digitalmente.
                   </p>
                 </div>
-                
-                {/* Info adicional */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                  <p className="text-sm text-blue-900">
-                    <strong>💾 Backup Automático:</strong> Suas chaves estão salvas no Supabase e serão restauradas automaticamente no próximo login.
-                  </p>
-                  <p className="text-sm text-blue-900">
-                    <strong>🔒 Segurança:</strong> As chaves são criptografadas e armazenadas de forma segura.
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -565,7 +555,10 @@ export default function Dashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" disabled={!keyPair}>
+              <Button 
+                className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
+                disabled={!keyPair}
+              >
                 {keyPair ? 'Criar Nova Assinatura' : 'Gere suas chaves primeiro'}
               </Button>
             </CardContent>
@@ -582,7 +575,10 @@ export default function Dashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full border-2 border-gray-300 hover:scale-105 hover:shadow-lg transition-all duration-300"
+              >
                 Verificar Assinatura
               </Button>
             </CardContent>
