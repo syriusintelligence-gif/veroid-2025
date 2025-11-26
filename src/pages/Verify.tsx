@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSignedContentById, getSignedContentByVerificationCode, getCurrentUser } from '@/lib/supabase-crypto';
+import { getSignedContentById, getSignedContentByVerificationCode } from '@/lib/supabase-crypto';
+import { getCurrentUser } from '@/lib/supabase-auth';
 import type { SignedContent } from '@/lib/supabase-crypto';
 
 export default function Verify() {
