@@ -304,6 +304,9 @@ export default function Index() {
                 title: "Plataforma Única",
                 description: "A única plataforma que utiliza criptografia de ponta para validar a origem do seu conteúdo e neutralizar manipulações por IA",
                 color: "cyan",
+                iconColor: "text-cyan-400",
+                borderColor: "hover:border-cyan-400/50",
+                shadowColor: "hover:shadow-cyan-500/20",
                 delay: 0
               },
               {
@@ -311,6 +314,9 @@ export default function Index() {
                 title: "Credibilidade Aumentada",
                 description: "Seu público saberá que o conteúdo é autêntico e não foi manipulado por IA ou terceiros",
                 color: "green",
+                iconColor: "text-green-400",
+                borderColor: "hover:border-green-400/50",
+                shadowColor: "hover:shadow-green-500/20",
                 delay: 1
               },
               {
@@ -318,6 +324,9 @@ export default function Index() {
                 title: "Verificação Instantânea",
                 description: "Qualquer pessoa pode verificar a autenticidade do conteúdo em segundos",
                 color: "yellow",
+                iconColor: "text-yellow-400",
+                borderColor: "hover:border-yellow-400/50",
+                shadowColor: "hover:shadow-yellow-500/20",
                 delay: 2
               },
               {
@@ -325,6 +334,9 @@ export default function Index() {
                 title: "Criptografia Avançada",
                 description: "Tecnologia de ponta baseada em algoritmos SHA-256 e RSA de nível militar",
                 color: "purple",
+                iconColor: "text-purple-400",
+                borderColor: "hover:border-purple-400/50",
+                shadowColor: "hover:shadow-purple-500/20",
                 delay: 3
               },
               {
@@ -332,6 +344,9 @@ export default function Index() {
                 title: "Parcerias Comerciais",
                 description: "Marcas confiarão mais em criadores de conteúdo com autenticidade garantida",
                 color: "indigo",
+                iconColor: "text-indigo-400",
+                borderColor: "hover:border-indigo-400/50",
+                shadowColor: "hover:shadow-indigo-500/20",
                 delay: 4
               },
               {
@@ -339,6 +354,9 @@ export default function Index() {
                 title: "Fácil de Usar",
                 description: "Interface intuitiva com QR Code para verificação simplificada e rápida",
                 color: "pink",
+                iconColor: "text-pink-400",
+                borderColor: "hover:border-pink-400/50",
+                shadowColor: "hover:shadow-pink-500/20",
                 delay: 5
               }
             ].map((benefit, index) => (
@@ -351,18 +369,18 @@ export default function Index() {
                 whileHover={{ scale: 1.05, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className={`backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-${benefit.color}-400/50 hover:bg-white/10 transition-all duration-500 hover:shadow-2xl hover:shadow-${benefit.color}-500/20`}>
+                <Card className={`h-full backdrop-blur-xl bg-white/5 border-2 border-white/10 ${benefit.borderColor} hover:bg-white/10 transition-all duration-500 hover:shadow-2xl ${benefit.shadowColor}`}>
                   <CardHeader>
                     <motion.div
                       whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <benefit.icon className={`h-12 w-12 text-${benefit.color}-400 mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
+                      <benefit.icon className={`h-12 w-12 ${benefit.iconColor} mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
                     </motion.div>
-                    <CardTitle className="text-xl text-white font-bold">{benefit.title}</CardTitle>
+                    <CardTitle className="text-xl text-white font-bold mb-3">{benefit.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-300">
+                    <p className="text-gray-300 leading-relaxed">
                       {benefit.description}
                     </p>
                   </CardContent>
