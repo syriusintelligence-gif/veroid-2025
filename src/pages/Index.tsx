@@ -34,7 +34,7 @@ export default function Index() {
                 Admin Dashboard
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 !bg-white text-slate-900 hover:bg-gray-100 hover:border-cyan-400/50 hover:text-slate-800 font-semibold">
+            <Button variant="outline" onClick={() => navigate('/login')} className="border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 font-semibold">
               Entrar
             </Button>
             <Button onClick={() => navigate('/cadastro')} className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all">
@@ -57,7 +57,7 @@ export default function Index() {
             </span>
           </div>
           
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-12">
             <span className="text-white">O Fim da Desinformação</span>
             <br />
             <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
@@ -65,13 +65,9 @@ export default function Index() {
             </span>
           </h1>
           
-          <div className="space-y-6 max-w-3xl mx-auto">
-            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-justify hyphens-auto" lang="pt-BR">
+          <div className="space-y-6 max-w-4xl mx-auto">
+            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed text-justify px-4" style={{ hyphens: 'none' }}>
               Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
-            </p>
-            
-            <p className="text-lg md:text-xl text-gray-400 leading-relaxed border-l-4 border-cyan-500 pl-6 py-2 bg-white/5 backdrop-blur-sm rounded-r-lg">
-              A única plataforma que utiliza <strong className="text-cyan-400">criptografia de ponta</strong> para validar a origem do seu conteúdo e neutralizar manipulações por IA.
             </p>
           </div>
           
@@ -154,6 +150,18 @@ export default function Index() {
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <Card className="backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-cyan-400/50 hover:bg-white/10 hover:scale-105 transition-all duration-500 hover:shadow-2xl hover:shadow-cyan-500/20">
+              <CardHeader>
+                <Shield className="h-12 w-12 text-cyan-400 mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+                <CardTitle className="text-xl text-white font-bold">Plataforma Única</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-300">
+                  A única plataforma que utiliza <strong className="text-cyan-400">criptografia de ponta</strong> para validar a origem do seu conteúdo e neutralizar manipulações por IA
+                </p>
+              </CardContent>
+            </Card>
+            
             <Card className="backdrop-blur-xl bg-white/5 border-2 border-white/10 hover:border-green-400/50 hover:bg-white/10 hover:scale-105 transition-all duration-500 hover:shadow-2xl hover:shadow-green-500/20">
               <CardHeader>
                 <CheckCircle className="h-12 w-12 text-green-400 mb-3 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
