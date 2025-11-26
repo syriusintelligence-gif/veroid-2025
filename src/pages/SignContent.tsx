@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -350,11 +350,18 @@ ${content}
                     <Button
                       key={type.value}
                       variant={contentType === type.value ? 'default' : 'outline'}
-                      className="flex items-center gap-2 justify-start"
+                      className={`flex items-center gap-2 justify-start relative transition-all duration-300 ${
+                        contentType === type.value
+                          ? 'border-2 border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
+                          : 'border-2 border-gray-200 hover:border-blue-400 hover:shadow-md'
+                      }`}
                       onClick={() => setContentType(type.value)}
                     >
                       {type.icon}
                       <span className="text-sm">{type.label}</span>
+                      {contentType === type.value && (
+                        <Check className="h-4 w-4 absolute top-1 right-1" />
+                      )}
                     </Button>
                   ))}
                 </div>
