@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import { ScrollProgressBar } from '@/components/ScrollProgressBar';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -67,6 +68,9 @@ export default function Index() {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Scroll Progress Bar */}
+      <ScrollProgressBar />
+      
       {/* Header */}
       <motion.header 
         initial={{ y: -100, opacity: 0 }}
