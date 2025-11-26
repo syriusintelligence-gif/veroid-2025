@@ -407,7 +407,7 @@ export default function Index() {
             <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
           </motion.div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto auto-rows-fr">
             {[
               {
                 icon: Shield,
@@ -466,9 +466,10 @@ export default function Index() {
                 animate={benefitsInView ? "visible" : "hidden"}
                 whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -12 }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.3 }}
+                className="h-full"
               >
-                <Card className={`glass-card glass-noise ${benefit.shadowClass} h-full cursor-pointer transition-all duration-300`}>
-                  <CardHeader className="pb-3">
+                <Card className={`glass-card glass-noise ${benefit.shadowClass} h-full cursor-pointer transition-all duration-300 flex flex-col`}>
+                  <CardHeader className="pb-3 flex-shrink-0">
                     <motion.div
                       className="inline-block"
                       whileHover={shouldReduceMotion ? {} : { 
@@ -483,7 +484,7 @@ export default function Index() {
                     </motion.div>
                     <CardTitle className="text-lg md:text-xl text-white font-bold mb-2 md:mb-3">{benefit.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 flex-grow">
                     <p className="text-sm md:text-base text-gray-300 leading-relaxed">
                       {benefit.description}
                     </p>
