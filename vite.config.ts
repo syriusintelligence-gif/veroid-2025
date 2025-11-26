@@ -35,7 +35,51 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        manualChunks(id) {
+          // Vendor chunks - separate large libraries
+          if (id.includes('node_modules')) {
+            // React ecosystem
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            // Framer Motion
+            if (id.includes('framer-motion')) {
+              return 'vendor-framer';
+            }
+            // Supabase
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            // Radix UI components
+            if (id.includes('@radix-ui')) {
+              return 'vendor-ui';
+            }
+            // Lucide icons
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            // Crypto libraries
+            if (id.includes('jsrsasign')) {
+              return 'vendor-crypto';
+            }
+            // Canvas libraries
+            if (id.includes('html2canvas')) {
+              return 'vendor-canvas';
+            }
+            // Other utilities
+            return 'vendor-utils';
+          }
+        }
+      }
+    },
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true
       }
     }
   }
