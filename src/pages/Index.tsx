@@ -21,8 +21,26 @@ export default function Index() {
   const benefitsInView = useInView(benefitsRef, { once: true, amount: 0.1 });
   const ctaInView = useInView(ctaRef, { once: true, amount: 0.2 });
   
+  // Parallax Effects: Multiple scroll transforms for different layers
   const { scrollYProgress } = useScroll();
-  const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+  
+  // Hero section parallax (background moves slower)
+  const heroBackgroundY = useTransform(scrollYProgress, [0, 0.3], ['0%', '50%']);
+  
+  // Section backgrounds parallax (different speeds for depth)
+  const howItWorksBackgroundY = useTransform(scrollYProgress, [0.2, 0.5], ['0%', '30%']);
+  const benefitsBackgroundY = useTransform(scrollYProgress, [0.4, 0.7], ['0%', '30%']);
+  const ctaBackgroundY = useTransform(scrollYProgress, [0.6, 1], ['0%', '40%']);
+  
+  // Floating elements parallax (move in opposite direction)
+  const floatingY = useTransform(scrollYProgress, [0, 1], ['0%', '-20%']);
+  
+  // Opacity changes based on scroll
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.3]);
+  const ctaOpacity = useTransform(scrollYProgress, [0.7, 0.9], [0.3, 1]);
+  
+  // Scale changes for depth effect
+  const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
   
   useEffect(() => {
     const user = getCurrentUser();
@@ -162,15 +180,30 @@ export default function Index() {
         </div>
       </motion.header>
       
-      {/* Hero Section */}
+      {/* Hero Section with Enhanced Parallax */}
       <section ref={heroRef} className="relative container mx-auto px-4 py-12 md:py-20 lg:py-24 text-center overflow-hidden">
-        {/* Background decorativo com grid - com parallax */}
+        {/* Layer 1: Background grid with parallax (slowest) */}
         <motion.div 
-          style={{ y: shouldReduceMotion ? 0 : backgroundY }}
-          className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none" 
+          style={{ 
+            y: shouldReduceMotion ? 0 : heroBackgroundY,
+            opacity: shouldReduceMotion ? 0.2 : heroOpacity
+          }}
+          className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" 
         />
         
+        {/* Layer 2: Floating decorative elements (opposite direction) */}
+        <motion.div
+          style={{ y: shouldReduceMotion ? 0 : floatingY }}
+          className="absolute inset-0 pointer-events-none"
+        >
+          <div className="absolute top-20 left-10 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl" />
+          <div className="absolute top-40 right-20 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 left-1/3 w-36 h-36 bg-purple-500/5 rounded-full blur-3xl" />
+        </motion.div>
+        
+        {/* Layer 3: Content (normal speed with scale) */}
         <motion.div 
+          style={{ scale: shouldReduceMotion ? 1 : heroScale }}
           className="relative z-10 max-w-5xl mx-auto space-y-6 md:space-y-8"
           variants={containerVariants}
           initial="hidden"
@@ -272,10 +305,13 @@ export default function Index() {
         </motion.div>
       </section>
       
-      {/* Como Funciona */}
+      {/* Como Funciona with Parallax */}
       <section ref={howItWorksRef} className="relative bg-gradient-to-b from-slate-900 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
-        {/* Grid pattern decorativo */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
+        {/* Grid pattern with parallax */}
+        <motion.div 
+          style={{ y: shouldReduceMotion ? 0 : howItWorksBackgroundY }}
+          className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" 
+        />
         
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
@@ -352,10 +388,13 @@ export default function Index() {
         </div>
       </section>
       
-      {/* Benefícios */}
+      {/* Benefícios with Parallax */}
       <section ref={benefitsRef} className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden">
-        {/* Grid pattern decorativo */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
+        {/* Grid pattern with parallax */}
+        <motion.div 
+          style={{ y: shouldReduceMotion ? 0 : benefitsBackgroundY }}
+          className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" 
+        />
         
         <div className="relative z-10 container mx-auto px-4">
           <motion.div 
@@ -453,10 +492,11 @@ export default function Index() {
         </div>
       </section>
       
-      {/* CTA Final */}
+      {/* CTA Final with Parallax */}
       <section ref={ctaRef} className="relative bg-gradient-to-br from-blue-950 via-purple-950 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
-        {/* Efeito de brilho animado */}
+        {/* Background glow with parallax */}
         <motion.div 
+          style={{ y: shouldReduceMotion ? 0 : ctaBackgroundY }}
           className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.1),transparent_50%)] pointer-events-none"
           animate={shouldReduceMotion ? {} : {
             scale: [1, 1.2, 1],
@@ -471,6 +511,7 @@ export default function Index() {
         
         <div className="relative z-10 container mx-auto px-4 text-center">
           <motion.div 
+            style={{ opacity: shouldReduceMotion ? 1 : ctaOpacity }}
             className="max-w-3xl mx-auto space-y-4 md:space-y-6"
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
             animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
