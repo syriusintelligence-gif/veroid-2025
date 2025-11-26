@@ -322,7 +322,7 @@ export default function Index() {
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 tracking-tight px-4">
               <span className="text-white">Como </span>
-              <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Funciona</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Funciona?</span>
             </h2>
             <p className="text-lg md:text-xl text-gray-400 px-4">Processo simples e seguro em 3 passos</p>
           </motion.div>
@@ -403,7 +403,7 @@ export default function Index() {
             animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
             transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.25, 0.1, 0.25, 1] }}
           >
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 text-white tracking-tight px-4">Por Que Escolher o Vero iD</h2>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 text-white tracking-tight px-4">Por Que Escolher o Vero iD?</h2>
             <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
           </motion.div>
           
@@ -470,11 +470,14 @@ export default function Index() {
                 <Card className={`glass-card glass-noise ${benefit.shadowClass} h-full cursor-pointer transition-all duration-300`}>
                   <CardHeader className="pb-3">
                     <motion.div
+                      className="inline-block"
                       whileHover={shouldReduceMotion ? {} : { 
-                        rotate: [0, -15, 15, -15, 0], 
-                        scale: 1.3 
+                        y: -4
                       }}
-                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.6 }}
+                      transition={{ 
+                        duration: 0.3,
+                        ease: "easeOut"
+                      }}
                     >
                       <benefit.icon className={`h-10 w-10 md:h-12 md:w-12 ${benefit.iconColor} mb-2 md:mb-3 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]`} />
                     </motion.div>
