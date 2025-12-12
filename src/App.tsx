@@ -23,6 +23,8 @@ const AdminSetup = lazy(() => import('./pages/AdminSetup'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const CreateAdminAccount = lazy(() => import('./pages/CreateAdminAccount'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const Terms = lazy(() => import('./pages/Terms'));
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -69,6 +71,10 @@ function App() {
           
           {/* Criar conta admin */}
           <Route path="/create-admin" element={<CreateAdminAccount />} />
+          
+          {/* Política de Privacidade e Termos de Uso */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<Terms />} />
           
           {/* Rotas protegidas */}
           <Route

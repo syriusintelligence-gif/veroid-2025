@@ -578,6 +578,21 @@ export default function Index() {
         <div className="container mx-auto px-4 text-center text-gray-400">
           <p className="font-semibold text-white text-sm md:text-base">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
           <p className="text-xs md:text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
+          <div className="flex justify-center gap-4 mt-4 text-xs md:text-sm">
+            <button 
+              onClick={() => navigate('/privacy')} 
+              className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
+            >
+              Política de Privacidade
+            </button>
+            <span className="text-gray-600">•</span>
+            <button 
+              onClick={() => navigate('/terms')} 
+              className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
+            >
+              Termos de Uso
+            </button>
+          </div>
         </div>
       </motion.footer>
     </div>
