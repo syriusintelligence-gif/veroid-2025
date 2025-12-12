@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase';
 import type { Database } from './supabase';
+import { setUserContext, clearUserContext } from './sentry';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type UserInsert = Database['public']['Tables']['users']['Insert'];
@@ -297,6 +298,12 @@ export async function registerUser(
     console.log('✅ Usuário registrado com sucesso!');
     console.log('📊 Dados:', { email: userData.email, isAdmin: userData.is_admin });
     
+    // Define contexto do usuário no Sentry
+    setUserContext({
+      id: userData.id,
+      username: userData.nome_publico,
+    });
+    
     return {
       success: true,
       user: dbUserToAppUser(userData),
@@ -412,6 +419,13 @@ export async function loginUser(
       if (syncedUser) {
         console.log('✅ Dados sincronizados com sucesso!');
         debugInfo.step = 'sync_success';
+        
+        // Define contexto do usuário no Sentry
+        setUserContext({
+          id: syncedUser.id,
+          username: syncedUser.nomePublico,
+        });
+        
         return { success: true, user: syncedUser, debugInfo };
       }
       
@@ -428,6 +442,12 @@ export async function loginUser(
       isAdmin: userData.is_admin,
       verified: userData.verified,
     };
+    
+    // Define contexto do usuário no Sentry
+    setUserContext({
+      id: userData.id,
+      username: userData.nome_publico,
+    });
     
     return {
       success: true,
@@ -450,6 +470,10 @@ export async function loginUser(
 export async function logout(): Promise<void> {
   try {
     console.log('👋 Fazendo logout...');
+    
+    // Limpa contexto do usuário no Sentry
+    clearUserContext();
+    
     await supabase.auth.signOut();
     console.log('✅ Logout realizado com sucesso');
   } catch (error) {
@@ -479,7 +503,15 @@ export async function getCurrentUser(): Promise<User | null> {
       return null;
     }
     
-    return dbUserToAppUser(userData);
+    const user = dbUserToAppUser(userData);
+    
+    // Define contexto do usuário no Sentry
+    setUserContext({
+      id: user.id,
+      username: user.nomePublico,
+    });
+    
+    return user;
   } catch (error) {
     console.error('❌ Erro ao obter usuário atual:', error);
     return null;
