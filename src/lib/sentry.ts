@@ -126,7 +126,7 @@ export function initSentry() {
  * @param error - Erro a ser capturado
  * @param context - Contexto adicional (opcional)
  */
-export function captureError(error: Error, context?: Record<string, any>) {
+export function captureError(error: Error, context?: Record<string, unknown>) {
   if (context) {
     Sentry.setContext('custom', context);
   }
