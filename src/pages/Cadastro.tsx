@@ -15,6 +15,8 @@ import {
   isValidPassword,
   getCurrentUser,
 } from '@/lib/supabase-auth';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { RateLimitAlert } from '@/components/RateLimitAlert';
 
 // Funções auxiliares para validação e processamento
 function validateCpfCnpj(value: string): boolean {
@@ -82,6 +84,9 @@ export default function Cadastro() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Rate limiting: 3 contas por hora
+  const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('REGISTER');
   
   // Dados do formulário
   const [nomeCompleto, setNomeCompleto] = useState('');
@@ -302,6 +307,16 @@ export default function Cadastro() {
       return;
     }
     
+    // Verifica rate limiting ANTES de criar conta
+    const rateLimitResult = await checkRateLimit();
+    if (!rateLimitResult.allowed) {
+      console.warn('🚫 Rate limit excedido:', rateLimitResult.message);
+      setError(rateLimitResult.message || 'Muitas tentativas de registro. Aguarde antes de tentar novamente.');
+      return;
+    }
+    
+    console.log(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
+    
     setIsLoading(true);
     setError('');
     
@@ -401,7 +416,16 @@ export default function Cadastro() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {error && (
+              {/* Rate Limit Alert - apenas no step 3 */}
+              {step === 3 && isBlocked && (
+                <RateLimitAlert 
+                  blockedUntil={blockedUntil}
+                  message={rateLimitMessage}
+                  remaining={remaining}
+                />
+              )}
+              
+              {error && !isBlocked && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -633,6 +657,7 @@ export default function Cadastro() {
                       placeholder="••••••"
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
+                      disabled={isBlocked}
                     />
                     <p className="text-xs text-muted-foreground">
                       Mínimo 6 caracteres, 1 letra maiúscula e 1 caractere especial
@@ -647,8 +672,16 @@ export default function Cadastro() {
                       placeholder="••••••"
                       value={confirmarSenha}
                       onChange={(e) => setConfirmarSenha(e.target.value)}
+                      disabled={isBlocked}
                     />
                   </div>
+                  
+                  {/* Indicador de tentativas restantes */}
+                  {!isBlocked && remaining !== undefined && remaining <= 1 && (
+                    <p className="text-xs text-center text-amber-600 font-medium">
+                      ⚠️ Última tentativa disponível nesta hora
+                    </p>
+                  )}
                   
                   <div className="flex gap-2">
                     <Button
@@ -656,10 +689,11 @@ export default function Cadastro() {
                       variant="outline"
                       onClick={() => setStep(2)}
                       className="flex-1"
+                      disabled={isLoading || isBlocked}
                     >
                       Voltar
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isLoading}>
+                    <Button type="submit" className="flex-1" disabled={isLoading || isBlocked}>
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

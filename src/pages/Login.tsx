@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, isValidEmail, getCurrentUser } from '@/lib/supabase-auth-v2';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { RateLimitAlert } from '@/components/RateLimitAlert';
 
 interface DebugInfo {
   step: string;
@@ -45,6 +47,9 @@ export default function Login() {
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   
+  // Rate limiting: 5 tentativas por minuto
+  const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('LOGIN');
+  
   const handleLogoClick = async () => {
     const user = await getCurrentUser();
     navigate(user ? '/dashboard' : '/');
@@ -57,7 +62,7 @@ export default function Login() {
     
     console.log('📝 Formulário submetido');
     
-    // Validações
+    // Validações básicas
     if (!email || !senha) {
       setError('Por favor, preencha todos os campos');
       return;
@@ -67,6 +72,16 @@ export default function Login() {
       setError('Email inválido');
       return;
     }
+    
+    // Verifica rate limiting ANTES de tentar login
+    const rateLimitResult = await checkRateLimit();
+    if (!rateLimitResult.allowed) {
+      console.warn('🚫 Rate limit excedido:', rateLimitResult.message);
+      setError(rateLimitResult.message || 'Muitas tentativas. Aguarde antes de tentar novamente.');
+      return;
+    }
+    
+    console.log(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsLoading(true);
     console.log('🔐 Iniciando processo de login com Supabase Auth V2...');
@@ -132,7 +147,16 @@ export default function Login() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {/* Rate Limit Alert */}
+              {isBlocked && (
+                <RateLimitAlert 
+                  blockedUntil={blockedUntil}
+                  message={rateLimitMessage}
+                  remaining={remaining}
+                />
+              )}
+              
+              {error && !isBlocked && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
@@ -172,7 +196,7 @@ export default function Login() {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isBlocked}
                   autoComplete="email"
                 />
               </div>
@@ -195,7 +219,7 @@ export default function Login() {
                   placeholder="••••••"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isBlocked}
                   autoComplete="current-password"
                 />
               </div>
@@ -203,7 +227,7 @@ export default function Login() {
               <Button 
                 type="submit" 
                 className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
-                disabled={isLoading}
+                disabled={isLoading || isBlocked}
               >
                 {isLoading ? (
                   <>
@@ -217,6 +241,13 @@ export default function Login() {
                   </>
                 )}
               </Button>
+              
+              {/* Indicador de tentativas restantes */}
+              {!isBlocked && remaining !== undefined && remaining < 3 && (
+                <p className="text-xs text-center text-muted-foreground">
+                  ⚠️ {remaining} tentativa{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''}
+                </p>
+              )}
               
               <div className="text-center text-sm text-muted-foreground">
                 Não tem uma conta?{' '}
