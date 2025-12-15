@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, isValidEmail, getCurrentUser } from '@/lib/supabase-auth-v2';
 import { useRateLimit } from '@/hooks/useRateLimit';
@@ -16,6 +16,7 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Rate limiting: 5 tentativas por minuto
   const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('LOGIN');
@@ -160,15 +161,36 @@ export default function Login() {
                     Esqueceu a senha?
                   </Button>
                 </div>
-                <Input
-                  id="senha"
-                  type="password"
-                  placeholder="••••••"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  disabled={isLoading || isBlocked}
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="senha"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    disabled={isLoading || isBlocked}
+                    autoComplete="current-password"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading || isBlocked}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="sr-only">
+                      {showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    </span>
+                  </Button>
+                </div>
               </div>
               
               <Button 
