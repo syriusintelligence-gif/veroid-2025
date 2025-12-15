@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Lock, Loader2, CheckCircle2, Eye, EyeOff, Hash } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { resetPassword, isValidPassword, getCurrentUser } from '@/lib/auth';
+import { resetPassword, isValidPassword } from '@/lib/auth';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -28,11 +28,6 @@ export default function ResetPassword() {
       setEmail(emailFromUrl);
     }
   }, [emailFromUrl]);
-
-  const handleLogoClick = async () => {
-    const user = await getCurrentUser();
-    navigate(user ? '/dashboard' : '/');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,15 +142,12 @@ export default function ResetPassword() {
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </button>
-          <button 
-            onClick={handleLogoClick}
-            className="flex items-center justify-center gap-2 mb-2 w-full hover:opacity-80 transition-opacity cursor-pointer"
-          >
+          <div className="flex items-center justify-center gap-2 mb-2">
             <Shield className="h-10 w-10 text-blue-600" />
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Vero iD
             </h1>
-          </button>
+          </div>
           <p className="text-muted-foreground">Redefinir Senha</p>
         </div>
 

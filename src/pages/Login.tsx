@@ -21,11 +21,6 @@ export default function Login() {
   // Rate limiting: 5 tentativas por minuto
   const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('LOGIN');
   
-  const handleLogoClick = async () => {
-    const user = await getCurrentUser();
-    navigate(user ? '/dashboard' : '/');
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -93,16 +88,12 @@ export default function Login() {
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <button 
-              onClick={handleLogoClick}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
-              title="Ir para Home"
-            >
+            <div className="flex items-center gap-2">
               <Shield className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Vero iD
               </span>
-            </button>
+            </div>
           </div>
           <Button variant="outline" onClick={() => navigate('/cadastro')}>
             Criar Conta

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { requestPasswordReset, isValidEmail, getCurrentUser } from '@/lib/auth';
+import { requestPasswordReset, isValidEmail } from '@/lib/auth';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -15,11 +15,6 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [resetCode, setResetCode] = useState('');
-
-  const handleLogoClick = async () => {
-    const user = await getCurrentUser();
-    navigate(user ? '/dashboard' : '/');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,15 +67,12 @@ export default function ForgotPassword() {
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </button>
-          <button 
-            onClick={handleLogoClick}
-            className="flex items-center justify-center gap-2 mb-2 w-full hover:opacity-80 transition-opacity cursor-pointer"
-          >
+          <div className="flex items-center justify-center gap-2 mb-2">
             <Shield className="h-10 w-10 text-blue-600" />
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Vero iD
             </h1>
-          </button>
+          </div>
           <p className="text-muted-foreground">Recuperação de Senha</p>
         </div>
 
