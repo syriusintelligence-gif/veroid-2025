@@ -4,39 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Info } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, isValidEmail, getCurrentUser } from '@/lib/supabase-auth-v2';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
-
-interface DebugInfo {
-  step: string;
-  email?: string;
-  timestamp?: string;
-  authAttempt?: {
-    success: boolean;
-    error?: string;
-    hasUser: boolean;
-    userId?: string;
-  };
-  userInTable?: {
-    exists: boolean;
-    error?: string;
-    userId?: string;
-  };
-  userDataFetch?: {
-    success: boolean;
-    error?: string;
-    found: boolean;
-  };
-  userInfo?: {
-    email: string;
-    isAdmin: boolean;
-    verified: boolean;
-  };
-  error?: string;
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,8 +16,6 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
   
   // Rate limiting: 5 tentativas por minuto
   const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('LOGIN');
@@ -58,7 +28,6 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setDebugInfo(null);
     
     console.log('📝 Formulário submetido');
     
@@ -89,12 +58,15 @@ export default function Login() {
     try {
       const result = await loginUser(email, senha);
       
-      setDebugInfo(result.debugInfo || null);
-      
       if (result.success && result.user) {
         console.log('✅ Login bem-sucedido! Redirecionando...');
         console.log('👤 Usuário:', result.user.email);
         console.log('🔑 Admin:', result.user.isAdmin);
+        
+        // Debug info disponível no console para desenvolvedores
+        if (result.debugInfo) {
+          console.log('🐛 Debug Info:', result.debugInfo);
+        }
         
         // CORREÇÃO: Força um reload completo da página para atualizar o estado do App.tsx
         // Isso garante que o useEffect do App.tsx execute checkUser() novamente
@@ -160,31 +132,6 @@ export default function Login() {
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              {debugInfo && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs">Informações de Debug Disponíveis</span>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-xs"
-                        onClick={() => setShowDebug(!showDebug)}
-                        type="button"
-                      >
-                        {showDebug ? 'Ocultar' : 'Mostrar'}
-                      </Button>
-                    </div>
-                    {showDebug && (
-                      <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-40">
-                        {JSON.stringify(debugInfo, null, 2)}
-                      </pre>
-                    )}
-                  </AlertDescription>
                 </Alert>
               )}
               
