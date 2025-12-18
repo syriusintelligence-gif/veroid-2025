@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { isValidEmail } from '@/lib/supabase-auth-v2';
+import { isValidEmail, loginUser } from '@/lib/supabase-auth-v2';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
 import DOMPurify from 'dompurify';
@@ -54,49 +54,27 @@ export default function Login() {
     console.log(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsLoading(true);
-    console.log('🔐 Iniciando processo de login com Edge Function protegida...');
+    console.log('🔐 Iniciando processo de login...');
     
     try {
-      // Chamar a Edge Function protected-login
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/protected-login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            email: sanitizedEmail,
-            password: sanitizedPassword,
-          }),
-        }
-      );
+      // Usar a função loginUser do supabase-auth-v2.ts
+      const result = await loginUser(sanitizedEmail, sanitizedPassword);
 
-      const result = await response.json();
-
-      if (response.ok && result.success && result.session) {
-        console.log('✅ Login bem-sucedido via Edge Function!');
-        console.log('👤 Usuário:', result.user?.email);
+      if (result.success && result.user) {
+        console.log('✅ Login bem-sucedido!');
+        console.log('👤 Usuário:', result.user.email);
         
-        // Armazenar a sessão no localStorage (Supabase client fará isso automaticamente)
-        // Mas vamos garantir que o token está disponível
-        if (result.session.access_token) {
-          localStorage.setItem('supabase.auth.token', JSON.stringify(result.session));
-        }
-        
-        // Redirecionar para o dashboard
-        window.location.href = '/dashboard';
+        // Usar navigate do React Router ao invés de window.location.href
+        // Isso mantém o estado do React e evita hard reload
+        navigate('/dashboard', { replace: true });
       } else {
-        console.log('❌ Login falhou:', result.error || result.message);
+        console.log('❌ Login falhou:', result.error);
         
-        // Tratamento específico de erros de rate limiting
-        if (result.rateLimitExceeded) {
-          setError(result.message || 'Limite de tentativas excedido. Aguarde antes de tentar novamente.');
-        } else if (result.error?.includes('Invalid login credentials')) {
+        // Tratamento de erros
+        if (result.error?.includes('Invalid login credentials')) {
           setError('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
         } else {
-          setError(result.error || result.message || 'Erro ao fazer login. Tente novamente.');
+          setError(result.error || 'Erro ao fazer login. Tente novamente.');
         }
         
         setIsLoading(false);
