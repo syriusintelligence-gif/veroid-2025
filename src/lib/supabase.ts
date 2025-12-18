@@ -9,10 +9,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Para usar o Supabase, configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.local');
 }
 
-// Cria o cliente Supabase (mesmo que seja com valores vazios para desenvolvimento)
+// Cria o cliente Supabase com configuração otimizada para modo anônimo
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      // Usa localStorage como padrão, mas com fallback para memória
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      // Garante que a sessão persista
+      persistSession: true,
+      // Detecta mudanças de sessão automaticamente
+      detectSessionInUrl: true,
+      // Auto-refresh de tokens
+      autoRefreshToken: true,
+      // Configuração de cookies para melhor compatibilidade
+      flowType: 'pkce',
+    },
+    // Configuração global
+    global: {
+      headers: {
+        'x-client-info': 'veroid-web',
+      },
+    },
+  }
 );
 
 // Interface para links de redes sociais
