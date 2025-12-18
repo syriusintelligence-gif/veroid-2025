@@ -22,11 +22,14 @@ export async function checkBackendRateLimit(
   identifier: string
 ): Promise<BackendRateLimitResult> {
   try {
-    console.log(`🔍 [Backend Rate Limit] Verificando: ${action} para ${identifier}`);
+    // Converte action para minúsculas para corresponder ao formato da Edge Function
+    const normalizedAction = action.toLowerCase();
+    
+    console.log(`🔍 [Backend Rate Limit] Verificando: ${normalizedAction} para ${identifier}`);
     
     const { data, error } = await supabase.functions.invoke('check-rate-limit', {
       body: {
-        action,
+        action: normalizedAction,
         identifier,
       },
     });
@@ -76,7 +79,7 @@ export async function recordLoginAttempt(
     // Registra no backend via Edge Function
     await supabase.functions.invoke('check-rate-limit', {
       body: {
-        action: 'LOGIN',
+        action: 'login',
         identifier,
         record: true,
         success,
