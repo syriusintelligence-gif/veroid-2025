@@ -34,9 +34,27 @@ export async function checkBackendRateLimit(
       },
     });
 
+    // CRÍTICO: Tratar erro 429 (Too Many Requests) de forma especial
     if (error) {
       console.error('❌ [Backend Rate Limit] Erro ao verificar:', error);
-      // Em caso de erro, permite a ação (fail-open)
+      
+      // Se for erro 429, significa que está bloqueado
+      if (error.message?.includes('429') || error.context?.status === 429) {
+        console.warn('🚫 [Backend Rate Limit] Usuário bloqueado (429)');
+        
+        // Tenta extrair dados da resposta mesmo com erro
+        const blockedData = error.context?.body || data;
+        
+        return {
+          allowed: false,
+          remaining: 0,
+          message: blockedData?.message || 'Muitas tentativas. Aguarde antes de tentar novamente.',
+          blockedUntil: blockedData?.blockedUntil ? new Date(blockedData.blockedUntil) : undefined,
+        };
+      }
+      
+      // Para outros erros (rede, servidor, etc.), permite a ação (fail-open)
+      console.warn('⚠️ [Backend Rate Limit] Erro não-crítico, permitindo ação');
       return {
         allowed: true,
         remaining: 5,
@@ -57,7 +75,18 @@ export async function checkBackendRateLimit(
     };
   } catch (error) {
     console.error('❌ [Backend Rate Limit] Erro crítico:', error);
-    // Em caso de erro, permite a ação (fail-open)
+    
+    // Verifica se é erro 429 no catch também
+    if (error instanceof Error && error.message?.includes('429')) {
+      console.warn('🚫 [Backend Rate Limit] Usuário bloqueado (429 no catch)');
+      return {
+        allowed: false,
+        remaining: 0,
+        message: 'Muitas tentativas. Aguarde antes de tentar novamente.',
+      };
+    }
+    
+    // Para outros erros, permite a ação (fail-open)
     return {
       allowed: true,
       remaining: 5,
