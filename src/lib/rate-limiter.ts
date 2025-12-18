@@ -1,20 +1,24 @@
 /**
- * Rate Limiter - Client-side
+ * Rate Limiter - Hybrid (Client + Server)
  * 
- * Implementa controle de taxa de requisições no lado do cliente
- * para prevenir abuso de APIs e melhorar a experiência do usuário.
+ * Implementa controle de taxa de requisições com sincronização
+ * entre cliente (localStorage) e servidor (Supabase).
  * 
  * Funcionalidades:
  * - Controle de tentativas por tempo
- * - Armazenamento local (localStorage)
+ * - Armazenamento local (localStorage) + Backend (Supabase)
  * - Limpeza automática de dados antigos
  * - Feedback visual para o usuário
+ * - Proteção contra bypass via DevTools
  */
+
+import { checkBackendRateLimit, getUserIdentifier } from './supabase-backend-rate-limit';
 
 export interface RateLimitConfig {
   maxAttempts: number;      // Número máximo de tentativas
   windowMs: number;         // Janela de tempo em milissegundos
   blockDurationMs?: number; // Tempo de bloqueio após exceder (opcional)
+  useBackend?: boolean;     // Se deve usar verificação no backend
 }
 
 export interface RateLimitResult {
@@ -36,16 +40,19 @@ interface RateLimitEntry {
 export class RateLimiter {
   private storageKey: string;
   private config: Required<RateLimitConfig>;
+  private action: string;
 
   constructor(
     identifier: string,
     config: RateLimitConfig
   ) {
     this.storageKey = `rate_limit_${identifier}`;
+    this.action = identifier.toUpperCase();
     this.config = {
       maxAttempts: config.maxAttempts,
       windowMs: config.windowMs,
       blockDurationMs: config.blockDurationMs || config.windowMs * 2,
+      useBackend: config.useBackend ?? true, // Backend habilitado por padrão
     };
   }
 
@@ -54,6 +61,46 @@ export class RateLimiter {
    */
   async check(): Promise<RateLimitResult> {
     const now = Date.now();
+    
+    // Se backend estiver habilitado, verifica lá primeiro
+    if (this.config.useBackend) {
+      try {
+        const identifier = getUserIdentifier();
+        const backendResult = await checkBackendRateLimit(this.action, identifier);
+        
+        if (!backendResult.allowed) {
+          // Sincroniza com localStorage
+          const entry = this.getEntry();
+          entry.blockedUntil = backendResult.blockedUntil?.getTime() || (now + this.config.blockDurationMs);
+          this.saveEntry(entry);
+          
+          return {
+            allowed: false,
+            remaining: backendResult.remaining,
+            resetAt: backendResult.blockedUntil || new Date(now + this.config.blockDurationMs),
+            blockedUntil: backendResult.blockedUntil,
+            message: backendResult.message || 'Muitas tentativas. Tente novamente mais tarde.',
+          };
+        }
+        
+        // Backend permitiu, registra localmente também
+        const entry = this.getEntry();
+        entry.attempts.push(now);
+        this.saveEntry(entry);
+        
+        return {
+          allowed: true,
+          remaining: backendResult.remaining,
+          resetAt: new Date(now + this.config.windowMs),
+          message: backendResult.message,
+        };
+      } catch (error) {
+        console.error('[RateLimiter] Erro ao verificar backend, usando apenas local:', error);
+        // Continua com verificação local se backend falhar
+      }
+    }
+    
+    // Verificação local (fallback ou quando backend está desabilitado)
     const entry = this.getEntry();
 
     // Verifica se está bloqueado
@@ -184,7 +231,8 @@ export const RateLimitPresets = {
   LOGIN: {
     maxAttempts: 5,
     windowMs: 60 * 1000, // 1 minuto
-    blockDurationMs: 5 * 60 * 1000, // 5 minutos de bloqueio
+    blockDurationMs: 15 * 60 * 1000, // 15 minutos de bloqueio
+    useBackend: true, // Usa backend para login
   },
 
   // Registro: 3 contas por hora
@@ -192,6 +240,7 @@ export const RateLimitPresets = {
     maxAttempts: 3,
     windowMs: 60 * 60 * 1000, // 1 hora
     blockDurationMs: 24 * 60 * 60 * 1000, // 24 horas de bloqueio
+    useBackend: true,
   },
 
   // Assinatura de conteúdo: 10 por hora
@@ -199,6 +248,7 @@ export const RateLimitPresets = {
     maxAttempts: 10,
     windowMs: 60 * 60 * 1000, // 1 hora
     blockDurationMs: 2 * 60 * 60 * 1000, // 2 horas de bloqueio
+    useBackend: true,
   },
 
   // Verificação de certificado: 20 por minuto
@@ -206,6 +256,7 @@ export const RateLimitPresets = {
     maxAttempts: 20,
     windowMs: 60 * 1000, // 1 minuto
     blockDurationMs: 10 * 60 * 1000, // 10 minutos de bloqueio
+    useBackend: false, // Apenas local para verificação
   },
 
   // Reset de senha: 3 tentativas por hora
@@ -213,6 +264,7 @@ export const RateLimitPresets = {
     maxAttempts: 3,
     windowMs: 60 * 60 * 1000, // 1 hora
     blockDurationMs: 6 * 60 * 60 * 1000, // 6 horas de bloqueio
+    useBackend: true,
   },
 
   // Genérico: 10 tentativas por minuto
@@ -220,6 +272,7 @@ export const RateLimitPresets = {
     maxAttempts: 10,
     windowMs: 60 * 1000, // 1 minuto
     blockDurationMs: 5 * 60 * 1000, // 5 minutos de bloqueio
+    useBackend: false,
   },
 };
 
