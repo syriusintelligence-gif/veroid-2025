@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, isValidEmail, getCurrentUser } from '@/lib/supabase-auth-v2';
+import { isValidEmail } from '@/lib/supabase-auth-v2';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
+import DOMPurify from 'dompurify';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,13 +28,17 @@ export default function Login() {
     
     console.log('📝 Formulário submetido');
     
+    // Sanitizar inputs para prevenir XSS
+    const sanitizedEmail = DOMPurify.sanitize(email.trim().toLowerCase());
+    const sanitizedPassword = DOMPurify.sanitize(senha);
+    
     // Validações básicas
-    if (!email || !senha) {
+    if (!sanitizedEmail || !sanitizedPassword) {
       setError('Por favor, preencha todos os campos');
       return;
     }
     
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(sanitizedEmail)) {
       setError('Email inválido');
       return;
     }
@@ -49,32 +54,56 @@ export default function Login() {
     console.log(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsLoading(true);
-    console.log('🔐 Iniciando processo de login com Supabase Auth V2...');
+    console.log('🔐 Iniciando processo de login com Edge Function protegida...');
     
     try {
-      const result = await loginUser(email, senha);
-      
-      if (result.success && result.user) {
-        console.log('✅ Login bem-sucedido! Redirecionando...');
-        console.log('👤 Usuário:', result.user.email);
-        console.log('🔑 Admin:', result.user.isAdmin);
+      // Chamar a Edge Function protected-login
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/protected-login`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            email: sanitizedEmail,
+            password: sanitizedPassword,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.success && result.session) {
+        console.log('✅ Login bem-sucedido via Edge Function!');
+        console.log('👤 Usuário:', result.user?.email);
         
-        // Debug info disponível no console para desenvolvedores
-        if (result.debugInfo) {
-          console.log('🐛 Debug Info:', result.debugInfo);
+        // Armazenar a sessão no localStorage (Supabase client fará isso automaticamente)
+        // Mas vamos garantir que o token está disponível
+        if (result.session.access_token) {
+          localStorage.setItem('supabase.auth.token', JSON.stringify(result.session));
         }
         
-        // CORREÇÃO: Força um reload completo da página para atualizar o estado do App.tsx
-        // Isso garante que o useEffect do App.tsx execute checkUser() novamente
+        // Redirecionar para o dashboard
         window.location.href = '/dashboard';
       } else {
-        console.log('❌ Login falhou:', result.error);
-        setError(result.error || 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
+        console.log('❌ Login falhou:', result.error || result.message);
+        
+        // Tratamento específico de erros de rate limiting
+        if (result.rateLimitExceeded) {
+          setError(result.message || 'Limite de tentativas excedido. Aguarde antes de tentar novamente.');
+        } else if (result.error?.includes('Invalid login credentials')) {
+          setError('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
+        } else {
+          setError(result.error || result.message || 'Erro ao fazer login. Tente novamente.');
+        }
+        
         setIsLoading(false);
       }
     } catch (err) {
       console.error('❌ Erro crítico no login:', err);
-      setError('Erro ao fazer login. Por favor, tente novamente.');
+      setError('Erro ao conectar com o servidor. Por favor, tente novamente.');
       setIsLoading(false);
     }
   };
