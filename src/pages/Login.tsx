@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,26 +21,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   
   console.log('🔥 Login component rendering...');
-  
-  // Verifica sessão ao carregar
-  useEffect(() => {
-    console.log('🔥 useEffect - Checking session...');
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('🔥 Session check result:', { hasSession: !!session, error: error?.message });
-        
-        if (session) {
-          console.log('🔥 Active session found, redirecting to dashboard...');
-          navigate('/dashboard', { replace: true });
-        }
-      } catch (err) {
-        console.error('🔥 Error checking session:', err);
-      }
-    };
-    
-    checkSession();
-  }, [navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,22 +92,12 @@ export default function Login() {
       console.log('🔥 User email:', data.user.email);
       
       // Aguarda um pouco para garantir que a sessão foi salva
-      console.log('🔥 Waiting 1 second before navigation...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('🔥 Waiting 500ms before navigation...');
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Verifica se a sessão ainda existe
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      console.log('🔥 Session before navigation:', !!currentSession);
-      
-      if (!currentSession) {
-        console.error('🔥 CRITICAL: Session lost after login!');
-        setError('Erro: sessão não foi mantida. Tente usar o modo normal do navegador.');
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log('🔥 Navigating to dashboard...');
-      navigate('/dashboard', { replace: true });
+      // Força reload da página para App.tsx detectar a nova sessão
+      console.log('🔥 Reloading page to update session...');
+      window.location.href = '/dashboard';
       
     } catch (err) {
       console.error('🔥 Critical error:', err);
