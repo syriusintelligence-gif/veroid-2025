@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getUsers, getCurrentUser, User, isCurrentUserAdmin, deleteUser, updateUser, blockUser, unblockUser } from '@/lib/supabase-auth';
+import { getCurrentUser, isCurrentUserAdmin, getUsers, type User } from '@/lib/supabase-auth-v2';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -122,22 +122,11 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    const result = await updateUser(selectedUser.id, {
-      nomeCompleto: editNomeCompleto,
-      nomePublico: editNomePublico,
-      email: editEmail,
-      telefone: editTelefone,
-    });
+    // TODO: Implement updateUser function in supabase-auth-v2.ts
+    alert('Funcionalidade de edição será implementada em breve');
     
     setIsLoading(false);
-    
-    if (result.success) {
-      await loadUsers();
-      setIsEditDialogOpen(false);
-      alert('Usuário atualizado com sucesso!');
-    } else {
-      alert(result.error || 'Erro ao atualizar usuário');
-    }
+    setIsEditDialogOpen(false);
   };
   
   const handleOpenBlockDialog = (user: User) => {
@@ -150,19 +139,11 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    const result = selectedUser.blocked 
-      ? await unblockUser(selectedUser.id)
-      : await blockUser(selectedUser.id);
+    // TODO: Implement blockUser/unblockUser functions in supabase-auth-v2.ts
+    alert('Funcionalidade de bloqueio será implementada em breve');
     
     setIsLoading(false);
-    
-    if (result.success) {
-      await loadUsers();
-      setIsBlockDialogOpen(false);
-      alert(selectedUser.blocked ? 'Usuário desbloqueado com sucesso!' : 'Usuário bloqueado com sucesso!');
-    } else {
-      alert(result.error || 'Erro ao alterar status do usuário');
-    }
+    setIsBlockDialogOpen(false);
   };
   
   const handleOpenDeleteDialog = (user: User) => {
@@ -175,18 +156,11 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    const result = await deleteUser(selectedUser.id);
+    // TODO: Implement deleteUser function in supabase-auth-v2.ts
+    alert('Funcionalidade de exclusão será implementada em breve');
     
     setIsLoading(false);
-    
-    if (result.success) {
-      await loadUsers();
-      setIsDeleteDialogOpen(false);
-      setIsDialogOpen(false);
-      alert('Usuário excluído com sucesso!');
-    } else {
-      alert(result.error || 'Erro ao excluir usuário');
-    }
+    setIsDeleteDialogOpen(false);
   };
   
   const formatDate = (dateString: string) => {
@@ -279,14 +253,14 @@ export default function AdminUsers() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Bloqueados</CardTitle>
-              <Ban className="h-4 w-4 text-red-600" />
+              <CardTitle className="text-sm font-medium">Administradores</CardTitle>
+              <Shield className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {users.filter(u => u.blocked).length}
+                {users.filter(u => u.isAdmin).length}
               </div>
-              <p className="text-xs text-muted-foreground">Usuários bloqueados</p>
+              <p className="text-xs text-muted-foreground">Usuários admin</p>
             </CardContent>
           </Card>
           
@@ -394,11 +368,6 @@ export default function AdminUsers() {
                                     Admin
                                   </Badge>
                                 )}
-                                {user.blocked && (
-                                  <Badge className="bg-gray-100 text-gray-800 text-xs">
-                                    Bloqueado
-                                  </Badge>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -432,34 +401,6 @@ export default function AdminUsers() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(user)}
-                              title="Editar usuário"
-                            >
-                              <Edit className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            {!user.isAdmin && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenBlockDialog(user)}
-                                  title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
-                                >
-                                  <Ban className={`h-4 w-4 ${user.blocked ? 'text-green-600' : 'text-orange-600'}`} />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenDeleteDialog(user)}
-                                  title="Excluir usuário"
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -471,7 +412,65 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
         
-        {/* Dialogs omitidos por brevidade - mantidos iguais ao original */}
+        {/* Dialog de Detalhes */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Usuário</DialogTitle>
+              <DialogDescription>
+                Informações completas do usuário selecionado
+              </DialogDescription>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20 border-4 border-blue-600">
+                    <AvatarImage src={selectedUser.selfieUrl} alt={selectedUser.nomeCompleto} />
+                    <AvatarFallback className="bg-blue-600 text-white text-2xl">
+                      {getInitials(selectedUser.nomeCompleto)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedUser.nomeCompleto}</h3>
+                    <p className="text-muted-foreground">@{selectedUser.nomePublico}</p>
+                    <div className="flex gap-2 mt-2">
+                      {selectedUser.isAdmin && (
+                        <Badge className="bg-red-100 text-red-800">Admin</Badge>
+                      )}
+                      {selectedUser.verified && (
+                        <Badge className="bg-green-100 text-green-800">Verificado</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Email</Label>
+                    <p className="font-medium">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">CPF/CNPJ</Label>
+                    <p className="font-medium font-mono">{selectedUser.cpfCnpj}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Telefone</Label>
+                    <p className="font-medium">{selectedUser.telefone}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Data de Cadastro</Label>
+                    <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

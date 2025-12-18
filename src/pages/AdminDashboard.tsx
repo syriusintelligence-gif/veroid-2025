@@ -38,7 +38,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout, getUsers, User as UserType, isCurrentUserAdmin } from '@/lib/supabase-auth';
+import { getCurrentUser, logout, getUsers, isCurrentUserAdmin, type User as UserType } from '@/lib/supabase-auth-v2';
 import { getAllSignedContents, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
