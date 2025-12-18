@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { isValidEmail, loginUser } from '@/lib/supabase-auth-v2';
-import { useRateLimit } from '@/hooks/useRateLimit';
-import { RateLimitAlert } from '@/components/RateLimitAlert';
 import { supabase } from '@/lib/supabase';
+
+// LOG CRÍTICO - DEVE APARECER SEMPRE
+console.log('🔥 LOGIN PAGE LOADED - JavaScript is working!');
+console.log('🔥 Timestamp:', new Date().toISOString());
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,33 +19,23 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   
-  // Rate limiting: 5 tentativas por minuto
-  const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('LOGIN');
-  
-  // Adiciona log de debug
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log(logMessage);
-    setDebugInfo(prev => [...prev, logMessage]);
-  };
+  console.log('🔥 Login component rendering...');
   
   // Verifica sessão ao carregar
   useEffect(() => {
+    console.log('🔥 useEffect - Checking session...');
     const checkSession = async () => {
-      addDebugLog('🔍 Verificando sessão existente...');
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        addDebugLog(`❌ Erro ao verificar sessão: ${error.message}`);
-      } else if (session) {
-        addDebugLog(`✅ Sessão ativa encontrada: ${session.user.email}`);
-        addDebugLog('🔄 Redirecionando para dashboard...');
-        navigate('/dashboard', { replace: true });
-      } else {
-        addDebugLog('ℹ️ Nenhuma sessão ativa encontrada');
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔥 Session check result:', { hasSession: !!session, error: error?.message });
+        
+        if (session) {
+          console.log('🔥 Active session found, redirecting to dashboard...');
+          navigate('/dashboard', { replace: true });
+        }
+      } catch (err) {
+        console.error('🔥 Error checking session:', err);
       }
     };
     
@@ -54,127 +45,98 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setDebugInfo([]);
     
-    addDebugLog('📝 Formulário submetido');
-    addDebugLog(`📧 Email: ${email}`);
+    console.log('🔥 Form submitted');
+    console.log('🔥 Email:', email);
+    console.log('🔥 Password length:', senha.length);
     
-    // Validação simples
+    // Validação básica
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = senha.trim();
     
-    addDebugLog(`🔍 Email após trim: ${trimmedEmail}`);
-    addDebugLog(`🔍 Senha length: ${trimmedPassword.length}`);
-    
-    // Validações básicas
     if (!trimmedEmail || !trimmedPassword) {
-      const errorMsg = 'Por favor, preencha todos os campos';
-      addDebugLog(`❌ Validação falhou: ${errorMsg}`);
-      setError(errorMsg);
+      console.log('🔥 Validation failed: empty fields');
+      setError('Por favor, preencha todos os campos');
       return;
     }
     
-    if (!isValidEmail(trimmedEmail)) {
-      const errorMsg = 'Email inválido';
-      addDebugLog(`❌ Validação de email falhou: ${errorMsg}`);
-      setError(errorMsg);
+    // Validação de email simples
+    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+      console.log('🔥 Validation failed: invalid email');
+      setError('Email inválido');
       return;
     }
-    
-    addDebugLog('✅ Validações básicas OK');
-    
-    // Verifica rate limiting ANTES de tentar login
-    addDebugLog('🚦 Verificando rate limit...');
-    const rateLimitResult = await checkRateLimit();
-    if (!rateLimitResult.allowed) {
-      const errorMsg = rateLimitResult.message || 'Muitas tentativas. Aguarde antes de tentar novamente.';
-      addDebugLog(`🚫 Rate limit excedido: ${errorMsg}`);
-      setError(errorMsg);
-      return;
-    }
-    
-    addDebugLog(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsLoading(true);
-    addDebugLog('🔐 Iniciando processo de login...');
+    console.log('🔥 Starting login process...');
     
     try {
-      // Verificar conexão com Supabase
-      addDebugLog('🔌 Testando conexão com Supabase...');
-      const { data: healthCheck, error: healthError } = await supabase.from('users').select('count').limit(1);
+      // Tenta fazer login
+      console.log('🔥 Calling supabase.auth.signInWithPassword...');
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
       
-      if (healthError) {
-        addDebugLog(`⚠️ Aviso de conexão: ${healthError.message}`);
-      } else {
-        addDebugLog('✅ Conexão com Supabase OK');
-      }
+      console.log('🔥 Login result:', {
+        success: !authError,
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
+        error: authError?.message
+      });
       
-      // Usar a função loginUser do supabase-auth-v2.ts
-      addDebugLog('🔑 Chamando loginUser...');
-      const result = await loginUser(trimmedEmail, trimmedPassword);
-      
-      addDebugLog(`📊 Resultado do login: ${JSON.stringify({
-        success: result.success,
-        hasUser: !!result.user,
-        hasError: !!result.error,
-        errorMessage: result.error
-      })}`);
-
-      if (result.success && result.user) {
-        addDebugLog('✅ Login bem-sucedido!');
-        addDebugLog(`👤 Usuário: ${result.user.email}`);
-        addDebugLog(`🔑 ID: ${result.user.id}`);
+      if (authError) {
+        console.error('🔥 Login error:', authError);
         
-        // Verificar sessão após login
-        addDebugLog('🔍 Verificando sessão após login...');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          addDebugLog(`❌ Erro ao verificar sessão: ${sessionError.message}`);
-        } else if (session) {
-          addDebugLog(`✅ Sessão criada com sucesso`);
-          addDebugLog(`📝 Access Token: ${session.access_token.substring(0, 20)}...`);
-          addDebugLog(`⏰ Expira em: ${new Date(session.expires_at! * 1000).toISOString()}`);
-        } else {
-          addDebugLog('⚠️ Sessão não encontrada após login bem-sucedido!');
-        }
-        
-        // Pequeno delay para garantir que a sessão foi salva
-        addDebugLog('⏳ Aguardando 500ms para garantir persistência da sessão...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Verificar novamente antes de navegar
-        const { data: { session: finalSession } } = await supabase.auth.getSession();
-        if (finalSession) {
-          addDebugLog('✅ Sessão confirmada, navegando para dashboard...');
-          navigate('/dashboard', { replace: true });
-        } else {
-          addDebugLog('❌ ERRO CRÍTICO: Sessão perdida antes da navegação!');
-          setError('Erro ao manter sessão. Tente novamente ou use o modo normal do navegador.');
-          setIsLoading(false);
-        }
-      } else {
-        addDebugLog(`❌ Login falhou: ${result.error}`);
-        
-        // Tratamento de erros
-        if (result.error?.includes('Invalid login credentials')) {
-          setError('Usuário encontrado no sistema, mas a senha está incorreta ou o email não foi confirmado. Use a opção "Esqueceu a senha?" para resetar.');
-        } else if (result.error?.includes('Email not confirmed')) {
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('Email ou senha incorretos');
+        } else if (authError.message.includes('Email not confirmed')) {
           setError('Email não confirmado. Verifique sua caixa de entrada.');
         } else {
-          setError(result.error || 'Erro ao fazer login. Tente novamente.');
+          setError(authError.message);
         }
         
         setIsLoading(false);
+        return;
       }
+      
+      if (!data.user || !data.session) {
+        console.error('🔥 No user or session returned');
+        setError('Erro ao fazer login. Tente novamente.');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('🔥 Login successful!');
+      console.log('🔥 User ID:', data.user.id);
+      console.log('🔥 User email:', data.user.email);
+      
+      // Aguarda um pouco para garantir que a sessão foi salva
+      console.log('🔥 Waiting 1 second before navigation...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verifica se a sessão ainda existe
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('🔥 Session before navigation:', !!currentSession);
+      
+      if (!currentSession) {
+        console.error('🔥 CRITICAL: Session lost after login!');
+        setError('Erro: sessão não foi mantida. Tente usar o modo normal do navegador.');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('🔥 Navigating to dashboard...');
+      navigate('/dashboard', { replace: true });
+      
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      addDebugLog(`❌ Erro crítico no login: ${errorMessage}`);
-      console.error('❌ Stack trace:', err);
-      setError('Erro ao conectar com o servidor. Por favor, tente novamente.');
+      console.error('🔥 Critical error:', err);
+      setError('Erro ao conectar com o servidor. Tente novamente.');
       setIsLoading(false);
     }
   };
+  
+  console.log('🔥 Rendering login form...');
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -208,37 +170,10 @@ export default function Login() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Rate Limit Alert */}
-              {isBlocked && (
-                <RateLimitAlert 
-                  blockedUntil={blockedUntil}
-                  message={rateLimitMessage}
-                  remaining={remaining}
-                />
-              )}
-              
-              {error && !isBlocked && (
+              {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              {/* Debug Info - Mostrar apenas em desenvolvimento */}
-              {debugInfo.length > 0 && import.meta.env.DEV && (
-                <Alert>
-                  <AlertDescription>
-                    <details className="text-xs">
-                      <summary className="cursor-pointer font-semibold mb-2">
-                        🐛 Debug Logs ({debugInfo.length})
-                      </summary>
-                      <div className="max-h-40 overflow-y-auto space-y-1 font-mono">
-                        {debugInfo.map((log, index) => (
-                          <div key={index} className="text-[10px]">{log}</div>
-                        ))}
-                      </div>
-                    </details>
-                  </AlertDescription>
                 </Alert>
               )}
               
@@ -250,7 +185,7 @@ export default function Login() {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || isBlocked}
+                  disabled={isLoading}
                   autoComplete="email"
                 />
               </div>
@@ -274,7 +209,7 @@ export default function Login() {
                     placeholder="••••••"
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
-                    disabled={isLoading || isBlocked}
+                    disabled={isLoading}
                     autoComplete="current-password"
                     className="pr-10"
                   />
@@ -284,7 +219,7 @@ export default function Login() {
                     size="icon"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading || isBlocked}
+                    disabled={isLoading}
                     tabIndex={-1}
                   >
                     {showPassword ? (
@@ -302,7 +237,7 @@ export default function Login() {
               <Button 
                 type="submit" 
                 className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
-                disabled={isLoading || isBlocked}
+                disabled={isLoading}
               >
                 {isLoading ? (
                   <>
@@ -316,13 +251,6 @@ export default function Login() {
                   </>
                 )}
               </Button>
-              
-              {/* Indicador de tentativas restantes */}
-              {!isBlocked && remaining !== undefined && remaining < 3 && (
-                <p className="text-xs text-center text-muted-foreground">
-                  ⚠️ {remaining} tentativa{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''}
-                </p>
-              )}
               
               <div className="text-center text-sm text-muted-foreground">
                 Não tem uma conta?{' '}

@@ -7,7 +7,6 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 // Eager load: Landing page and auth pages (critical for first paint)
 import Index from './pages/Index';
 import Login from './pages/Login';
-import LoginV2 from './pages/Login-v2';
 import Cadastro from './pages/Cadastro';
 
 // Lazy load: Heavy pages loaded on demand
@@ -55,12 +54,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           
-          {/* Rotas de autenticação antigas (mantidas para compatibilidade) */}
+          {/* Rotas de autenticação */}
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
-          
-          {/* Rotas de autenticação V2 (novas e melhoradas) */}
-          <Route path="/login-v2" element={<LoginV2 />} />
           
           {/* Recuperação de senha */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -79,19 +75,19 @@ function App() {
           {/* Rotas protegidas */}
           <Route
             path="/dashboard"
-            element={user ? <Dashboard /> : <Navigate to="/login-v2" />}
+            element={user ? <Dashboard /> : <Navigate to="/login" />}
           />
           <Route
             path="/sign"
-            element={user ? <SignContent /> : <Navigate to="/login-v2" />}
+            element={user ? <SignContent /> : <Navigate to="/login" />}
           />
           <Route
             path="/profile"
-            element={user ? <Profile /> : <Navigate to="/login-v2" />}
+            element={user ? <Profile /> : <Navigate to="/login" />}
           />
           <Route
             path="/settings"
-            element={user ? <Settings /> : <Navigate to="/login-v2" />}
+            element={user ? <Settings /> : <Navigate to="/login" />}
           />
           <Route path="/certificate" element={<Certificate />} />
           <Route path="/c" element={<Certificate />} />
