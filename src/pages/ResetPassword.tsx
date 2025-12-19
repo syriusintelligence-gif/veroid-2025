@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Lock, Loader2, CheckCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { resetPassword, isValidPassword } from '@/lib/supabase-auth-v2';
+import { supabase } from '@/lib/supabase';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -17,24 +18,61 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(false);
 
-  // Verifica se há um token de recuperação na URL
+  // Verifica se há um token de recuperação na URL e estabelece sessão
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get('type');
+    const checkSession = async () => {
+      console.log('🔍 Verificando sessão de recuperação...');
+      console.log('📍 URL completa:', window.location.href);
+      console.log('📍 Hash:', window.location.hash);
+      
+      // Verifica se há hash na URL
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+      
+      console.log('🔑 Access Token presente:', !!accessToken);
+      console.log('📋 Type:', type);
+      
+      if (type !== 'recovery') {
+        console.warn('⚠️ Token de recuperação não encontrado na URL');
+        setError('Link de recuperação inválido ou expirado. Por favor, solicite um novo link.');
+        return;
+      }
+      
+      // Verifica sessão atual
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      console.log('👤 Sessão atual:', session ? 'Ativa' : 'Não encontrada');
+      console.log('❌ Erro de sessão:', sessionError?.message || 'Nenhum');
+      
+      if (session) {
+        console.log('✅ Sessão de recuperação estabelecida');
+        console.log('👤 User ID:', session.user?.id);
+        setHasValidSession(true);
+      } else {
+        console.warn('⚠️ Sessão não estabelecida automaticamente');
+        setError('Sessão de recuperação não encontrada. Por favor, clique no link do email novamente.');
+      }
+    };
     
-    if (type !== 'recovery') {
-      console.warn('⚠️ Token de recuperação não encontrado na URL');
-      setError('Link de recuperação inválido ou expirado. Por favor, solicite um novo link.');
-    } else {
-      console.log('✅ Token de recuperação detectado');
-    }
+    checkSession();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess(false);
+
+    console.log('🔐 [RESET PASSWORD] Iniciando processo...');
+    console.log('✅ Sessão válida:', hasValidSession);
+
+    // Verifica se há sessão válida
+    if (!hasValidSession) {
+      setError('Sessão de recuperação inválida. Por favor, clique no link do email novamente.');
+      return;
+    }
 
     // Validações
     if (!newPassword) {
@@ -55,8 +93,10 @@ export default function ResetPassword() {
     setIsLoading(true);
 
     try {
-      console.log('🔑 Redefinindo senha...');
+      console.log('🔑 Chamando função resetPassword...');
       const result = await resetPassword(newPassword);
+
+      console.log('📊 Resultado:', result);
 
       if (result.success) {
         console.log('✅ Senha redefinida com sucesso');
@@ -67,11 +107,11 @@ export default function ResetPassword() {
         }, 3000);
       } else {
         console.error('❌ Erro ao redefinir senha:', result.message);
-        setError(result.message);
+        setError(result.message || 'Erro ao alterar senha. Tente novamente.');
       }
     } catch (err) {
       console.error('❌ Erro ao processar redefinição:', err);
-      setError('Erro ao redefinir senha. Tente novamente.');
+      setError('Erro ao redefinir senha. Tente novamente ou solicite um novo link.');
     } finally {
       setIsLoading(false);
     }
@@ -157,6 +197,15 @@ export default function ResetPassword() {
                 </Alert>
               )}
 
+              {!hasValidSession && !error && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Verificando link de recuperação...
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nova Senha</Label>
                 <div className="relative">
@@ -168,12 +217,13 @@ export default function ResetPassword() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="pl-10 pr-10"
-                    disabled={isLoading}
+                    disabled={isLoading || !hasValidSession}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                    disabled={!hasValidSession}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -211,12 +261,13 @@ export default function ResetPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="pl-10 pr-10"
-                    disabled={isLoading}
+                    disabled={isLoading || !hasValidSession}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                    disabled={!hasValidSession}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -228,7 +279,7 @@ export default function ResetPassword() {
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || !hasValidSession}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
