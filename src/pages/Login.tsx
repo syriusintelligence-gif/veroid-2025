@@ -1,242 +1,301 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
-
-// LOG CRÍTICO - DEVE APARECER SEMPRE
-console.log('🔥 LOGIN PAGE LOADED - JavaScript is working!');
-console.log('🔥 Timestamp:', new Date().toISOString());
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertCircle, CheckCircle2, Shield } from "lucide-react";
+import { loginUser } from "@/lib/supabase-auth-v2";
+import { RateLimiter, RateLimitPresets, formatTimeRemaining } from "@/lib/rate-limiter";
 
 export default function Login() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   
-  console.log('🔥 Login component rendering...');
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    console.log('🔥 Form submitted');
-    console.log('🔥 Email:', email);
-    console.log('🔥 Password length:', senha.length);
-    
-    // Validação básica
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedPassword = senha.trim();
-    
-    if (!trimmedEmail || !trimmedPassword) {
-      console.log('🔥 Validation failed: empty fields');
-      setError('Por favor, preencha todos os campos');
-      return;
-    }
-    
-    // Validação de email simples
-    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      console.log('🔥 Validation failed: invalid email');
-      setError('Email inválido');
-      return;
-    }
-    
-    setIsLoading(true);
-    console.log('🔥 Starting login process...');
-    
-    try {
-      // Tenta fazer login
-      console.log('🔥 Calling supabase.auth.signInWithPassword...');
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: trimmedPassword,
-      });
-      
-      console.log('🔥 Login result:', {
-        success: !authError,
-        hasUser: !!data?.user,
-        hasSession: !!data?.session,
-        error: authError?.message
-      });
-      
-      if (authError) {
-        console.error('🔥 Login error:', authError);
-        
-        if (authError.message.includes('Invalid login credentials')) {
-          setError('Email ou senha incorretos');
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('Email não confirmado. Verifique sua caixa de entrada.');
+  // Rate limiting state
+  const [rateLimitBlocked, setRateLimitBlocked] = useState(false);
+  const [rateLimitMessage, setRateLimitMessage] = useState("");
+  const [rateLimitRemaining, setRateLimitRemaining] = useState(5);
+  const [rateLimitResetAt, setRateLimitResetAt] = useState<Date | null>(null);
+
+  // Initialize rate limiter
+  const rateLimiter = new RateLimiter('login', RateLimitPresets.LOGIN);
+
+  // Check rate limit status on mount
+  useEffect(() => {
+    checkRateLimitStatus();
+  }, []);
+
+  // Update countdown timer
+  useEffect(() => {
+    if (rateLimitBlocked && rateLimitResetAt) {
+      const interval = setInterval(() => {
+        const now = new Date();
+        if (rateLimitResetAt <= now) {
+          setRateLimitBlocked(false);
+          setRateLimitMessage("");
+          checkRateLimitStatus();
         } else {
-          setError(authError.message);
+          const timeRemaining = formatTimeRemaining(rateLimitResetAt);
+          setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
         }
-        
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!data.user || !data.session) {
-        console.error('🔥 No user or session returned');
-        setError('Erro ao fazer login. Tente novamente.');
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log('🔥 Login successful!');
-      console.log('🔥 User ID:', data.user.id);
-      console.log('🔥 User email:', data.user.email);
-      
-      // Aguarda um pouco para garantir que a sessão foi salva
-      console.log('🔥 Waiting 500ms before navigation...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Força reload da página para App.tsx detectar a nova sessão
-      console.log('🔥 Reloading page to update session...');
-      window.location.href = '/dashboard';
-      
-    } catch (err) {
-      console.error('🔥 Critical error:', err);
-      setError('Erro ao conectar com o servidor. Tente novamente.');
-      setIsLoading(false);
+      }, 1000);
+
+      return () => clearInterval(interval);
     }
-  };
-  
-  console.log('🔥 Rendering login form...');
-  
+  }, [rateLimitBlocked, rateLimitResetAt]);
+
+  async function checkRateLimitStatus() {
+    try {
+      console.log('🔍 [Login] Verificando status do rate limit...');
+      const status = rateLimiter.getStatus();
+      
+      setRateLimitBlocked(!status.allowed);
+      setRateLimitRemaining(status.remaining);
+      
+      if (!status.allowed && status.blockedUntil) {
+        setRateLimitResetAt(status.blockedUntil);
+        const timeRemaining = formatTimeRemaining(status.blockedUntil);
+        setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
+      } else if (status.remaining < 3) {
+        setRateLimitMessage(`⚠️ Atenção: ${status.remaining} tentativas restantes`);
+      }
+      
+      console.log('✅ [Login] Status do rate limit:', status);
+    } catch (error) {
+      console.error('❌ [Login] Erro ao verificar rate limit:', error);
+      // Fail-open: permite login se verificação falhar
+      setRateLimitBlocked(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    console.log('🔐 [Login] Iniciando processo de login...');
+    console.log('📧 [Login] Email:', email);
+
+    // Validação básica
+    if (!email || !password) {
+      setError("Por favor, preencha todos os campos");
+      return;
+    }
+
+    // Verificar rate limit ANTES de tentar login
+    try {
+      console.log('🔍 [Login] Verificando rate limit antes do login...');
+      const rateLimitResult = await rateLimiter.check();
+      
+      console.log('📊 [Login] Resultado do rate limit:', rateLimitResult);
+      
+      if (!rateLimitResult.allowed) {
+        console.warn('🚫 [Login] Rate limit excedido!');
+        setRateLimitBlocked(true);
+        setRateLimitRemaining(0);
+        
+        if (rateLimitResult.blockedUntil) {
+          setRateLimitResetAt(rateLimitResult.blockedUntil);
+          const timeRemaining = formatTimeRemaining(rateLimitResult.blockedUntil);
+          setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
+        } else {
+          setError(rateLimitResult.message || "Muitas tentativas. Aguarde antes de tentar novamente.");
+        }
+        return;
+      }
+      
+      // Atualiza UI com tentativas restantes
+      setRateLimitRemaining(rateLimitResult.remaining);
+      if (rateLimitResult.remaining < 3) {
+        setRateLimitMessage(`⚠️ ${rateLimitResult.remaining} tentativas restantes`);
+      }
+      
+      console.log(`✅ [Login] Rate limit OK - ${rateLimitResult.remaining} tentativas restantes`);
+    } catch (rateLimitError) {
+      console.error('❌ [Login] Erro ao verificar rate limit:', rateLimitError);
+      // Fail-open: continua com login mesmo se rate limit falhar
+      console.warn('⚠️ [Login] Continuando com login (fail-open)');
+    }
+
+    // Prosseguir com login
+    setLoading(true);
+
+    try {
+      console.log('🔄 [Login] Chamando função de login...');
+      
+      const result = await loginUser(email, password);
+      
+      console.log('📦 [Login] Resultado do login:', {
+        success: result.success,
+        hasUser: !!result.user,
+        userId: result.user?.id,
+      });
+
+      if (result.success && result.user) {
+        console.log('✅ [Login] Login bem-sucedido!');
+        console.log('👤 [Login] Usuário:', {
+          id: result.user.id,
+          email: result.user.email,
+          nomeCompleto: result.user.nomeCompleto,
+        });
+
+        setSuccess("Login realizado com sucesso! Redirecionando...");
+        
+        // Reseta rate limit após login bem-sucedido
+        rateLimiter.reset();
+        console.log('🔄 [Login] Rate limit resetado após sucesso');
+
+        // Aguarda 1 segundo antes de redirecionar
+        setTimeout(() => {
+          console.log('🔀 [Login] Redirecionando para /dashboard...');
+          window.location.href = '/dashboard';
+        }, 1000);
+      } else {
+        console.error('❌ [Login] Login falhou:', result.error);
+        setError(result.error || "Email ou senha incorretos");
+        
+        // Atualiza status do rate limit após falha
+        await checkRateLimitStatus();
+      }
+    } catch (err) {
+      console.error('❌ [Login] Erro durante login:', err);
+      const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.";
+      setError(errorMessage);
+      
+      // Atualiza status do rate limit após erro
+      await checkRateLimitStatus();
+    } finally {
+      setLoading(false);
+      console.log('🏁 [Login] Processo de login finalizado');
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Vero iD
-              </span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+              <Shield className="w-8 h-8 text-white" />
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate('/cadastro')}>
-            Criar Conta
-          </Button>
-        </div>
-      </header>
-      
-      <div className="container mx-auto px-4 py-16 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Entrar</CardTitle>
-            <CardDescription className="text-center">
-              Acesse sua conta Vero iD
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="email"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="senha">Senha</Label>
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-xs"
-                    onClick={() => navigate('/forgot-password')}
-                    type="button"
-                  >
-                    Esqueceu a senha?
-                  </Button>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="senha"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••"
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span className="sr-only">
-                      {showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    </span>
-                  </Button>
-                </div>
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Entrar
-                  </>
-                )}
-              </Button>
-              
-              <div className="text-center text-sm text-muted-foreground">
-                Não tem uma conta?{' '}
-                <Button
-                  variant="link"
-                  className="p-0 h-auto font-semibold"
-                  onClick={() => navigate('/cadastro')}
-                  type="button"
+          <CardTitle className="text-2xl font-bold text-center">Bem-vindo de volta</CardTitle>
+          <CardDescription className="text-center">
+            Entre com suas credenciais para acessar sua conta
+          </CardDescription>
+        </CardHeader>
+
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {/* Rate Limit Warning */}
+            {rateLimitMessage && !rateLimitBlocked && (
+              <Alert className="border-yellow-500 bg-yellow-50">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800">
+                  {rateLimitMessage}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Rate Limit Blocked */}
+            {rateLimitBlocked && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {rateLimitMessage}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Error Alert */}
+            {error && !rateLimitBlocked && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Success Alert */}
+            {success && (
+              <Alert className="border-green-500 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading || rateLimitBlocked}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                <Link 
+                  to="/forgot-password" 
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                 >
-                  Cadastre-se
-                </Button>
+                  Esqueceu a senha?
+                </Link>
               </div>
-            </form>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading || rateLimitBlocked}
+                required
+              />
+            </div>
           </CardContent>
-        </Card>
-      </div>
+
+          <CardFooter className="flex flex-col space-y-4">
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading || rateLimitBlocked}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : rateLimitBlocked ? (
+                "Bloqueado temporariamente"
+              ) : (
+                "Entrar"
+              )}
+            </Button>
+
+            <div className="text-center text-sm text-gray-600">
+              Não tem uma conta?{" "}
+              <Link to="/cadastro" className="text-blue-600 hover:text-blue-800 font-medium hover:underline">
+                Cadastre-se
+              </Link>
+            </div>
+
+            <div className="text-center text-sm text-gray-600">
+              <Link to="/" className="text-blue-600 hover:text-blue-800 hover:underline">
+                ← Voltar para página inicial
+              </Link>
+            </div>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 }
