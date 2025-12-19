@@ -22,6 +22,7 @@ export interface User {
   createdAt: string;
   verified: boolean;
   isAdmin: boolean;
+  blocked?: boolean;
 }
 
 interface DebugInfo {
@@ -66,6 +67,7 @@ function dbUserToAppUser(dbUser: UserRow): User {
     createdAt: dbUser.created_at,
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
+    blocked: dbUser.blocked || false,
   };
 }
 
@@ -81,6 +83,7 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     selfie_url: appUser.selfieUrl,
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
+    blocked: appUser.blocked || false,
   };
 }
 
@@ -649,5 +652,153 @@ export async function getUsers(): Promise<User[]> {
   } catch (error) {
     console.error('❌ Erro ao buscar usuários:', error);
     return [];
+  }
+}
+
+/**
+ * Atualiza dados de um usuário (apenas para admin)
+ */
+export async function updateUser(
+  userId: string,
+  updates: {
+    nomeCompleto?: string;
+    nomePublico?: string;
+    email?: string;
+    telefone?: string;
+  }
+): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    console.log('✏️ [UPDATE USER] Atualizando usuário:', userId);
+    console.log('📊 Dados a atualizar:', updates);
+    
+    // Verifica se o usuário atual é admin
+    const isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
+      return { success: false, error: 'Apenas administradores podem editar usuários' };
+    }
+    
+    // Prepara os dados para atualização
+    const updateData: any = {};
+    if (updates.nomeCompleto) updateData.nome_completo = updates.nomeCompleto;
+    if (updates.nomePublico) updateData.nome_publico = updates.nomePublico;
+    if (updates.email) updateData.email = updates.email.toLowerCase();
+    if (updates.telefone) updateData.telefone = updates.telefone;
+    
+    // Atualiza o usuário na tabela
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar usuário:', error);
+      return { success: false, error: 'Erro ao atualizar usuário' };
+    }
+    
+    console.log('✅ Usuário atualizado com sucesso');
+    
+    return {
+      success: true,
+      user: dbUserToAppUser(data),
+    };
+  } catch (error) {
+    console.error('❌ Erro ao atualizar usuário:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    };
+  }
+}
+
+/**
+ * Bloqueia ou desbloqueia um usuário (apenas para admin)
+ */
+export async function toggleBlockUser(
+  userId: string,
+  blocked: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`🚫 [${blocked ? 'BLOCK' : 'UNBLOCK'} USER] Usuário:`, userId);
+    
+    // Verifica se o usuário atual é admin
+    const isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
+      return { success: false, error: 'Apenas administradores podem bloquear usuários' };
+    }
+    
+    // Atualiza o status de bloqueio
+    const { error } = await supabase
+      .from('users')
+      .update({ blocked })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar status de bloqueio:', error);
+      return { success: false, error: 'Erro ao atualizar status de bloqueio' };
+    }
+    
+    console.log(`✅ Usuário ${blocked ? 'bloqueado' : 'desbloqueado'} com sucesso`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao bloquear/desbloquear usuário:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    };
+  }
+}
+
+/**
+ * Exclui permanentemente um usuário (apenas para admin)
+ */
+export async function deleteUser(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('🗑️ [DELETE USER] Excluindo usuário:', userId);
+    
+    // Verifica se o usuário atual é admin
+    const isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
+      return { success: false, error: 'Apenas administradores podem excluir usuários' };
+    }
+    
+    // Verifica se não está tentando excluir a si mesmo
+    const currentUser = await getCurrentUser();
+    if (currentUser?.id === userId) {
+      return { success: false, error: 'Você não pode excluir sua própria conta' };
+    }
+    
+    // Exclui o usuário da tabela users
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    
+    if (deleteError) {
+      console.error('❌ Erro ao excluir usuário da tabela:', deleteError);
+      return { success: false, error: 'Erro ao excluir usuário' };
+    }
+    
+    // Tenta excluir do Auth (requer permissões de admin)
+    try {
+      await supabase.auth.admin.deleteUser(userId);
+      console.log('✅ Usuário excluído do Auth');
+    } catch (authError) {
+      console.warn('⚠️ Não foi possível excluir do Auth (pode requerer permissões adicionais):', authError);
+    }
+    
+    console.log('✅ Usuário excluído com sucesso');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao excluir usuário:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    };
   }
 }

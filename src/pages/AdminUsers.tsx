@@ -34,10 +34,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, isCurrentUserAdmin, getUsers, type User } from '@/lib/supabase-auth-v2';
+import { getCurrentUser, isCurrentUserAdmin, getUsers, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,11 +124,39 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    // TODO: Implement updateUser function in supabase-auth-v2.ts
-    alert('Funcionalidade de edição será implementada em breve');
-    
-    setIsLoading(false);
-    setIsEditDialogOpen(false);
+    try {
+      const result = await updateUser(selectedUser.id, {
+        nomeCompleto: editNomeCompleto,
+        nomePublico: editNomePublico,
+        email: editEmail,
+        telefone: editTelefone,
+      });
+      
+      if (result.success) {
+        toast({
+          title: "✅ Usuário atualizado",
+          description: "Os dados do usuário foram atualizados com sucesso.",
+        });
+        
+        // Recarrega a lista de usuários
+        await loadUsers();
+        setIsEditDialogOpen(false);
+      } else {
+        toast({
+          title: "❌ Erro ao atualizar",
+          description: result.error || "Não foi possível atualizar o usuário.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Erro",
+        description: "Ocorreu um erro ao atualizar o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleOpenBlockDialog = (user: User) => {
@@ -139,11 +169,37 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    // TODO: Implement blockUser/unblockUser functions in supabase-auth-v2.ts
-    alert('Funcionalidade de bloqueio será implementada em breve');
-    
-    setIsLoading(false);
-    setIsBlockDialogOpen(false);
+    try {
+      const newBlockedStatus = !selectedUser.blocked;
+      const result = await toggleBlockUser(selectedUser.id, newBlockedStatus);
+      
+      if (result.success) {
+        toast({
+          title: newBlockedStatus ? "🚫 Usuário bloqueado" : "✅ Usuário desbloqueado",
+          description: newBlockedStatus 
+            ? "O usuário foi bloqueado e não poderá mais acessar o sistema."
+            : "O usuário foi desbloqueado e pode acessar o sistema novamente.",
+        });
+        
+        // Recarrega a lista de usuários
+        await loadUsers();
+        setIsBlockDialogOpen(false);
+      } else {
+        toast({
+          title: "❌ Erro",
+          description: result.error || "Não foi possível alterar o status do usuário.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Erro",
+        description: "Ocorreu um erro ao alterar o status do usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleOpenDeleteDialog = (user: User) => {
@@ -156,11 +212,34 @@ export default function AdminUsers() {
     
     setIsLoading(true);
     
-    // TODO: Implement deleteUser function in supabase-auth-v2.ts
-    alert('Funcionalidade de exclusão será implementada em breve');
-    
-    setIsLoading(false);
-    setIsDeleteDialogOpen(false);
+    try {
+      const result = await deleteUser(selectedUser.id);
+      
+      if (result.success) {
+        toast({
+          title: "🗑️ Usuário excluído",
+          description: "O usuário foi excluído permanentemente do sistema.",
+        });
+        
+        // Recarrega a lista de usuários
+        await loadUsers();
+        setIsDeleteDialogOpen(false);
+      } else {
+        toast({
+          title: "❌ Erro ao excluir",
+          description: result.error || "Não foi possível excluir o usuário.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Erro",
+        description: "Ocorreu um erro ao excluir o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const formatDate = (dateString: string) => {
@@ -368,6 +447,11 @@ export default function AdminUsers() {
                                     Admin
                                   </Badge>
                                 )}
+                                {user.blocked && (
+                                  <Badge className="bg-gray-100 text-gray-800 text-xs">
+                                    Bloqueado
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -400,6 +484,31 @@ export default function AdminUsers() {
                               title="Ver detalhes"
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(user)}
+                              title="Editar usuário"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenBlockDialog(user)}
+                              title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDeleteDialog(user)}
+                              title="Excluir usuário"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -440,6 +549,9 @@ export default function AdminUsers() {
                       {selectedUser.verified && (
                         <Badge className="bg-green-100 text-green-800">Verificado</Badge>
                       )}
+                      {selectedUser.blocked && (
+                        <Badge className="bg-gray-100 text-gray-800">Bloqueado</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -471,6 +583,107 @@ export default function AdminUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Dialog de Edição */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogDescription>
+                Altere as informações do usuário selecionado
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editNomeCompleto">Nome Completo</Label>
+                <Input
+                  id="editNomeCompleto"
+                  value={editNomeCompleto}
+                  onChange={(e) => setEditNomeCompleto(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editNomePublico">Nome Público</Label>
+                <Input
+                  id="editNomePublico"
+                  value={editNomePublico}
+                  onChange={(e) => setEditNomePublico(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editEmail">Email</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editTelefone">Telefone</Label>
+                <Input
+                  id="editTelefone"
+                  value={editTelefone}
+                  onChange={(e) => setEditTelefone(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isLoading}>
+                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Dialog de Bloqueio */}
+        <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {selectedUser?.blocked ? 'Desbloquear Usuário' : 'Bloquear Usuário'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedUser?.blocked
+                  ? `Tem certeza que deseja desbloquear ${selectedUser?.nomeCompleto}? O usuário poderá acessar o sistema novamente.`
+                  : `Tem certeza que deseja bloquear ${selectedUser?.nomeCompleto}? O usuário não poderá mais acessar o sistema.`
+                }
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleToggleBlock} disabled={isLoading}>
+                {isLoading ? 'Processando...' : (selectedUser?.blocked ? 'Desbloquear' : 'Bloquear')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Dialog de Exclusão */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Usuário Permanentemente</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir permanentemente {selectedUser?.nomeCompleto}? 
+                Esta ação não pode ser desfeita e todos os dados do usuário serão removidos do sistema.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteUser} 
+                disabled={isLoading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isLoading ? 'Excluindo...' : 'Excluir Permanentemente'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
