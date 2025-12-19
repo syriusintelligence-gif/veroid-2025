@@ -8,6 +8,7 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import Index from './pages/Index';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
+import AuthCallback from './pages/AuthCallback';
 
 // Lazy load: Heavy pages loaded on demand
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -57,6 +58,9 @@ function App() {
           {/* Rotas de autenticação */}
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          
+          {/* Callback de autenticação - NOVA ROTA */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
           
           {/* Recuperação de senha */}
           <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -247,7 +247,7 @@ export async function registerUser(
           nome_completo: user.nomeCompleto,
           nome_publico: user.nomePublico || user.nomeCompleto,
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       }
     });
     
@@ -529,7 +529,7 @@ export async function requestPasswordReset(
     console.log('📧 Email:', email);
     console.log('🌐 Origin:', window.location.origin);
     
-    const redirectUrl = `${window.location.origin}/reset-password`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     console.log('🔗 Redirect URL gerada:', redirectUrl);
     
     const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
