@@ -11,6 +11,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
+import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 
@@ -64,6 +65,10 @@ function App() {
         <Route
           path="/sign-content"
           element={session ? <SignContent /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/settings"
+          element={session ? <Settings /> : <Navigate to="/login" />}
         />
         <Route
           path="/admin"
