@@ -4,17 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Lock, Loader2, CheckCircle2, Eye, EyeOff, Hash } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { resetPassword, isValidPassword } from '@/lib/auth';
+import { Shield, ArrowLeft, Lock, Loader2, CheckCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { resetPassword, isValidPassword } from '@/lib/supabase-auth-v2';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const emailFromUrl = searchParams.get('email') || '';
-
-  const [email, setEmail] = useState(emailFromUrl);
-  const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,11 +18,18 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Verifica se há um token de recuperação na URL
   useEffect(() => {
-    if (emailFromUrl) {
-      setEmail(emailFromUrl);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    
+    if (type !== 'recovery') {
+      console.warn('⚠️ Token de recuperação não encontrado na URL');
+      setError('Link de recuperação inválido ou expirado. Por favor, solicite um novo link.');
+    } else {
+      console.log('✅ Token de recuperação detectado');
     }
-  }, [emailFromUrl]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,21 +37,6 @@ export default function ResetPassword() {
     setSuccess(false);
 
     // Validações
-    if (!email.trim()) {
-      setError('Por favor, insira seu email');
-      return;
-    }
-
-    if (!code.trim()) {
-      setError('Por favor, insira o código de verificação');
-      return;
-    }
-
-    if (code.length !== 6) {
-      setError('O código deve ter 6 dígitos');
-      return;
-    }
-
     if (!newPassword) {
       setError('Por favor, insira a nova senha');
       return;
@@ -68,20 +55,23 @@ export default function ResetPassword() {
     setIsLoading(true);
 
     try {
-      const result = resetPassword(email, code, newPassword);
+      console.log('🔑 Redefinindo senha...');
+      const result = await resetPassword(newPassword);
 
       if (result.success) {
+        console.log('✅ Senha redefinida com sucesso');
         setSuccess(true);
         // Redireciona após 3 segundos
         setTimeout(() => {
           navigate('/login');
         }, 3000);
       } else {
+        console.error('❌ Erro ao redefinir senha:', result.message);
         setError(result.message);
       }
     } catch (err) {
+      console.error('❌ Erro ao processar redefinição:', err);
       setError('Erro ao redefinir senha. Tente novamente.');
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -136,11 +126,11 @@ export default function ResetPassword() {
         {/* Header */}
         <div className="text-center">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/login')}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="h-4 w-4" />
-            Voltar
+            Voltar para Login
           </button>
           <div className="flex items-center justify-center gap-2 mb-2">
             <Shield className="h-10 w-10 text-blue-600" />
@@ -155,48 +145,17 @@ export default function ResetPassword() {
           <CardHeader>
             <CardTitle>Criar Nova Senha</CardTitle>
             <CardDescription>
-              Digite o código de verificação e sua nova senha
+              Digite sua nova senha abaixo
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || !!emailFromUrl}
-                  placeholder="seu@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="code">Código de Verificação</Label>
-                <div className="relative">
-                  <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="code"
-                    type="text"
-                    placeholder="000000"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="pl-10 text-center text-2xl tracking-widest font-mono"
-                    disabled={isLoading}
-                    maxLength={6}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Digite o código de 6 dígitos que você recebeu
-                </p>
-              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nova Senha</Label>
@@ -286,14 +245,20 @@ export default function ResetPassword() {
           </CardContent>
         </Card>
 
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>💡 Dica:</strong> Você chegou aqui através do link enviado por email. Não é necessário inserir nenhum código adicional.
+          </p>
+        </div>
+
         <div className="text-center text-sm text-muted-foreground">
           <p>
-            Não recebeu o código?{' '}
+            Link expirado?{' '}
             <button
               onClick={() => navigate('/forgot-password')}
               className="text-blue-600 hover:underline font-medium"
             >
-              Solicitar novo código
+              Solicitar novo link
             </button>
           </p>
         </div>
