@@ -525,28 +525,43 @@ export async function requestPasswordReset(
   email: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔑 Solicitando recuperação de senha para:', email);
+    console.log('🔑 [PASSWORD RESET] Iniciando solicitação de recuperação...');
+    console.log('📧 Email:', email);
+    console.log('🌐 Origin:', window.location.origin);
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    console.log('🔗 Redirect URL gerada:', redirectUrl);
+    
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+      redirectTo: redirectUrl,
     });
+    
+    console.log('📊 Resposta do Supabase:', { data, error });
     
     if (error) {
       console.error('❌ Erro ao solicitar reset de senha:', error);
+      console.error('❌ Detalhes do erro:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
+      
       return { 
         success: false, 
-        message: 'Erro ao solicitar recuperação de senha' 
+        message: `Erro ao solicitar recuperação de senha: ${error.message}` 
       };
     }
     
-    console.log('✅ Email de recuperação enviado');
+    console.log('✅ Email de recuperação enviado com sucesso');
+    console.log('📧 Verifique o email:', email);
+    console.log('🔗 O link redirecionará para:', redirectUrl);
     
     return {
       success: true,
       message: 'Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.',
     };
   } catch (error) {
-    console.error('❌ Erro ao solicitar reset de senha:', error);
+    console.error('❌ Erro crítico ao solicitar reset de senha:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Erro desconhecido' 
@@ -561,6 +576,8 @@ export async function resetPassword(
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    console.log('🔐 [RESET PASSWORD] Iniciando reset de senha...');
+    
     if (!isValidPassword(newPassword)) {
       return {
         success: false,
@@ -568,24 +585,36 @@ export async function resetPassword(
       };
     }
     
-    const { error } = await supabase.auth.updateUser({
+    console.log('✅ Senha válida, atualizando...');
+    
+    const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
     
+    console.log('📊 Resposta do updateUser:', { data, error });
+    
     if (error) {
       console.error('❌ Erro ao resetar senha:', error);
+      console.error('❌ Detalhes do erro:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
+      
       return { 
         success: false, 
-        message: 'Erro ao alterar senha' 
+        message: `Erro ao alterar senha: ${error.message}` 
       };
     }
+    
+    console.log('✅ Senha alterada com sucesso');
     
     return {
       success: true,
       message: 'Senha alterada com sucesso',
     };
   } catch (error) {
-    console.error('❌ Erro ao resetar senha:', error);
+    console.error('❌ Erro crítico ao resetar senha:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Erro desconhecido' 
