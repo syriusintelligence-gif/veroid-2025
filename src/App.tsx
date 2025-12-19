@@ -10,6 +10,7 @@ import SignContent from './pages/SignContent';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 
@@ -67,6 +68,14 @@ function App() {
         <Route
           path="/admin"
           element={session ? <AdminDashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={session ? <AdminDashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin/users"
+          element={session ? <AdminUsers /> : <Navigate to="/login" />}
         />
       </Routes>
     </Router>
