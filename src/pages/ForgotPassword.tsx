@@ -4,9 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2 } from 'lucide-react';
+import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { requestPasswordReset, isValidEmail } from '@/lib/auth';
+import { requestPasswordReset, isValidEmail } from '@/lib/supabase-auth-v2';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -14,7 +14,6 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [resetCode, setResetCode] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,24 +34,22 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      const result = requestPasswordReset(email);
+      console.log('🔑 Solicitando recuperação de senha para:', email);
+      const result = await requestPasswordReset(email);
 
       if (result.success) {
+        console.log('✅ Email de recuperação enviado com sucesso');
         setSuccess(true);
-        setResetCode(result.code || '');
       } else {
+        console.error('❌ Erro ao solicitar recuperação:', result.message);
         setError(result.message);
       }
     } catch (err) {
+      console.error('❌ Erro ao processar solicitação:', err);
       setError('Erro ao processar solicitação. Tente novamente.');
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleGoToReset = () => {
-    navigate(`/reset-password?email=${encodeURIComponent(email)}`);
   };
 
   return (
@@ -81,8 +78,8 @@ export default function ForgotPassword() {
             <CardTitle>Esqueceu sua senha?</CardTitle>
             <CardDescription>
               {!success
-                ? 'Digite seu email para receber um código de verificação'
-                : 'Código de verificação gerado com sucesso'}
+                ? 'Digite seu email para receber um link de recuperação'
+                : 'Email de recuperação enviado com sucesso'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -90,6 +87,7 @@ export default function ForgotPassword() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                   <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
@@ -114,12 +112,12 @@ export default function ForgotPassword() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processando...
+                      Enviando...
                     </>
                   ) : (
                     <>
                       <Mail className="mr-2 h-4 w-4" />
-                      Enviar Código de Verificação
+                      Enviar Link de Recuperação
                     </>
                   )}
                 </Button>
@@ -129,42 +127,32 @@ export default function ForgotPassword() {
                 <Alert className="border-green-500 bg-green-50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <p className="font-medium mb-2">Código gerado com sucesso!</p>
+                    <p className="font-medium mb-2">Email enviado com sucesso!</p>
                     <p className="text-sm mb-3">
-                      Em um sistema de produção, este código seria enviado para seu email. Por enquanto, anote o código abaixo:
+                      Enviamos um link de recuperação para <strong>{email}</strong>
                     </p>
-                    <div className="bg-white border-2 border-green-600 rounded-lg p-4 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Seu código de verificação:</p>
-                      <p className="text-3xl font-bold text-green-600 tracking-wider font-mono">
-                        {resetCode}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        ⏱️ Válido por 15 minutos
-                      </p>
-                    </div>
+                    <p className="text-sm">
+                      Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+                    </p>
                   </AlertDescription>
                 </Alert>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">
-                    <strong>⚠️ Importante:</strong> Copie este código antes de prosseguir. Você precisará dele na próxima tela.
+                    <strong>⚠️ Importante:</strong> O link expira em 1 hora. Se não encontrar o email, verifique sua pasta de spam.
                   </p>
                 </div>
-
-                <Button onClick={handleGoToReset} className="w-full">
-                  Continuar para Redefinir Senha
-                </Button>
 
                 <Button
                   variant="outline"
                   onClick={() => {
                     setSuccess(false);
                     setEmail('');
-                    setResetCode('');
+                    setError('');
                   }}
                   className="w-full"
                 >
-                  Solicitar Novo Código
+                  Enviar Novo Link
                 </Button>
               </div>
             )}
