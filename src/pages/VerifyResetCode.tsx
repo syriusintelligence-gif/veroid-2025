@@ -86,11 +86,22 @@ const VerifyResetCode: React.FC = () => {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      console.log('🔧 Debug - Verificando código...');
+      console.log('🔧 Debug - Supabase URL:', supabaseUrl);
+      console.log('🔧 Debug - Anon Key exists:', !!supabaseAnonKey);
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuração do Supabase não encontrada. Verifique as variáveis de ambiente.');
+      }
       
       const response = await fetch(`${supabaseUrl}/functions/v1/verify-reset-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({
           email: email.toLowerCase(),
@@ -99,10 +110,13 @@ const VerifyResetCode: React.FC = () => {
         }),
       });
 
+      console.log('🔧 Debug - Response status:', response.status);
+
       const data = await response.json();
+      console.log('🔧 Debug - Response data:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao verificar código');
+        throw new Error(data.error || `Erro ${response.status}: ${response.statusText}`);
       }
 
       setSuccess(true);
