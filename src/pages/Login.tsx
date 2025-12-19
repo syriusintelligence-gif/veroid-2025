@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, CheckCircle2, Shield } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Shield, Eye, EyeOff } from "lucide-react";
 import { loginUser } from "@/lib/supabase-auth-v2";
 import { RateLimiter, RateLimitPresets, formatTimeRemaining } from "@/lib/rate-limiter";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -30,24 +31,34 @@ export default function Login() {
     checkRateLimitStatus();
   }, []);
 
-  // Update countdown timer
+  // Update countdown timer - FIX: Atualiza imediatamente quando bloqueado
   useEffect(() => {
     if (rateLimitBlocked && rateLimitResetAt) {
+      // Atualiza imediatamente
+      updateCountdown();
+      
+      // Continua atualizando a cada segundo
       const interval = setInterval(() => {
-        const now = new Date();
-        if (rateLimitResetAt <= now) {
-          setRateLimitBlocked(false);
-          setRateLimitMessage("");
-          checkRateLimitStatus();
-        } else {
-          const timeRemaining = formatTimeRemaining(rateLimitResetAt);
-          setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
-        }
+        updateCountdown();
       }, 1000);
 
       return () => clearInterval(interval);
     }
   }, [rateLimitBlocked, rateLimitResetAt]);
+
+  function updateCountdown() {
+    if (!rateLimitResetAt) return;
+    
+    const now = new Date();
+    if (rateLimitResetAt <= now) {
+      setRateLimitBlocked(false);
+      setRateLimitMessage("");
+      checkRateLimitStatus();
+    } else {
+      const timeRemaining = formatTimeRemaining(rateLimitResetAt);
+      setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
+    }
+  }
 
   async function checkRateLimitStatus() {
     try {
@@ -251,15 +262,31 @@ export default function Login() {
                   Esqueceu a senha?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading || rateLimitBlocked}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading || rateLimitBlocked}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  disabled={loading || rateLimitBlocked}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </CardContent>
 
