@@ -9,6 +9,7 @@ import Index from './pages/Index';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
 import AuthCallback from './pages/AuthCallback';
+import VerifyResetCode from './pages/VerifyResetCode';
 
 // Lazy load: Heavy pages loaded on demand
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -59,11 +60,12 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
           
-          {/* Callback de autenticação - NOVA ROTA */}
+          {/* Callback de autenticação */}
           <Route path="/auth/callback" element={<AuthCallback />} />
           
           {/* Recuperação de senha */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/verify-reset-code" element={<VerifyResetCode />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Admin Setup - Página para resetar senha do admin */}

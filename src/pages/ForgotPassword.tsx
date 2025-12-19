@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { requestPasswordReset, isValidEmail } from '@/lib/supabase-auth-v2';
+import { isValidEmail } from '@/lib/supabase-auth-v2';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -34,19 +34,34 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      console.log('🔑 Solicitando recuperação de senha para:', email);
-      const result = await requestPasswordReset(email);
+      console.log('🔑 Solicitando código de recuperação para:', email);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-password-reset-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      });
 
-      if (result.success) {
-        console.log('✅ Email de recuperação enviado com sucesso');
-        setSuccess(true);
-      } else {
-        console.error('❌ Erro ao solicitar recuperação:', result.message);
-        setError(result.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao enviar código');
       }
+
+      console.log('✅ Código enviado com sucesso');
+      setSuccess(true);
+      
+      // Redirect to verification page after 2 seconds
+      setTimeout(() => {
+        navigate('/verify-reset-code', { state: { email: email.toLowerCase() } });
+      }, 2000);
     } catch (err) {
       console.error('❌ Erro ao processar solicitação:', err);
-      setError('Erro ao processar solicitação. Tente novamente.');
+      setError(err instanceof Error ? err.message : 'Erro ao processar solicitação. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -78,8 +93,8 @@ export default function ForgotPassword() {
             <CardTitle>Esqueceu sua senha?</CardTitle>
             <CardDescription>
               {!success
-                ? 'Digite seu email para receber um link de recuperação'
-                : 'Email de recuperação enviado com sucesso'}
+                ? 'Digite seu email para receber um código de recuperação'
+                : 'Código enviado com sucesso'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,7 +132,7 @@ export default function ForgotPassword() {
                   ) : (
                     <>
                       <Mail className="mr-2 h-4 w-4" />
-                      Enviar Link de Recuperação
+                      Enviar Código de Recuperação
                     </>
                   )}
                 </Button>
@@ -127,32 +142,28 @@ export default function ForgotPassword() {
                 <Alert className="border-green-500 bg-green-50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <p className="font-medium mb-2">Email enviado com sucesso!</p>
+                    <p className="font-medium mb-2">Código enviado com sucesso!</p>
                     <p className="text-sm mb-3">
-                      Enviamos um link de recuperação para <strong>{email}</strong>
+                      Enviamos um código de 6 dígitos para <strong>{email}</strong>
                     </p>
                     <p className="text-sm">
-                      Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+                      Você será redirecionado para a página de verificação...
                     </p>
                   </AlertDescription>
                 </Alert>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">
-                    <strong>⚠️ Importante:</strong> O link expira em 1 hora. Se não encontrar o email, verifique sua pasta de spam.
+                    <strong>⚠️ Importante:</strong> O código expira em 10 minutos. Se não encontrar o email, verifique sua pasta de spam.
                   </p>
                 </div>
 
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setSuccess(false);
-                    setEmail('');
-                    setError('');
-                  }}
+                  onClick={() => navigate('/verify-reset-code', { state: { email: email.toLowerCase() } })}
                   className="w-full"
                 >
-                  Enviar Novo Link
+                  Ir para Verificação
                 </Button>
               </div>
             )}
