@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
+import Index from './pages/Index';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
@@ -44,6 +45,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Index />} />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/cadastro" element={!session ? <Cadastro /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
@@ -66,7 +68,6 @@ function App() {
           path="/admin"
           element={session ? <AdminDashboard /> : <Navigate to="/login" />}
         />
-        <Route path="/" element={<Navigate to={session ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>
   );
