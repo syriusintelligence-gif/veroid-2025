@@ -19,28 +19,102 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [hasValidSession, setHasValidSession] = useState(false);
+  const [tokenFormat, setTokenFormat] = useState<'hash' | 'query' | 'none'>('none');
 
   // Verifica se há um token de recuperação na URL e estabelece sessão
   useEffect(() => {
     const checkSession = async () => {
-      console.log('🔍 Verificando sessão de recuperação...');
+      console.log('🔍 [RESET PASSWORD] Verificando sessão de recuperação...');
       console.log('📍 URL completa:', window.location.href);
       console.log('📍 Hash:', window.location.hash);
+      console.log('📍 Search (query):', window.location.search);
       
-      // Verifica se há hash na URL
+      // FORMATO 1: Hash params (#access_token=...&type=recovery) - PADRÃO SUPABASE
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
+      const hashAccessToken = hashParams.get('access_token');
+      const hashType = hashParams.get('type');
       
-      console.log('🔑 Access Token presente:', !!accessToken);
-      console.log('📋 Type:', type);
+      console.log('🔑 [HASH FORMAT] Access Token presente:', !!hashAccessToken);
+      console.log('📋 [HASH FORMAT] Type:', hashType);
       
-      if (type !== 'recovery') {
+      // FORMATO 2: Query params (?token=...&type=recovery) - FORMATO CUSTOMIZADO
+      const queryParams = new URLSearchParams(window.location.search);
+      const queryToken = queryParams.get('token');
+      const queryType = queryParams.get('type');
+      
+      console.log('🔑 [QUERY FORMAT] Token presente:', !!queryToken);
+      console.log('📋 [QUERY FORMAT] Type:', queryType);
+      
+      // Determina qual formato está sendo usado
+      let accessToken: string | null = null;
+      let type: string | null = null;
+      let detectedFormat: 'hash' | 'query' | 'none' = 'none';
+      
+      if (hashAccessToken && hashType === 'recovery') {
+        console.log('✅ Detectado formato HASH (padrão Supabase)');
+        accessToken = hashAccessToken;
+        type = hashType;
+        detectedFormat = 'hash';
+      } else if (queryToken && queryType === 'recovery') {
+        console.log('✅ Detectado formato QUERY (customizado)');
+        accessToken = queryToken;
+        type = queryType;
+        detectedFormat = 'query';
+      }
+      
+      setTokenFormat(detectedFormat);
+      
+      if (!accessToken || type !== 'recovery') {
         console.warn('⚠️ Token de recuperação não encontrado na URL');
+        console.warn('⚠️ Formato detectado:', detectedFormat);
         setError('Link de recuperação inválido ou expirado. Por favor, solicite um novo link.');
         return;
       }
       
+      console.log('🔑 Token encontrado, formato:', detectedFormat);
+      console.log('🔑 Token (primeiros 20 chars):', accessToken.substring(0, 20) + '...');
+      
+      // Para formato QUERY, precisamos estabelecer a sessão manualmente
+      if (detectedFormat === 'query') {
+        console.log('🔄 Estabelecendo sessão com token customizado...');
+        
+        try {
+          // Tenta usar o token para estabelecer sessão
+          const { data, error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: accessToken, // Usa o mesmo token como refresh
+          });
+          
+          console.log('📊 Resultado setSession:', { data, error: setSessionError });
+          
+          if (setSessionError) {
+            console.error('❌ Erro ao estabelecer sessão:', setSessionError);
+            
+            // Se o token for curto (não JWT), pode ser um código de verificação
+            if (accessToken.length < 50) {
+              console.warn('⚠️ Token muito curto, pode ser código de verificação');
+              setError('Este link usa um formato de token não suportado. Por favor, solicite um novo link de recuperação.');
+              return;
+            }
+            
+            setError('Erro ao processar token de recuperação. Por favor, solicite um novo link.');
+            return;
+          }
+          
+          if (data.session) {
+            console.log('✅ Sessão estabelecida com sucesso');
+            console.log('👤 User ID:', data.session.user?.id);
+            setHasValidSession(true);
+            return;
+          }
+        } catch (err) {
+          console.error('❌ Erro ao processar token:', err);
+          setError('Erro ao processar link de recuperação. Por favor, solicite um novo link.');
+          return;
+        }
+      }
+      
+      // Para formato HASH, o Supabase já estabelece a sessão automaticamente
       // Verifica sessão atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -50,9 +124,37 @@ export default function ResetPassword() {
       if (session) {
         console.log('✅ Sessão de recuperação estabelecida');
         console.log('👤 User ID:', session.user?.id);
+        console.log('📧 Email:', session.user?.email);
         setHasValidSession(true);
       } else {
         console.warn('⚠️ Sessão não estabelecida automaticamente');
+        
+        // Se não houver sessão, tenta verificar se o token é válido
+        if (detectedFormat === 'hash' && hashAccessToken) {
+          console.log('🔄 Tentando estabelecer sessão manualmente com token hash...');
+          
+          try {
+            const { data, error: setSessionError } = await supabase.auth.setSession({
+              access_token: hashAccessToken,
+              refresh_token: hashAccessToken,
+            });
+            
+            if (setSessionError) {
+              console.error('❌ Erro ao estabelecer sessão:', setSessionError);
+              setError('Link de recuperação expirado. Por favor, solicite um novo link.');
+              return;
+            }
+            
+            if (data.session) {
+              console.log('✅ Sessão estabelecida manualmente');
+              setHasValidSession(true);
+              return;
+            }
+          } catch (err) {
+            console.error('❌ Erro ao estabelecer sessão:', err);
+          }
+        }
+        
         setError('Sessão de recuperação não encontrada. Por favor, clique no link do email novamente.');
       }
     };
@@ -67,6 +169,7 @@ export default function ResetPassword() {
 
     console.log('🔐 [RESET PASSWORD] Iniciando processo...');
     console.log('✅ Sessão válida:', hasValidSession);
+    console.log('📋 Formato do token:', tokenFormat);
 
     // Verifica se há sessão válida
     if (!hasValidSession) {
@@ -202,6 +305,15 @@ export default function ResetPassword() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     Verificando link de recuperação...
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {hasValidSession && tokenFormat !== 'none' && (
+                <Alert className="border-green-500 bg-green-50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    Link de recuperação válido! Você pode criar sua nova senha.
                   </AlertDescription>
                 </Alert>
               )}
