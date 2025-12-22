@@ -9,25 +9,21 @@ import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
   loginUser,
-  isValidEmail,
-  isValidCPF,
-  isValidCNPJ,
-  isValidPassword,
   getCurrentUser,
 } from '@/lib/supabase-auth';
+import { isValidPassword } from '@/lib/password-validator';
+import { sanitizeCadastroData } from '@/lib/input-sanitizer';
+import { 
+  validateEmailStrict, 
+  validatePhoneBR, 
+  validateCPForCNPJ,
+  formatCPF,
+  formatCNPJ,
+  formatPhone
+} from '@/lib/advanced-validators';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
-
-// Funções auxiliares para validação e processamento
-function validateCpfCnpj(value: string): boolean {
-  const clean = value.replace(/\D/g, '');
-  return clean.length === 11 ? isValidCPF(value) : clean.length === 14 ? isValidCNPJ(value) : false;
-}
-
-function validateTelefone(telefone: string): boolean {
-  const clean = telefone.replace(/\D/g, '');
-  return clean.length >= 10 && clean.length <= 11;
-}
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -203,6 +199,23 @@ export default function Cadastro() {
     startWebcam();
   };
   
+  // Auto-formatação de CPF/CNPJ
+  const handleCpfCnpjChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      setCpfCnpj(formatCPF(value));
+    } else if (cleaned.length === 14) {
+      setCpfCnpj(formatCNPJ(value));
+    } else {
+      setCpfCnpj(value);
+    }
+  };
+  
+  // Auto-formatação de telefone
+  const handleTelefoneChange = (value: string) => {
+    setTelefone(formatPhone(value));
+  };
+  
   const validateStep1 = (): boolean => {
     setError('');
     
@@ -211,13 +224,20 @@ export default function Cadastro() {
       return false;
     }
     
+    if (nomeCompleto.length > 100) {
+      setError('Nome completo muito longo (máximo 100 caracteres)');
+      return false;
+    }
+    
     if (!email.trim()) {
       setError('Email é obrigatório');
       return false;
     }
     
-    if (!isValidEmail(email)) {
-      setError('Email inválido');
+    // Validação rigorosa de email
+    const emailValidation = validateEmailStrict(email);
+    if (!emailValidation.valid) {
+      setError(emailValidation.message);
       return false;
     }
     
@@ -226,8 +246,10 @@ export default function Cadastro() {
       return false;
     }
     
-    if (!validateCpfCnpj(cpfCnpj)) {
-      setError('CPF/CNPJ inválido');
+    // Validação rigorosa de CPF/CNPJ
+    const cpfCnpjValidation = validateCPForCNPJ(cpfCnpj);
+    if (!cpfCnpjValidation.valid) {
+      setError(cpfCnpjValidation.message);
       return false;
     }
     
@@ -236,8 +258,10 @@ export default function Cadastro() {
       return false;
     }
     
-    if (!validateTelefone(telefone)) {
-      setError('Telefone inválido');
+    // Validação rigorosa de telefone
+    const phoneValidation = validatePhoneBR(telefone);
+    if (!phoneValidation.valid) {
+      setError(phoneValidation.message);
       return false;
     }
     
@@ -318,13 +342,23 @@ export default function Cadastro() {
     try {
       console.log('📝 Registrando usuário no Supabase...');
       
+      // Sanitiza dados antes de enviar
+      const sanitizedData = sanitizeCadastroData({
+        nomeCompleto,
+        nomePublico: nomePublico || nomeCompleto,
+        email,
+        cpfCnpj,
+        telefone,
+      });
+      
+      console.log('🧹 Dados sanitizados:', {
+        nomeCompleto: sanitizedData.nomeCompleto,
+        email: sanitizedData.email,
+      });
+      
       const result = await registerUser(
         {
-          nomeCompleto,
-          nomePublico: nomePublico || nomeCompleto,
-          email,
-          cpfCnpj,
-          telefone,
+          ...sanitizedData,
           documentoUrl,
           selfieUrl,
         },
@@ -340,7 +374,7 @@ export default function Cadastro() {
       console.log('✅ Usuário registrado com sucesso!');
       
       // Faz login automático
-      const loginResult = await loginUser(email, senha);
+      const loginResult = await loginUser(sanitizedData.email, senha);
       
       if (loginResult.success) {
         console.log('✅ Login automático realizado!');
@@ -432,6 +466,7 @@ export default function Cadastro() {
                       placeholder="João Silva"
                       value={nomeCompleto}
                       onChange={(e) => setNomeCompleto(e.target.value)}
+                      maxLength={100}
                     />
                   </div>
                   
@@ -442,6 +477,7 @@ export default function Cadastro() {
                       placeholder="@joaosilva (opcional)"
                       value={nomePublico}
                       onChange={(e) => setNomePublico(e.target.value)}
+                      maxLength={50}
                     />
                   </div>
                   
@@ -453,17 +489,25 @@ export default function Cadastro() {
                       placeholder="seu@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      maxLength={100}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Emails temporários não são permitidos
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="cpfCnpj">CPF / CNPJ *</Label>
                     <Input
                       id="cpfCnpj"
-                      placeholder="000.000.000-00"
+                      placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       value={cpfCnpj}
-                      onChange={(e) => setCpfCnpj(e.target.value)}
+                      onChange={(e) => handleCpfCnpjChange(e.target.value)}
+                      maxLength={18}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Formato será aplicado automaticamente
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
@@ -472,8 +516,12 @@ export default function Cadastro() {
                       id="telefone"
                       placeholder="(11) 99999-9999"
                       value={telefone}
-                      onChange={(e) => setTelefone(e.target.value)}
+                      onChange={(e) => handleTelefoneChange(e.target.value)}
+                      maxLength={15}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Apenas números brasileiros (DDD + número)
+                    </p>
                   </div>
                   
                   <Button onClick={handleNextStep} className="w-full">
@@ -645,25 +693,27 @@ export default function Cadastro() {
                     <Input
                       id="senha"
                       type="password"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                       disabled={isBlocked}
+                      maxLength={100}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Mínimo 6 caracteres, 1 letra maiúscula e 1 caractere especial
-                    </p>
                   </div>
+                  
+                  {/* Indicador de Força da Senha */}
+                  <PasswordStrengthIndicator password={senha} />
                   
                   <div className="space-y-2">
                     <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
                     <Input
                       id="confirmarSenha"
                       type="password"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       value={confirmarSenha}
                       onChange={(e) => setConfirmarSenha(e.target.value)}
                       disabled={isBlocked}
+                      maxLength={100}
                     />
                   </div>
                   

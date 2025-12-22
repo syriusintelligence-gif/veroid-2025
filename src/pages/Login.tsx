@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, CheckCircle2, Shield, Eye, EyeOff } from "lucide-react";
 import { loginUser } from "@/lib/supabase-auth-v2";
 import { RateLimiter, RateLimitPresets, formatTimeRemaining } from "@/lib/rate-limiter";
+import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -90,11 +91,23 @@ export default function Login() {
     setSuccess("");
 
     console.log('🔐 [Login] Iniciando processo de login...');
-    console.log('📧 [Login] Email:', email);
+
+    // Sanitização de inputs
+    const sanitizedEmail = sanitizeEmail(limitLength(email, 100));
+    const sanitizedPassword = limitLength(sanitizeInput(password), 100);
+
+    console.log('🧹 [Login] Email sanitizado:', sanitizedEmail);
 
     // Validação básica
-    if (!email || !password) {
+    if (!sanitizedEmail || !sanitizedPassword) {
       setError("Por favor, preencha todos os campos");
+      return;
+    }
+
+    // Validação de formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(sanitizedEmail)) {
+      setError("Por favor, insira um email válido");
       return;
     }
 
@@ -139,7 +152,7 @@ export default function Login() {
     try {
       console.log('🔄 [Login] Chamando função de login...');
       
-      const result = await loginUser(email, password);
+      const result = await loginUser(sanitizedEmail, sanitizedPassword);
       
       console.log('📦 [Login] Resultado do login:', {
         success: result.success,
@@ -249,6 +262,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading || rateLimitBlocked}
                 required
+                maxLength={100}
               />
             </div>
 
@@ -271,6 +285,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading || rateLimitBlocked}
                   required
+                  maxLength={100}
                   className="pr-10"
                 />
                 <button
