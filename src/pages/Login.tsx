@@ -32,7 +32,7 @@ export default function Login() {
     checkRateLimitStatus();
   }, []);
 
-  // Update countdown timer - FIX: Atualiza imediatamente quando bloqueado
+  // Update countdown timer
   useEffect(() => {
     if (rateLimitBlocked && rateLimitResetAt) {
       // Atualiza imediatamente
@@ -73,16 +73,15 @@ export default function Login() {
         setRateLimitResetAt(status.blockedUntil);
         const timeRemaining = formatTimeRemaining(status.blockedUntil);
         setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
-      } else if (status.remaining < 3) {
+      } else if (status.remaining < 3 && status.remaining > 0) {
         setRateLimitMessage(`⚠️ Atenção: ${status.remaining} tentativas restantes`);
       } else {
-        setRateLimitMessage(""); // Limpa mensagem se tiver tentativas suficientes
+        setRateLimitMessage("");
       }
       
       console.log('✅ [Login] Status do rate limit:', status);
     } catch (error) {
       console.error('❌ [Login] Erro ao verificar rate limit:', error);
-      // Fail-open: permite login se verificação falhar
       setRateLimitBlocked(false);
     }
   }
@@ -113,44 +112,16 @@ export default function Login() {
       return;
     }
 
-    // Verificar rate limit ANTES de tentar login
-    try {
-      console.log('🔍 [Login] Verificando rate limit antes do login...');
-      const rateLimitResult = await rateLimiter.check();
-      
-      console.log('📊 [Login] Resultado do rate limit:', rateLimitResult);
-      
-      if (!rateLimitResult.allowed) {
-        console.warn('🚫 [Login] Rate limit excedido!');
-        setRateLimitBlocked(true);
-        setRateLimitRemaining(0);
-        
-        if (rateLimitResult.blockedUntil) {
-          setRateLimitResetAt(rateLimitResult.blockedUntil);
-          // FIX: Força atualização imediata do timer
-          setTimeout(() => updateCountdown(), 0);
-          const timeRemaining = formatTimeRemaining(rateLimitResult.blockedUntil);
-          setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
-          setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
-        } else {
-          setError(rateLimitResult.message || "Muitas tentativas. Aguarde antes de tentar novamente.");
-        }
-        return;
-      }
-      
-      // FIX: Atualiza UI com tentativas restantes SEMPRE
-      setRateLimitRemaining(rateLimitResult.remaining);
-      if (rateLimitResult.remaining < 3) {
-        setRateLimitMessage(`⚠️ ${rateLimitResult.remaining} tentativas restantes`);
-      } else {
-        setRateLimitMessage(""); // Limpa mensagem se tiver tentativas suficientes
-      }
-      
-      console.log(`✅ [Login] Rate limit OK - ${rateLimitResult.remaining} tentativas restantes`);
-    } catch (rateLimitError) {
-      console.error('❌ [Login] Erro ao verificar rate limit:', rateLimitError);
-      // Fail-open: continua com login mesmo se rate limit falhar
-      console.warn('⚠️ [Login] Continuando com login (fail-open)');
+    // Verificar se JÁ está bloqueado (verificação inicial)
+    const initialStatus = rateLimiter.getStatus();
+    if (!initialStatus.allowed && initialStatus.blockedUntil) {
+      console.warn('🚫 [Login] Usuário já está bloqueado');
+      setRateLimitBlocked(true);
+      setRateLimitResetAt(initialStatus.blockedUntil);
+      const timeRemaining = formatTimeRemaining(initialStatus.blockedUntil);
+      setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
+      setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
+      return;
     }
 
     // Prosseguir com login
@@ -179,8 +150,8 @@ export default function Login() {
         
         // Reseta rate limit após login bem-sucedido
         rateLimiter.reset();
-        setRateLimitRemaining(5); // Reseta contador visual
-        setRateLimitMessage(""); // Limpa mensagem
+        setRateLimitRemaining(5);
+        setRateLimitMessage("");
         console.log('🔄 [Login] Rate limit resetado após sucesso');
 
         // Aguarda 1 segundo antes de redirecionar
@@ -189,19 +160,56 @@ export default function Login() {
           window.location.href = '/dashboard';
         }, 1000);
       } else {
+        // LOGIN FALHOU - Registra tentativa no rate limiter
         console.error('❌ [Login] Login falhou:', result.error);
-        setError(result.error || "Email ou senha incorretos");
         
-        // FIX: Atualiza status do rate limit após falha E atualiza contador visual
-        await checkRateLimitStatus();
+        // FIX: Registra a tentativa falhada no rate limiter
+        console.log('📝 [Login] Registrando tentativa falhada no rate limiter...');
+        const rateLimitResult = await rateLimiter.check();
+        
+        console.log('📊 [Login] Resultado do rate limit após falha:', rateLimitResult);
+        
+        // Atualiza estado visual
+        setRateLimitRemaining(rateLimitResult.remaining);
+        
+        // Verifica se agora está bloqueado
+        if (!rateLimitResult.allowed && rateLimitResult.blockedUntil) {
+          console.warn('🚫 [Login] Usuário bloqueado após esta tentativa!');
+          setRateLimitBlocked(true);
+          setRateLimitResetAt(rateLimitResult.blockedUntil);
+          
+          // Força atualização imediata do timer
+          setTimeout(() => updateCountdown(), 0);
+          
+          const timeRemaining = formatTimeRemaining(rateLimitResult.blockedUntil);
+          setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
+          setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
+        } else {
+          // Ainda tem tentativas
+          setError(result.error || "Email ou senha incorretos");
+          if (rateLimitResult.remaining < 3) {
+            setRateLimitMessage(`⚠️ ${rateLimitResult.remaining} tentativas restantes`);
+          }
+        }
       }
     } catch (err) {
       console.error('❌ [Login] Erro durante login:', err);
       const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.";
       setError(errorMessage);
       
-      // FIX: Atualiza status do rate limit após erro E atualiza contador visual
-      await checkRateLimitStatus();
+      // Registra tentativa falhada mesmo em caso de erro
+      try {
+        const rateLimitResult = await rateLimiter.check();
+        setRateLimitRemaining(rateLimitResult.remaining);
+        
+        if (!rateLimitResult.allowed && rateLimitResult.blockedUntil) {
+          setRateLimitBlocked(true);
+          setRateLimitResetAt(rateLimitResult.blockedUntil);
+          setTimeout(() => updateCountdown(), 0);
+        }
+      } catch (rateLimitError) {
+        console.error('❌ [Login] Erro ao registrar no rate limiter:', rateLimitError);
+      }
     } finally {
       setLoading(false);
       console.log('🏁 [Login] Processo de login finalizado');
