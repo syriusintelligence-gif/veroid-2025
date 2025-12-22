@@ -75,6 +75,8 @@ export default function Login() {
         setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
       } else if (status.remaining < 3) {
         setRateLimitMessage(`⚠️ Atenção: ${status.remaining} tentativas restantes`);
+      } else {
+        setRateLimitMessage(""); // Limpa mensagem se tiver tentativas suficientes
       }
       
       console.log('✅ [Login] Status do rate limit:', status);
@@ -125,7 +127,10 @@ export default function Login() {
         
         if (rateLimitResult.blockedUntil) {
           setRateLimitResetAt(rateLimitResult.blockedUntil);
+          // FIX: Força atualização imediata do timer
+          setTimeout(() => updateCountdown(), 0);
           const timeRemaining = formatTimeRemaining(rateLimitResult.blockedUntil);
+          setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
           setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
         } else {
           setError(rateLimitResult.message || "Muitas tentativas. Aguarde antes de tentar novamente.");
@@ -133,10 +138,12 @@ export default function Login() {
         return;
       }
       
-      // Atualiza UI com tentativas restantes
+      // FIX: Atualiza UI com tentativas restantes SEMPRE
       setRateLimitRemaining(rateLimitResult.remaining);
       if (rateLimitResult.remaining < 3) {
         setRateLimitMessage(`⚠️ ${rateLimitResult.remaining} tentativas restantes`);
+      } else {
+        setRateLimitMessage(""); // Limpa mensagem se tiver tentativas suficientes
       }
       
       console.log(`✅ [Login] Rate limit OK - ${rateLimitResult.remaining} tentativas restantes`);
@@ -172,6 +179,8 @@ export default function Login() {
         
         // Reseta rate limit após login bem-sucedido
         rateLimiter.reset();
+        setRateLimitRemaining(5); // Reseta contador visual
+        setRateLimitMessage(""); // Limpa mensagem
         console.log('🔄 [Login] Rate limit resetado após sucesso');
 
         // Aguarda 1 segundo antes de redirecionar
@@ -183,7 +192,7 @@ export default function Login() {
         console.error('❌ [Login] Login falhou:', result.error);
         setError(result.error || "Email ou senha incorretos");
         
-        // Atualiza status do rate limit após falha
+        // FIX: Atualiza status do rate limit após falha E atualiza contador visual
         await checkRateLimitStatus();
       }
     } catch (err) {
@@ -191,7 +200,7 @@ export default function Login() {
       const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.";
       setError(errorMessage);
       
-      // Atualiza status do rate limit após erro
+      // FIX: Atualiza status do rate limit após erro E atualiza contador visual
       await checkRateLimitStatus();
     } finally {
       setLoading(false);

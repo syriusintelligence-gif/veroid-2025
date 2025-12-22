@@ -29,7 +29,7 @@ export function validatePasswordStrength(password: string): PasswordStrength {
     hasUppercase: /[A-Z]/.test(password),
     hasLowercase: /[a-z]/.test(password),
     hasNumber: /[0-9]/.test(password),
-    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    hasSpecial: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
   };
 
   // Verifica comprimento
@@ -165,7 +165,7 @@ export function isValidPassword(password: string): boolean {
   }
 
   const hasUppercase = /[A-Z]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
 
   return hasUppercase && hasSpecial;
 }

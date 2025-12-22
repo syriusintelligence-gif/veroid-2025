@@ -26,12 +26,12 @@ export function sanitizeInput(input: string): string {
 /**
  * Sanitiza múltiplos campos de um objeto
  */
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
   const sanitized = { ...obj };
   
   for (const key in sanitized) {
     if (typeof sanitized[key] === 'string') {
-      sanitized[key] = sanitizeInput(sanitized[key]) as any;
+      sanitized[key] = sanitizeInput(sanitized[key] as string) as T[Extract<keyof T, string>];
     }
   }
   
