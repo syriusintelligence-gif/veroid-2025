@@ -23,17 +23,26 @@ function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
-  // Auto-logout por inatividade (30 minutos)
+  // Auto-logout por inatividade (1 minuto para teste)
   useEffect(() => {
     if (!session) return;
 
-    const INACTIVITY_TIME = 30 * 60 * 1000; // 30 minutos em milissegundos
+    const INACTIVITY_TIME = 1 * 60 * 1000; // 1 minuto para teste (trocar para 30 * 60 * 1000 em produção)
+    const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
 
     const handleLogout = async () => {
-      console.log('🔒 Auto-logout por inatividade (30 minutos)');
+      console.log('🔒 Auto-logout por inatividade (1 minuto - TESTE)');
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
       await supabase.auth.signOut();
       navigate('/login');
+    };
+
+    const updateLastActivity = () => {
+      const now = Date.now();
+      lastActivityRef.current = now;
+      localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
     };
 
     const resetTimer = () => {
@@ -42,8 +51,35 @@ function AppContent() {
         clearTimeout(inactivityTimerRef.current);
       }
 
+      // Atualiza timestamp da última atividade
+      updateLastActivity();
+
       // Inicia novo timer
       inactivityTimerRef.current = setTimeout(handleLogout, INACTIVITY_TIME);
+    };
+
+    const checkInactivityOnVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Aba voltou a ficar visível, verifica quanto tempo passou
+        const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+        
+        if (lastActivity) {
+          const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
+          
+          if (timeSinceLastActivity >= INACTIVITY_TIME) {
+            // Passou mais de 1 minuto (teste), faz logout imediatamente
+            console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
+            handleLogout();
+            return;
+          }
+        }
+        
+        // Se não passou o tempo, reseta o timer
+        resetTimer();
+      } else {
+        // Aba ficou inativa, salva timestamp
+        updateLastActivity();
+      }
     };
 
     // Eventos que detectam atividade do usuário
@@ -53,6 +89,19 @@ function AppContent() {
       window.addEventListener(event, resetTimer);
     });
 
+    // Monitora mudanças de visibilidade da aba
+    document.addEventListener('visibilitychange', checkInactivityOnVisibilityChange);
+
+    // Verifica inatividade ao montar o componente
+    const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (lastActivity) {
+      const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
+      if (timeSinceLastActivity >= INACTIVITY_TIME) {
+        handleLogout();
+        return;
+      }
+    }
+
     // Inicia o timer pela primeira vez
     resetTimer();
 
@@ -61,6 +110,8 @@ function AppContent() {
       events.forEach((event) => {
         window.removeEventListener(event, resetTimer);
       });
+
+      document.removeEventListener('visibilitychange', checkInactivityOnVisibilityChange);
 
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
