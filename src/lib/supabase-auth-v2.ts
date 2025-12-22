@@ -678,7 +678,7 @@ export async function updateUser(
     }
     
     // Prepara os dados para atualização
-    const updateData: any = {};
+    const updateData: Record<string, string> = {};
     if (updates.nomeCompleto) updateData.nome_completo = updates.nomeCompleto;
     if (updates.nomePublico) updateData.nome_publico = updates.nomePublico;
     if (updates.email) updateData.email = updates.email.toLowerCase();
