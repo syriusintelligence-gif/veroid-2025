@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Verify from './pages/Verify';
+import Certificate from './pages/Certificate';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -56,6 +57,7 @@ function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify" element={<Verify />} />
+        <Route path="/certificate" element={<Certificate />} />
         <Route
           path="/dashboard"
           element={session ? <Dashboard /> : <Navigate to="/login" />}
