@@ -67,6 +67,10 @@ function App() {
           element={session ? <Profile /> : <Navigate to="/login" />}
         />
         <Route
+          path="/sign"
+          element={session ? <SignContent /> : <Navigate to="/login" />}
+        />
+        <Route
           path="/sign-content"
           element={session ? <SignContent /> : <Navigate to="/login" />}
         />
