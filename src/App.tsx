@@ -14,6 +14,7 @@ import AdminUsers from './pages/AdminUsers';
 import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import Verify from './pages/Verify';
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -54,6 +55,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/verify" element={<Verify />} />
         <Route
           path="/dashboard"
           element={session ? <Dashboard /> : <Navigate to="/login" />}
