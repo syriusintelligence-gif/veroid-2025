@@ -25,15 +25,15 @@ function AppContent() {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
-  // Auto-logout por inatividade (1 minuto para teste)
+  // Auto-logout por inatividade (15 minutos)
   useEffect(() => {
     if (!session) return;
 
-    const INACTIVITY_TIME = 1 * 60 * 1000; // 1 minuto para teste (trocar para 30 * 60 * 1000 em produção)
+    const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos em milissegundos
     const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
 
     const handleLogout = async () => {
-      console.log('🔒 Auto-logout por inatividade (1 minuto - TESTE)');
+      console.log('🔒 Auto-logout por inatividade (15 minutos)');
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       await supabase.auth.signOut();
       navigate('/login');
@@ -67,7 +67,7 @@ function AppContent() {
           const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
           
           if (timeSinceLastActivity >= INACTIVITY_TIME) {
-            // Passou mais de 1 minuto (teste), faz logout imediatamente
+            // Passou mais de 15 minutos, faz logout imediatamente
             console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
             handleLogout();
             return;
