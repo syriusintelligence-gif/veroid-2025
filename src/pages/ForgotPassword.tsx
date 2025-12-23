@@ -38,13 +38,13 @@ export default function ForgotPassword() {
       console.log('🔑 [FORGOT PASSWORD] Enviando link de recuperação para:', email);
       console.log('🌐 Origin:', window.location.origin);
       
-      // SOLUÇÃO: Usar callback URL com query params para OTP
-      // Isso evita o problema de email clients consumindo o token
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+      // Usando o template customizado do Supabase com token_hash
+      // O link será: https://veroid-2025.vercel.app/reset-password?token_hash=...&type=recovery
+      const redirectUrl = `${window.location.origin}/reset-password`;
       
       console.log('🔗 Redirect URL:', redirectUrl);
       
-      // Envia email de recuperação com redirect para callback
+      // Envia email de recuperação
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.toLowerCase(),
         {
@@ -157,11 +157,13 @@ export default function ForgotPassword() {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800 mb-2">
-                    <strong>💡 Dica:</strong> O link é válido por 1 hora.
+                    <strong>💡 Importante:</strong>
                   </p>
-                  <p className="text-sm text-blue-800">
-                    Se não encontrar o email, verifique sua pasta de spam ou lixo eletrônico.
-                  </p>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li>O link é válido por 1 hora</li>
+                    <li>Você pode clicar no link múltiplas vezes</li>
+                    <li>Se não encontrar, verifique a pasta de spam</li>
+                  </ul>
                 </div>
 
                 <Button
