@@ -35,18 +35,32 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      console.log('🔑 Enviando link de recuperação para:', email);
+      console.log('🔑 [FORGOT PASSWORD] Enviando link de recuperação para:', email);
+      console.log('🌐 Origin:', window.location.origin);
       
-      // Usar o sistema nativo do Supabase
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      // SOLUÇÃO: Usar callback URL com query params para OTP
+      // Isso evita o problema de email clients consumindo o token
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      
+      console.log('🔗 Redirect URL:', redirectUrl);
+      
+      // Envia email de recuperação com redirect para callback
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.toLowerCase(),
+        {
+          redirectTo: redirectUrl,
+        }
+      );
 
       if (resetError) {
+        console.error('❌ Erro ao enviar email:', resetError);
         throw resetError;
       }
 
       console.log('✅ Link de recuperação enviado com sucesso');
+      console.log('📧 Email enviado para:', email);
+      console.log('🔗 Link redirecionará para:', redirectUrl);
+      
       setSuccess(true);
     } catch (err) {
       console.error('❌ Erro ao enviar link de recuperação:', err);
@@ -141,9 +155,12 @@ export default function ForgotPassword() {
                   </AlertDescription>
                 </Alert>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    <strong>⚠️ Importante:</strong> O link expira em 1 hora. Se não encontrar o email, verifique sua pasta de spam.
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 mb-2">
+                    <strong>💡 Dica:</strong> O link é válido por 1 hora.
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Se não encontrar o email, verifique sua pasta de spam ou lixo eletrônico.
                   </p>
                 </div>
 

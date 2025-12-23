@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import SignContent from './pages/SignContent';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import Settings from './pages/Settings';
@@ -151,6 +152,7 @@ function AppContent() {
       <Route path="/cadastro" element={!session ? <Cadastro /> : <Navigate to="/dashboard" />} />
       <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/verify" element={<Verify />} />
