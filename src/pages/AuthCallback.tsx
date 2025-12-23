@@ -19,11 +19,47 @@ export default function AuthCallback() {
         console.log('📊 Search params:', Object.fromEntries(searchParams.entries()));
         console.log('📊 Hash:', window.location.hash);
         
-        // Verifica se é um callback de recuperação de senha via query params
+        // SOLUÇÃO DEFINITIVA: Processar token_hash se presente
+        const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');
+        
+        console.log('🔑 Token hash presente:', !!tokenHash);
+        console.log('📋 Type:', type);
+        
+        if (tokenHash && type === 'recovery') {
+          console.log('✅ Token hash de recovery detectado, processando com verifyOtp...');
+          
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          
+          if (verifyError) {
+            console.error('❌ Erro ao verificar token_hash:', verifyError);
+            setStatus('error');
+            setMessage('Link de recuperação inválido ou expirado. Solicite um novo link.');
+            
+            setTimeout(() => {
+              navigate('/forgot-password');
+            }, 3000);
+            return;
+          }
+          
+          console.log('✅ Token verificado com sucesso:', data);
+          console.log('👤 Usuário:', data.user?.email);
+          
+          setStatus('success');
+          setMessage('Token verificado! Redirecionando para redefinir senha...');
+          
+          setTimeout(() => {
+            navigate('/reset-password');
+          }, 1500);
+          return;
+        }
+        
+        // Verifica se é um callback de recuperação de senha via query params (fluxo antigo)
         const token = searchParams.get('token');
         
-        console.log('📋 Type:', type);
         console.log('🔑 Token (primeiros 20 chars):', token?.substring(0, 20));
         
         if (type === 'recovery' && token) {
