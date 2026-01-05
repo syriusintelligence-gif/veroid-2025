@@ -12,11 +12,11 @@ import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer
 import { has2FAEnabled } from "@/lib/supabase-2fa";
 import { supabase } from "@/lib/supabase";
 import Verify2FAInput from "@/components/Verify2FAInput";
-// 🔒 CSRF Protection
-import { useCSRFToken } from "@/hooks/useCSRFProtection";
+// 🔒 CSRF Protection - HOOK COMPLETO
+import { useCSRFProtection } from "@/hooks/useCSRFProtection";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "CSRF-MANUAL-v1.0-2026-01-05-17:00";
+const CODE_VERSION = "CSRF-MANUAL-FIX-v1.1-2026-01-05-17:10";
 
 // 🔑 Chaves para sessionStorage
 const STORAGE_KEYS = {
@@ -45,8 +45,12 @@ export default function Login() {
   const [rateLimitRemaining, setRateLimitRemaining] = useState(5);
   const [rateLimitResetAt, setRateLimitResetAt] = useState<Date | null>(null);
 
-  // 🔒 CSRF Protection Hook
-  const { token: csrfToken, loading: csrfLoading, error: csrfError } = useCSRFToken();
+  // 🔒 CSRF Protection Hook - CORRIGIDO: usando hook completo
+  const { 
+    token: csrfToken, 
+    isLoading: csrfLoading, 
+    error: csrfError 
+  } = useCSRFProtection();
 
   // Initialize rate limiter
   const rateLimiter = new RateLimiter('login', RateLimitPresets.LOGIN);
