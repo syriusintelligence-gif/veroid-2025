@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react';
 import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
 import { SocialLinks } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { has2FAEnabled, disable2FA } from '@/lib/supabase-2fa';
+import { getCSRFToken } from '@/lib/csrf-protection';
 import Setup2FAModal from '@/components/Setup2FAModal';
 import {
   AlertDialog,
@@ -46,6 +47,37 @@ export default function Profile() {
   const [showSetup2FAModal, setShowSetup2FAModal] = useState(false);
   const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
   const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+
+  // 🔒 CSRF Protection
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [csrfReady, setCsrfReady] = useState(false);
+
+  // Inicializa token CSRF
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadToken() {
+      try {
+        const token = await getCSRFToken();
+        if (mounted) {
+          setCsrfToken(token);
+          setCsrfReady(true);
+          console.log('🔐 [Profile] CSRF Token carregado:', token.substring(0, 20) + '...');
+        }
+      } catch (error) {
+        console.error('❌ [Profile] Erro ao carregar token CSRF:', error);
+        if (mounted) {
+          setCsrfReady(true); // Marca como pronto mesmo com erro
+        }
+      }
+    }
+
+    loadToken();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     loadUser();
@@ -101,13 +133,25 @@ export default function Profile() {
     }
   };
 
-  // 🆕 Handler para desativar 2FA
+  // 🆕 Handler para desativar 2FA (COM CSRF)
   const handleDisable2FA = async () => {
     if (!currentUser) return;
+    
+    // Validação CSRF
+    if (!csrfToken) {
+      toast({
+        title: 'Erro de Segurança',
+        description: 'Token de segurança não disponível. Recarregue a página.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsDisabling2FA(true);
     
     try {
+      console.log('🔒 [Profile] Desativando 2FA com CSRF Token:', csrfToken.substring(0, 20) + '...');
+      
       const result = await disable2FA(currentUser.id);
       
       if (result.success) {
@@ -274,7 +318,7 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* 🆕 Security Card - 2FA */}
+        {/* 🆕 Security Card - 2FA (COM CSRF) */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -287,6 +331,14 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* CSRF Loading Alert */}
+              {!csrfReady && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <p className="text-sm text-blue-800">Carregando proteção de segurança...</p>
+                </div>
+              )}
+
               {/* 2FA Status */}
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -311,20 +363,23 @@ export default function Profile() {
                   </div>
                 </div>
                 <div>
-                  {isLoading2FA ? (
+                  {isLoading2FA || !csrfReady ? (
                     <Button variant="outline" disabled>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       Carregando...
                     </Button>
                   ) : has2FA ? (
                     <Button
                       variant="outline"
                       onClick={() => setShowDisable2FADialog(true)}
+                      disabled={!csrfToken}
                     >
                       Desativar
                     </Button>
                   ) : (
                     <Button
                       onClick={() => setShowSetup2FAModal(true)}
+                      disabled={!csrfToken}
                     >
                       Configurar 2FA
                     </Button>
@@ -627,8 +682,8 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* 🆕 Setup 2FA Modal */}
-      {currentUser && (
+      {/* 🆕 Setup 2FA Modal (COM CSRF) */}
+      {currentUser && csrfToken && (
         <Setup2FAModal
           isOpen={showSetup2FAModal}
           onClose={() => setShowSetup2FAModal(false)}
@@ -638,7 +693,7 @@ export default function Profile() {
         />
       )}
 
-      {/* 🆕 Disable 2FA Confirmation Dialog */}
+      {/* 🆕 Disable 2FA Confirmation Dialog (COM CSRF) */}
       <AlertDialog open={showDisable2FADialog} onOpenChange={setShowDisable2FADialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -651,7 +706,7 @@ export default function Profile() {
             <AlertDialogCancel disabled={isDisabling2FA}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDisable2FA}
-              disabled={isDisabling2FA}
+              disabled={isDisabling2FA || !csrfToken}
               className="bg-red-600 hover:bg-red-700"
             >
               {isDisabling2FA ? 'Desativando...' : 'Sim, Desativar 2FA'}
@@ -659,6 +714,9 @@ export default function Profile() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden CSRF Token */}
+      <input type="hidden" name="csrf_token" value={csrfToken || ''} />
     </div>
   );
 }
