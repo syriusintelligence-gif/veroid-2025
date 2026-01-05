@@ -154,27 +154,26 @@ export default function Login() {
 
         // 🆕 Verifica se usuário tem 2FA ativado
         console.log('🔐 [Login] Verificando se usuário tem 2FA...');
-        console.log('🔐 [Login] User ID para verificação:', result.user.id);
-        
         const has2FA = await has2FAEnabled(result.user.id);
-        
         console.log('📊 [Login] Resultado has2FAEnabled:', has2FA);
-        console.log('📊 [Login] Tipo do resultado:', typeof has2FA);
-
-        // 🚨 DEBUG TEMPORÁRIO - REMOVER DEPOIS
-        alert(`DEBUG 2FA:\nUser ID: ${result.user.id}\nhas2FA: ${has2FA}\nTipo: ${typeof has2FA}`);
 
         if (has2FA === true) {
-          // Usuário tem 2FA - mostrar tela de verificação
-          console.log('🔒 [Login] 2FA ativado - solicitando código...');
-          alert('🔒 2FA ATIVADO! Mostrando tela de verificação...');
+          // 🔒 Usuário tem 2FA - mostrar tela de verificação
+          console.log('🔒 [Login] 2FA ativado - preparando tela de verificação...');
+          
+          // Define os estados para mostrar a tela de 2FA
           setPendingUserId(result.user.id);
-          setNeeds2FA(true);
           setSuccess("Senha correta! Agora digite o código 2FA.");
+          setLoading(false); // Para de mostrar loading
+          setNeeds2FA(true); // Ativa a tela de 2FA
+          
+          console.log('✅ [Login] Estados configurados para tela 2FA');
+          
+          // ⚠️ IMPORTANTE: Retorna aqui para não executar o resto do código
+          return;
         } else {
-          // Usuário NÃO tem 2FA - login completo
+          // ✅ Usuário NÃO tem 2FA - login completo
           console.log('✅ [Login] 2FA não ativado - login completo');
-          alert('✅ 2FA NÃO ATIVADO - Login direto');
           setSuccess("Login realizado com sucesso! Redirecionando...");
           
           // Reseta rate limit após login bem-sucedido
@@ -193,7 +192,7 @@ export default function Login() {
         // LOGIN FALHOU - Registra tentativa no rate limiter
         console.error('❌ [Login] Login falhou:', result.error);
         
-        // FIX: Registra a tentativa falhada no rate limiter
+        // Registra a tentativa falhada no rate limiter
         console.log('📝 [Login] Registrando tentativa falhada no rate limiter...');
         const rateLimitResult = await rateLimiter.check();
         
@@ -241,7 +240,10 @@ export default function Login() {
         console.error('❌ [Login] Erro ao registrar no rate limiter:', rateLimitError);
       }
     } finally {
-      setLoading(false);
+      // Só desativa loading se NÃO estiver esperando 2FA
+      if (!needs2FA) {
+        setLoading(false);
+      }
       console.log('🏁 [Login] Processo de login finalizado');
     }
   }
@@ -283,6 +285,10 @@ export default function Login() {
                 <Shield className="w-8 h-8 text-white" />
               </div>
             </div>
+            <CardTitle className="text-2xl font-bold text-center">Verificação em Duas Etapas</CardTitle>
+            <CardDescription className="text-center">
+              Digite o código de 6 dígitos do seu aplicativo autenticador
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {success && (
