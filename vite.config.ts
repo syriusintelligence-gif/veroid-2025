@@ -78,7 +78,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.log in production
+        drop_console: false, // 🆕 MANTÉM console.log para debug do 2FA
         drop_debugger: true
       }
     }
