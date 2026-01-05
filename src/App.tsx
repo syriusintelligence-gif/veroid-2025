@@ -19,12 +19,75 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import Verify from './pages/Verify';
 import Certificate from './pages/Certificate';
 
+// 🔒 CSRF Protection imports
+import { initializeCSRF } from './lib/csrf-protection';
+import { initializeCSRFMiddleware } from './lib/csrf-middleware';
+import { logAuditEvent, AuditAction } from './lib/audit-logger';
+
 function AppContent() {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  
+  // 🆕 CSRF initialization state
+  const [csrfInitialized, setCsrfInitialized] = useState(false);
+
+  // 🔒 Initialize CSRF Protection
+  useEffect(() => {
+    async function setupCSRFProtection() {
+      try {
+        console.log('🔐 [App] Inicializando proteção CSRF...');
+        
+        // Inicializa token CSRF
+        const token = await initializeCSRF();
+        console.log('✅ [App] Token CSRF inicializado');
+        
+        // Inicializa middleware (intercepta fetch automaticamente)
+        initializeCSRFMiddleware({
+          // Configuração customizada
+          blacklist: [
+            // APIs externas que não precisam de CSRF
+            'https://api.ipify.org',
+            'https://ipapi.co',
+            'https://geolocation-db.com',
+          ],
+          methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
+          validateResponses: false,
+          logRequests: true,
+        });
+        
+        console.log('✅ [App] Middleware CSRF ativo');
+        
+        // Marca como inicializado
+        setCsrfInitialized(true);
+        
+        // Log de auditoria
+        await logAuditEvent(AuditAction.SECURITY_EVENT, {
+          success: true,
+          event: 'csrf_protection_initialized',
+          timestamp: new Date().toISOString(),
+        });
+        
+        console.log('🎉 [App] Proteção CSRF totalmente ativa!');
+      } catch (error) {
+        console.error('❌ [App] Erro ao inicializar CSRF:', error);
+        
+        // Log de erro
+        await logAuditEvent(AuditAction.SECURITY_EVENT, {
+          success: false,
+          event: 'csrf_initialization_failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        
+        // Marca como inicializado mesmo com erro (para não bloquear app)
+        setCsrfInitialized(true);
+      }
+    }
+    
+    setupCSRFProtection();
+  }, []); // Executa apenas uma vez ao montar
 
   // Auto-logout por inatividade (15 minutos)
   useEffect(() => {
@@ -137,10 +200,16 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
+  // 🆕 Mostra loading enquanto CSRF não está inicializado
+  if (loading || !csrfInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          {!csrfInitialized && (
+            <p className="text-sm text-gray-600">Inicializando proteção de segurança...</p>
+          )}
+        </div>
       </div>
     );
   }
