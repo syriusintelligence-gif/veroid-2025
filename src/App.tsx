@@ -19,6 +19,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import Verify from './pages/Verify';
 import Certificate from './pages/Certificate';
 import ChangePassword from './pages/ChangePassword';
+import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
 import { initializeCSRF } from './lib/csrf-protection';
@@ -31,7 +32,12 @@ function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  
+  // 🆕 Modal de aviso de timeout
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(120); // 2 minutos
   
   // 🆕 CSRF initialization state
   const [csrfInitialized, setCsrfInitialized] = useState(false);
@@ -82,18 +88,43 @@ function AppContent() {
     setupCSRFProtection();
   }, []); // Executa apenas uma vez ao montar
 
-  // Auto-logout por inatividade (15 minutos)
+  // Auto-logout por inatividade (15 minutos) + Modal de aviso (2 minutos antes)
   useEffect(() => {
     if (!session) return;
 
     const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos em milissegundos
+    const WARNING_TIME = 2 * 60 * 1000; // 2 minutos antes (aviso aos 13 minutos)
     const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
 
     const handleLogout = async () => {
       console.log('🔒 Auto-logout por inatividade (15 minutos)');
+      
+      // Fecha modal se estiver aberto
+      setShowTimeoutWarning(false);
+      
+      // Log de auditoria
+      await logAuditEvent(AuditAction.LOGOUT, {
+        success: true,
+        reason: 'session_timeout',
+        inactivity_duration: INACTIVITY_TIME,
+      });
+      
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       await supabase.auth.signOut();
       navigate('/login');
+    };
+
+    const showWarning = () => {
+      console.log('⚠️ Mostrando aviso de timeout (2 minutos restantes)');
+      setShowTimeoutWarning(true);
+      setRemainingSeconds(120); // 2 minutos = 120 segundos
+      
+      // Log de auditoria
+      logAuditEvent(AuditAction.SECURITY_EVENT, {
+        success: true,
+        event: 'session_timeout_warning_shown',
+        remaining_time: WARNING_TIME,
+      });
     };
 
     const updateLastActivity = () => {
@@ -103,15 +134,27 @@ function AppContent() {
     };
 
     const resetTimer = () => {
-      // Limpa o timer anterior
+      // Fecha modal de aviso se estiver aberto
+      if (showTimeoutWarning) {
+        setShowTimeoutWarning(false);
+        console.log('✅ Sessão renovada - modal de aviso fechado');
+      }
+
+      // Limpa os timers anteriores
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
+      }
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current);
       }
 
       // Atualiza timestamp da última atividade
       updateLastActivity();
 
-      // Inicia novo timer
+      // Inicia timer para mostrar aviso (aos 13 minutos)
+      warningTimerRef.current = setTimeout(showWarning, INACTIVITY_TIME - WARNING_TIME);
+
+      // Inicia timer para logout (aos 15 minutos)
       inactivityTimerRef.current = setTimeout(handleLogout, INACTIVITY_TIME);
     };
 
@@ -128,15 +171,47 @@ function AppContent() {
             console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
             handleLogout();
             return;
+          } else if (timeSinceLastActivity >= INACTIVITY_TIME - WARNING_TIME) {
+            // Está no período de aviso, mostra modal
+            const remainingTime = INACTIVITY_TIME - timeSinceLastActivity;
+            setRemainingSeconds(Math.floor(remainingTime / 1000));
+            setShowTimeoutWarning(true);
+            
+            // Agenda logout para o tempo restante
+            if (inactivityTimerRef.current) {
+              clearTimeout(inactivityTimerRef.current);
+            }
+            inactivityTimerRef.current = setTimeout(handleLogout, remainingTime);
           }
         }
         
         // Se não passou o tempo, reseta o timer
-        resetTimer();
+        if (document.visibilityState === 'visible') {
+          resetTimer();
+        }
       } else {
         // Aba ficou inativa, salva timestamp
         updateLastActivity();
       }
+    };
+
+    // Handler para "Continuar Conectado"
+    const handleContinueSession = () => {
+      console.log('✅ Usuário escolheu continuar conectado');
+      setShowTimeoutWarning(false);
+      resetTimer();
+      
+      // Log de auditoria
+      logAuditEvent(AuditAction.SECURITY_EVENT, {
+        success: true,
+        event: 'session_renewed_by_user',
+      });
+    };
+
+    // Handler para "Fazer Logout"
+    const handleManualLogout = () => {
+      console.log('👋 Usuário escolheu fazer logout');
+      handleLogout();
     };
 
     // Eventos que detectam atividade do usuário
@@ -162,7 +237,7 @@ function AppContent() {
     // Inicia o timer pela primeira vez
     resetTimer();
 
-    // Cleanup: remove event listeners e limpa timer
+    // Cleanup: remove event listeners e limpa timers
     return () => {
       events.forEach((event) => {
         window.removeEventListener(event, resetTimer);
@@ -173,8 +248,11 @@ function AppContent() {
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current);
+      }
     };
-  }, [session, navigate]);
+  }, [session, navigate, showTimeoutWarning]);
 
   useEffect(() => {
     // Get initial session
@@ -193,6 +271,38 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Handler para "Continuar Conectado"
+  const handleContinueSession = () => {
+    console.log('✅ Usuário escolheu continuar conectado');
+    setShowTimeoutWarning(false);
+    
+    // Força reset do timer através de um evento simulado
+    const event = new Event('click');
+    window.dispatchEvent(event);
+    
+    // Log de auditoria
+    logAuditEvent(AuditAction.SECURITY_EVENT, {
+      success: true,
+      event: 'session_renewed_by_user',
+    });
+  };
+
+  // Handler para "Fazer Logout"
+  const handleManualLogout = async () => {
+    console.log('👋 Usuário escolheu fazer logout');
+    setShowTimeoutWarning(false);
+    
+    // Log de auditoria
+    await logAuditEvent(AuditAction.LOGOUT, {
+      success: true,
+      reason: 'user_requested',
+    });
+    
+    localStorage.removeItem('lastActivityTimestamp');
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
   // Loading apenas enquanto carrega sessão (CSRF não bloqueia mais)
   if (loading) {
     return (
@@ -203,54 +313,64 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
-      <Route path="/cadastro" element={!session ? <Cadastro /> : <Navigate to="/dashboard" />} />
-      <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/terms" element={<Terms />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/verify" element={<Verify />} />
-      <Route path="/certificate" element={<Certificate />} />
-      <Route
-        path="/change-password"
-        element={session ? <ChangePassword /> : <Navigate to="/login" />}
+    <>
+      {/* Modal de Aviso de Timeout */}
+      <SessionTimeoutWarning
+        isOpen={showTimeoutWarning}
+        remainingSeconds={remainingSeconds}
+        onContinue={handleContinueSession}
+        onLogout={handleManualLogout}
       />
-      <Route
-        path="/dashboard"
-        element={session ? <Dashboard /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/profile"
-        element={session ? <Profile /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/sign"
-        element={session ? <SignContent /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/sign-content"
-        element={session ? <SignContent /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/settings"
-        element={session ? <Settings /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/admin"
-        element={session ? <AdminDashboard /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/admin/dashboard"
-        element={session ? <AdminDashboard /> : <Navigate to="/login" />}
-      />
-      <Route
-        path="/admin/users"
-        element={session ? <AdminUsers /> : <Navigate to="/login" />}
-      />
-    </Routes>
+
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
+        <Route path="/cadastro" element={!session ? <Cadastro /> : <Navigate to="/dashboard" />} />
+        <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/certificate" element={<Certificate />} />
+        <Route
+          path="/change-password"
+          element={session ? <ChangePassword /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/dashboard"
+          element={session ? <Dashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/profile"
+          element={session ? <Profile /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/sign"
+          element={session ? <SignContent /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/sign-content"
+          element={session ? <SignContent /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/settings"
+          element={session ? <Settings /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin"
+          element={session ? <AdminDashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={session ? <AdminDashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin/users"
+          element={session ? <AdminUsers /> : <Navigate to="/login" />}
+        />
+      </Routes>
+    </>
   );
 }
 
