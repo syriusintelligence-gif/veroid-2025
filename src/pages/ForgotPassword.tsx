@@ -8,6 +8,7 @@ import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2, AlertCircle } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail } from '@/lib/supabase-auth-v2';
+import { useCSRFProtection } from '@/hooks/useCSRFProtection';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  
+  // CSRF Protection
+  const { csrfToken, isLoading: csrfLoading } = useCSRFProtection();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +36,17 @@ export default function ForgotPassword() {
       return;
     }
 
+    // Validação CSRF
+    if (!csrfToken) {
+      setError('Token de segurança não disponível. Recarregue a página.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       console.log('🔑 [FORGOT PASSWORD] Enviando link de recuperação para:', email);
+      console.log('🔒 [CSRF] Token:', csrfToken);
       console.log('🌐 Origin:', window.location.origin);
       
       // Usando o template customizado do Supabase com token_hash
@@ -121,16 +132,24 @@ export default function ForgotPassword() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
-                      disabled={isLoading}
+                      disabled={isLoading || csrfLoading}
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                {/* Hidden CSRF Token Input */}
+                <input type="hidden" name="csrf_token" value={csrfToken || ''} />
+
+                <Button type="submit" className="w-full" disabled={isLoading || csrfLoading || !csrfToken}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Enviando...
+                    </>
+                  ) : csrfLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando...
                     </>
                   ) : (
                     <>
