@@ -7,10 +7,22 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit } from 'lucide-react';
+import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff } from 'lucide-react';
 import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
 import { SocialLinks } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { has2FAEnabled, disable2FA } from '@/lib/supabase-2fa';
+import Setup2FAModal from '@/components/Setup2FAModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -27,6 +39,13 @@ export default function Profile() {
     website: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 🆕 2FA State
+  const [has2FA, setHas2FA] = useState(false);
+  const [isLoading2FA, setIsLoading2FA] = useState(true);
+  const [showSetup2FAModal, setShowSetup2FAModal] = useState(false);
+  const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
+  const [isDisabling2FA, setIsDisabling2FA] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -51,6 +70,68 @@ export default function Profile() {
         linkedin: user.socialLinks.linkedin || '',
         website: user.socialLinks.website || '',
       });
+    }
+    
+    // 🆕 Verifica status do 2FA
+    await check2FAStatus(user.id);
+  };
+
+  // 🆕 Verifica se usuário tem 2FA ativado
+  const check2FAStatus = async (userId: string) => {
+    setIsLoading2FA(true);
+    try {
+      const enabled = await has2FAEnabled(userId);
+      setHas2FA(enabled);
+    } catch (error) {
+      console.error('Erro ao verificar 2FA:', error);
+    } finally {
+      setIsLoading2FA(false);
+    }
+  };
+
+  // 🆕 Handler para sucesso na configuração do 2FA
+  const handle2FASetupSuccess = async () => {
+    toast({
+      title: '2FA Ativado!',
+      description: 'Autenticação de dois fatores configurada com sucesso.',
+    });
+    setShowSetup2FAModal(false);
+    if (currentUser) {
+      await check2FAStatus(currentUser.id);
+    }
+  };
+
+  // 🆕 Handler para desativar 2FA
+  const handleDisable2FA = async () => {
+    if (!currentUser) return;
+    
+    setIsDisabling2FA(true);
+    
+    try {
+      const result = await disable2FA(currentUser.id);
+      
+      if (result.success) {
+        toast({
+          title: '2FA Desativado',
+          description: 'Autenticação de dois fatores foi desativada.',
+        });
+        setHas2FA(false);
+      } else {
+        toast({
+          title: 'Erro ao desativar 2FA',
+          description: result.error || 'Não foi possível desativar o 2FA.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Ocorreu um erro ao desativar o 2FA.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDisabling2FA(false);
+      setShowDisable2FADialog(false);
     }
   };
 
@@ -189,6 +270,81 @@ export default function Profile() {
                   })}
                 </p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 🆕 Security Card - 2FA */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Segurança da Conta
+            </CardTitle>
+            <CardDescription>
+              Gerencie as configurações de segurança da sua conta
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* 2FA Status */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  {has2FA ? (
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <ShieldCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-gray-100 rounded-full">
+                      <ShieldOff className="h-5 w-5 text-gray-600" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">Autenticação de Dois Fatores (2FA)</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isLoading2FA 
+                        ? 'Verificando...'
+                        : has2FA 
+                          ? 'Proteção adicional ativada com código TOTP'
+                          : 'Adicione uma camada extra de segurança à sua conta'}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  {isLoading2FA ? (
+                    <Button variant="outline" disabled>
+                      Carregando...
+                    </Button>
+                  ) : has2FA ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDisable2FADialog(true)}
+                    >
+                      Desativar
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => setShowSetup2FAModal(true)}
+                    >
+                      Configurar 2FA
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {has2FA && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-green-900">2FA Ativo</p>
+                      <p className="text-sm text-green-700">
+                        Sua conta está protegida com autenticação de dois fatores. Você precisará do código do aplicativo autenticador para fazer login.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -470,6 +626,39 @@ export default function Profile() {
           </Button>
         </div>
       </div>
+
+      {/* 🆕 Setup 2FA Modal */}
+      {currentUser && (
+        <Setup2FAModal
+          isOpen={showSetup2FAModal}
+          onClose={() => setShowSetup2FAModal(false)}
+          onSuccess={handle2FASetupSuccess}
+          userEmail={currentUser.email}
+          userId={currentUser.id}
+        />
+      )}
+
+      {/* 🆕 Disable 2FA Confirmation Dialog */}
+      <AlertDialog open={showDisable2FADialog} onOpenChange={setShowDisable2FADialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar Autenticação de Dois Fatores?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso tornará sua conta menos segura. Você não precisará mais do código do aplicativo autenticador para fazer login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDisabling2FA}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDisable2FA}
+              disabled={isDisabling2FA}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDisabling2FA ? 'Desativando...' : 'Sim, Desativar 2FA'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

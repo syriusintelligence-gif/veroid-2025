@@ -9,6 +9,8 @@ import { Loader2, AlertCircle, CheckCircle2, Shield, Eye, EyeOff } from "lucide-
 import { loginUser } from "@/lib/supabase-auth-v2";
 import { RateLimiter, RateLimitPresets, formatTimeRemaining } from "@/lib/rate-limiter";
 import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer";
+import { has2FAEnabled } from "@/lib/supabase-2fa";
+import Verify2FAInput from "@/components/Verify2FAInput";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,6 +19,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  
+  // 🆕 2FA State
+  const [needs2FA, setNeeds2FA] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   
   // Rate limiting state
   const [rateLimitBlocked, setRateLimitBlocked] = useState(false);
@@ -146,19 +152,34 @@ export default function Login() {
           nomeCompleto: result.user.nomeCompleto,
         });
 
-        setSuccess("Login realizado com sucesso! Redirecionando...");
-        
-        // Reseta rate limit após login bem-sucedido
-        rateLimiter.reset();
-        setRateLimitRemaining(5);
-        setRateLimitMessage("");
-        console.log('🔄 [Login] Rate limit resetado após sucesso');
+        // 🆕 Verifica se usuário tem 2FA ativado
+        console.log('🔐 [Login] Verificando se usuário tem 2FA...');
+        const has2FA = await has2FAEnabled(result.user.id);
+        console.log('📊 [Login] Usuário tem 2FA:', has2FA);
 
-        // Aguarda 1 segundo antes de redirecionar
-        setTimeout(() => {
-          console.log('🔀 [Login] Redirecionando para /dashboard...');
-          window.location.href = '/dashboard';
-        }, 1000);
+        if (has2FA) {
+          // Usuário tem 2FA - mostrar tela de verificação
+          console.log('🔒 [Login] 2FA ativado - solicitando código...');
+          setPendingUserId(result.user.id);
+          setNeeds2FA(true);
+          setSuccess("Senha correta! Agora digite o código 2FA.");
+        } else {
+          // Usuário NÃO tem 2FA - login completo
+          console.log('✅ [Login] 2FA não ativado - login completo');
+          setSuccess("Login realizado com sucesso! Redirecionando...");
+          
+          // Reseta rate limit após login bem-sucedido
+          rateLimiter.reset();
+          setRateLimitRemaining(5);
+          setRateLimitMessage("");
+          console.log('🔄 [Login] Rate limit resetado após sucesso');
+
+          // Aguarda 1 segundo antes de redirecionar
+          setTimeout(() => {
+            console.log('🔀 [Login] Redirecionando para /dashboard...');
+            window.location.href = '/dashboard';
+          }, 1000);
+        }
       } else {
         // LOGIN FALHOU - Registra tentativa no rate limiter
         console.error('❌ [Login] Login falhou:', result.error);
@@ -216,6 +237,63 @@ export default function Login() {
     }
   }
 
+  // 🆕 Handler para sucesso do 2FA
+  function handle2FASuccess() {
+    console.log('✅ [Login] 2FA verificado com sucesso!');
+    setSuccess("2FA verificado! Redirecionando...");
+    
+    // Reseta rate limit
+    rateLimiter.reset();
+    setRateLimitRemaining(5);
+    setRateLimitMessage("");
+    
+    // Redireciona
+    setTimeout(() => {
+      console.log('🔀 [Login] Redirecionando para /dashboard...');
+      window.location.href = '/dashboard';
+    }, 1000);
+  }
+
+  // 🆕 Handler para cancelar 2FA
+  function handle2FACancel() {
+    console.log('❌ [Login] Verificação 2FA cancelada');
+    setNeeds2FA(false);
+    setPendingUserId(null);
+    setSuccess("");
+    setError("Login cancelado. Faça login novamente.");
+  }
+
+  // 🆕 Se precisa de 2FA, mostra tela de verificação
+  if (needs2FA && pendingUserId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {success && (
+              <Alert className="border-green-500 bg-green-50 mb-4">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
+            )}
+            <Verify2FAInput
+              userId={pendingUserId}
+              onSuccess={handle2FASuccess}
+              onCancel={handle2FACancel}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Tela de login normal
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
