@@ -97,6 +97,62 @@ export function isValidPassword(password: string): boolean {
 }
 
 /**
+ * Verifica se CPF/CNPJ já existe no banco de dados
+ * Função auxiliar para validação antecipada no Step 1
+ */
+export async function checkCpfCnpjExists(cpfCnpj: string): Promise<{ exists: boolean; error?: string }> {
+  try {
+    console.log('🔍 Verificando se CPF/CNPJ já existe:', cpfCnpj);
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('cpf_cnpj')
+      .eq('cpf_cnpj', cpfCnpj);
+    
+    if (error) {
+      console.error('❌ Erro ao verificar CPF/CNPJ:', error);
+      return { exists: false, error: 'Erro ao verificar CPF/CNPJ' };
+    }
+    
+    const exists = data && data.length > 0;
+    console.log(exists ? '⚠️ CPF/CNPJ já cadastrado' : '✅ CPF/CNPJ disponível');
+    
+    return { exists };
+  } catch (error) {
+    console.error('❌ Erro ao verificar CPF/CNPJ:', error);
+    return { exists: false, error: 'Erro ao verificar CPF/CNPJ' };
+  }
+}
+
+/**
+ * Verifica se email já existe no banco de dados
+ * Função auxiliar para validação antecipada no Step 1
+ */
+export async function checkEmailExists(email: string): Promise<{ exists: boolean; error?: string }> {
+  try {
+    console.log('🔍 Verificando se email já existe:', email);
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email.toLowerCase());
+    
+    if (error) {
+      console.error('❌ Erro ao verificar email:', error);
+      return { exists: false, error: 'Erro ao verificar email' };
+    }
+    
+    const exists = data && data.length > 0;
+    console.log(exists ? '⚠️ Email já cadastrado' : '✅ Email disponível');
+    
+    return { exists };
+  } catch (error) {
+    console.error('❌ Erro ao verificar email:', error);
+    return { exists: false, error: 'Erro ao verificar email' };
+  }
+}
+
+/**
  * Registra um novo usuário no Supabase
  */
 export async function registerUser(

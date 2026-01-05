@@ -10,6 +10,8 @@ import {
   registerUser,
   loginUser,
   getCurrentUser,
+  checkCpfCnpjExists,
+  checkEmailExists,
 } from '@/lib/supabase-auth';
 import { isValidPassword } from '@/lib/password-validator';
 import { sanitizeCadastroData } from '@/lib/input-sanitizer';
@@ -235,56 +237,91 @@ export default function Cadastro() {
     setTelefone(formatPhone(value));
   };
   
-  const validateStep1 = (): boolean => {
+  const validateStep1 = async (): Promise<boolean> => {
     setError('');
+    setIsLoading(true);
     
-    if (!nomeCompleto.trim()) {
-      setError('Nome completo é obrigatório');
+    try {
+      if (!nomeCompleto.trim()) {
+        setError('Nome completo é obrigatório');
+        return false;
+      }
+      
+      if (nomeCompleto.length > 100) {
+        setError('Nome completo muito longo (máximo 100 caracteres)');
+        return false;
+      }
+      
+      if (!email.trim()) {
+        setError('Email é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de email
+      const emailValidation = validateEmailStrict(email);
+      if (!emailValidation.valid) {
+        setError(emailValidation.message);
+        return false;
+      }
+      
+      // 🔍 NOVA VALIDAÇÃO: Verifica se email já existe
+      console.log('🔍 Verificando se email já está cadastrado...');
+      const emailCheck = await checkEmailExists(email);
+      if (emailCheck.error) {
+        setError(emailCheck.error);
+        return false;
+      }
+      if (emailCheck.exists) {
+        setError('Este email já está cadastrado. Faça login ou use outro email.');
+        return false;
+      }
+      console.log('✅ Email disponível!');
+      
+      if (!cpfCnpj.trim()) {
+        setError('CPF/CNPJ é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de CPF/CNPJ
+      const cpfCnpjValidation = validateCPForCNPJ(cpfCnpj);
+      if (!cpfCnpjValidation.valid) {
+        setError(cpfCnpjValidation.message);
+        return false;
+      }
+      
+      // 🔍 NOVA VALIDAÇÃO: Verifica se CPF/CNPJ já existe
+      console.log('🔍 Verificando se CPF/CNPJ já está cadastrado...');
+      const cpfCheck = await checkCpfCnpjExists(cpfCnpj);
+      if (cpfCheck.error) {
+        setError(cpfCheck.error);
+        return false;
+      }
+      if (cpfCheck.exists) {
+        setError('Este CPF/CNPJ já está cadastrado. Faça login ou use outro documento.');
+        return false;
+      }
+      console.log('✅ CPF/CNPJ disponível!');
+      
+      if (!telefone.trim()) {
+        setError('Telefone é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de telefone
+      const phoneValidation = validatePhoneBR(telefone);
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.message);
+        return false;
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('❌ Erro na validação:', err);
+      setError('Erro ao validar dados. Tente novamente.');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (nomeCompleto.length > 100) {
-      setError('Nome completo muito longo (máximo 100 caracteres)');
-      return false;
-    }
-    
-    if (!email.trim()) {
-      setError('Email é obrigatório');
-      return false;
-    }
-    
-    // Validação rigorosa de email
-    const emailValidation = validateEmailStrict(email);
-    if (!emailValidation.valid) {
-      setError(emailValidation.message);
-      return false;
-    }
-    
-    if (!cpfCnpj.trim()) {
-      setError('CPF/CNPJ é obrigatório');
-      return false;
-    }
-    
-    // Validação rigorosa de CPF/CNPJ
-    const cpfCnpjValidation = validateCPForCNPJ(cpfCnpj);
-    if (!cpfCnpjValidation.valid) {
-      setError(cpfCnpjValidation.message);
-      return false;
-    }
-    
-    if (!telefone.trim()) {
-      setError('Telefone é obrigatório');
-      return false;
-    }
-    
-    // Validação rigorosa de telefone
-    const phoneValidation = validatePhoneBR(telefone);
-    if (!phoneValidation.valid) {
-      setError(phoneValidation.message);
-      return false;
-    }
-    
-    return true;
   };
   
   const validateStep2 = (): boolean => {
@@ -324,9 +361,12 @@ export default function Cadastro() {
     return true;
   };
   
-  const handleNextStep = () => {
-    if (step === 1 && validateStep1()) {
-      setStep(2);
+  const handleNextStep = async () => {
+    if (step === 1) {
+      const isValid = await validateStep1();
+      if (isValid) {
+        setStep(2);
+      }
     } else if (step === 2 && validateStep2()) {
       // Comparação facial
       const comparison = compareFaces(documentoUrl, selfieUrl);
@@ -514,6 +554,7 @@ export default function Cadastro() {
                       value={nomeCompleto}
                       onChange={(e) => setNomeCompleto(e.target.value)}
                       maxLength={100}
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -525,6 +566,7 @@ export default function Cadastro() {
                       value={nomePublico}
                       onChange={(e) => setNomePublico(e.target.value)}
                       maxLength={50}
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -537,6 +579,7 @@ export default function Cadastro() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       maxLength={100}
+                      disabled={isLoading}
                     />
                     <p className="text-xs text-muted-foreground">
                       Emails temporários não são permitidos
@@ -551,6 +594,7 @@ export default function Cadastro() {
                       value={cpfCnpj}
                       onChange={(e) => handleCpfCnpjChange(e.target.value)}
                       maxLength={18}
+                      disabled={isLoading}
                     />
                     <p className="text-xs text-muted-foreground">
                       Formato será aplicado automaticamente
@@ -565,14 +609,26 @@ export default function Cadastro() {
                       value={telefone}
                       onChange={(e) => handleTelefoneChange(e.target.value)}
                       maxLength={15}
+                      disabled={isLoading}
                     />
                     <p className="text-xs text-muted-foreground">
                       Apenas números brasileiros (DDD + número)
                     </p>
                   </div>
                   
-                  <Button onClick={handleNextStep} className="w-full">
-                    Próximo
+                  <Button 
+                    onClick={handleNextStep} 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verificando...
+                      </>
+                    ) : (
+                      'Próximo'
+                    )}
                   </Button>
                 </div>
               )}
