@@ -88,6 +88,12 @@ function AppContent() {
     setupCSRFProtection();
   }, []); // Executa apenas uma vez ao montar
 
+  // ⚠️ FUNCIONALIDADE DE TIMEOUT DESATIVADA TEMPORARIAMENTE
+  // Motivo: Bug na linha 241 - showTimeoutWarning nas dependências causa recriação constante dos event listeners
+  // TODO: Corrigir removendo showTimeoutWarning das dependências e usar useCallback para handlers
+  // Para reativar: descomentar o bloco abaixo e corrigir as dependências do useEffect
+  
+  /*
   // 🧪 MODO TESTE: Auto-logout por inatividade (1 minuto) + Modal de aviso (30 segundos antes)
   useEffect(() => {
     if (!session) return;
@@ -238,7 +244,8 @@ function AppContent() {
         clearTimeout(warningTimerRef.current);
       }
     };
-  }, [session, navigate, showTimeoutWarning]);
+  }, [session, navigate, showTimeoutWarning]); // ⚠️ BUG: showTimeoutWarning causa recriação constante
+  */
 
   useEffect(() => {
     // Get initial session
@@ -300,13 +307,15 @@ function AppContent() {
 
   return (
     <>
-      {/* Modal de Aviso de Timeout */}
+      {/* Modal de Aviso de Timeout - DESATIVADO TEMPORARIAMENTE */}
+      {/* 
       <SessionTimeoutWarning
         isOpen={showTimeoutWarning}
         remainingSeconds={remainingSeconds}
         onContinue={handleContinueSession}
         onLogout={handleManualLogout}
       />
+      */}
 
       <Routes>
         <Route path="/" element={<Index />} />
