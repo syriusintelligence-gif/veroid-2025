@@ -21,7 +21,8 @@ import Certificate from './pages/Certificate';
 
 // 🔒 CSRF Protection imports
 import { initializeCSRF } from './lib/csrf-protection';
-import { initializeCSRFMiddleware } from './lib/csrf-middleware';
+// 🚨 MIDDLEWARE DESATIVADO TEMPORARIAMENTE - Causando loop infinito
+// import { initializeCSRFMiddleware } from './lib/csrf-middleware';
 import { logAuditEvent, AuditAction } from './lib/audit-logger';
 
 function AppContent() {
@@ -34,31 +35,21 @@ function AppContent() {
   // 🆕 CSRF initialization state
   const [csrfInitialized, setCsrfInitialized] = useState(false);
 
-  // 🔒 Initialize CSRF Protection
+  // 🔒 Initialize CSRF Protection (SEM MIDDLEWARE)
   useEffect(() => {
     async function setupCSRFProtection() {
       try {
-        console.log('🔐 [App] Inicializando proteção CSRF...');
+        console.log('🔐 [App] Inicializando proteção CSRF (sem middleware)...');
         
         // Inicializa token CSRF
         const token = await initializeCSRF();
         console.log('✅ [App] Token CSRF inicializado');
         
-        // Inicializa middleware (intercepta fetch automaticamente)
-        initializeCSRFMiddleware({
-          // Configuração customizada
-          blacklist: [
-            // APIs externas que não precisam de CSRF
-            'https://api.ipify.org',
-            'https://ipapi.co',
-            'https://geolocation-db.com',
-          ],
-          methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
-          validateResponses: false,
-          logRequests: true,
-        });
+        // 🚨 MIDDLEWARE DESATIVADO - Estava causando loop infinito
+        // Motivo: Interceptava requisições do Supabase, criando loop recursivo
+        // TODO: Implementar middleware com blacklist adequada para Supabase
         
-        console.log('✅ [App] Middleware CSRF ativo');
+        console.log('⚠️ [App] Middleware CSRF desativado temporariamente');
         
         // Marca como inicializado
         setCsrfInitialized(true);
@@ -66,11 +57,12 @@ function AppContent() {
         // Log de auditoria
         await logAuditEvent(AuditAction.SECURITY_EVENT, {
           success: true,
-          event: 'csrf_protection_initialized',
+          event: 'csrf_token_initialized',
+          middleware_active: false,
           timestamp: new Date().toISOString(),
         });
         
-        console.log('🎉 [App] Proteção CSRF totalmente ativa!');
+        console.log('✅ [App] Token CSRF ativo (uso manual nos formulários)');
       } catch (error) {
         console.error('❌ [App] Erro ao inicializar CSRF:', error);
         
@@ -200,16 +192,11 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 🆕 Mostra loading enquanto CSRF não está inicializado
-  if (loading || !csrfInitialized) {
+  // Loading apenas enquanto carrega sessão (CSRF não bloqueia mais)
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          {!csrfInitialized && (
-            <p className="text-sm text-gray-600">Inicializando proteção de segurança...</p>
-          )}
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
