@@ -18,7 +18,7 @@ import { useCSRFProtection } from "@/hooks/useCSRFProtection";
 import { checkPasswordExpiration } from "@/lib/password-policy";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "PASSWORD-POLICY-v1.0-2026-01-05";
+const CODE_VERSION = "ANTI-ENUMERATION-v1.0-2026-01-05";
 
 // 🔑 Chaves para sessionStorage
 const STORAGE_KEYS = {
@@ -285,6 +285,9 @@ export default function Login() {
         console.error('%c❌ LOGIN FALHOU', 'background: #F44336; color: white; font-size: 18px; padding: 8px;');
         console.error('Erro:', result.error);
         
+        // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
+        const genericError = "Email ou senha incorretos";
+        
         // Registra a tentativa falhada no rate limiter
         console.log('📝 [Login] Registrando tentativa falhada no rate limiter...');
         const rateLimitResult = await rateLimiter.check();
@@ -307,8 +310,8 @@ export default function Login() {
           setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
           setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
         } else {
-          // Ainda tem tentativas
-          setError(result.error || "Email ou senha incorretos");
+          // Ainda tem tentativas - usa mensagem genérica
+          setError(genericError);
           if (rateLimitResult.remaining < 3) {
             setRateLimitMessage(`⚠️ ${rateLimitResult.remaining} tentativas restantes`);
           }
@@ -317,8 +320,9 @@ export default function Login() {
     } catch (err) {
       console.error('%c❌ ERRO DURANTE LOGIN', 'background: #F44336; color: white; font-size: 18px; padding: 8px;');
       console.error('Erro completo:', err);
-      const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.";
-      setError(errorMessage);
+      
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica para erros
+      setError("Email ou senha incorretos");
       
       // Registra tentativa falhada mesmo em caso de erro
       try {

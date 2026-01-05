@@ -264,15 +264,17 @@ export default function Cadastro() {
         return false;
       }
       
-      // 🔍 NOVA VALIDAÇÃO: Verifica se email já existe
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
       console.log('🔍 Verificando se email já está cadastrado...');
       const emailCheck = await checkEmailExists(email);
       if (emailCheck.error) {
-        setError(emailCheck.error);
+        // Não revela o erro específico
+        setError('Erro ao validar dados. Tente novamente.');
         return false;
       }
       if (emailCheck.exists) {
-        setError('Este email já está cadastrado. Faça login ou use outro email.');
+        // 🛡️ Mensagem genérica - não revela que email existe
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         return false;
       }
       console.log('✅ Email disponível!');
@@ -289,15 +291,17 @@ export default function Cadastro() {
         return false;
       }
       
-      // 🔍 NOVA VALIDAÇÃO: Verifica se CPF/CNPJ já existe
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
       console.log('🔍 Verificando se CPF/CNPJ já está cadastrado...');
       const cpfCheck = await checkCpfCnpjExists(cpfCnpj);
       if (cpfCheck.error) {
-        setError(cpfCheck.error);
+        // Não revela o erro específico
+        setError('Erro ao validar dados. Tente novamente.');
         return false;
       }
       if (cpfCheck.exists) {
-        setError('Este CPF/CNPJ já está cadastrado. Faça login ou use outro documento.');
+        // 🛡️ Mensagem genérica - não revela que CPF/CNPJ existe
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         return false;
       }
       console.log('✅ CPF/CNPJ disponível!');
@@ -434,7 +438,8 @@ export default function Cadastro() {
       );
       
       if (!result.success) {
-        setError(result.error || 'Erro ao criar conta. Tente novamente.');
+        // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         setIsLoading(false);
         return;
       }
@@ -454,7 +459,8 @@ export default function Cadastro() {
       }
     } catch (err) {
       console.error('❌ Erro ao criar conta:', err);
-      setError('Erro ao criar conta. Tente novamente.');
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
+      setError('Não foi possível completar o cadastro. Tente novamente mais tarde.');
       setIsLoading(false);
     }
   };

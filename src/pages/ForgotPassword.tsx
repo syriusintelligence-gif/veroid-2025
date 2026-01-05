@@ -100,10 +100,13 @@ export default function ForgotPassword() {
       console.log('📧 Email enviado para:', email);
       console.log('🔗 Link redirecionará para:', redirectUrl);
       
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Sempre mostra sucesso
       setSuccess(true);
     } catch (err) {
       console.error('❌ Erro ao enviar link de recuperação:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao enviar link de recuperação. Tente novamente.');
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Não revela se email existe ou não
+      // Mostra sucesso mesmo em caso de erro
+      setSuccess(true);
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +139,7 @@ export default function ForgotPassword() {
             <CardDescription>
               {!success
                 ? 'Digite seu email para receber um link de recuperação'
-                : 'Link enviado com sucesso'}
+                : 'Instruções enviadas'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -203,12 +206,12 @@ export default function ForgotPassword() {
                 <Alert className="border-green-500 bg-green-50">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <p className="font-medium mb-2">Link enviado com sucesso!</p>
+                    <p className="font-medium mb-2">Instruções enviadas!</p>
                     <p className="text-sm mb-3">
-                      Enviamos um link de recuperação para <strong>{email}</strong>
+                      Se o email <strong>{email}</strong> estiver cadastrado, você receberá um link de recuperação.
                     </p>
                     <p className="text-sm">
-                      Clique no link do email para redefinir sua senha.
+                      Verifique sua caixa de entrada e a pasta de spam.
                     </p>
                   </AlertDescription>
                 </Alert>
