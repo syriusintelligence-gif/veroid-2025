@@ -52,6 +52,9 @@ export enum AuditAction {
   // Admin
   ADMIN_ACTION = 'ADMIN_ACTION',
   AUDIT_LOG_VIEWED = 'AUDIT_LOG_VIEWED',
+  
+  // Segurança e Sessão
+  SECURITY_EVENT = 'SECURITY_EVENT',
 }
 
 // Interface para detalhes do log
