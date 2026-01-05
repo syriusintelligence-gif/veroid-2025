@@ -14,7 +14,14 @@ import { supabase } from "@/lib/supabase";
 import Verify2FAInput from "@/components/Verify2FAInput";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "2FA-FIX-v4.0-2026-01-05-14:00";
+const CODE_VERSION = "2FA-FIX-v5.0-2026-01-05-14:15";
+
+// 🔑 Chaves para sessionStorage
+const STORAGE_KEYS = {
+  PENDING_USER_ID: 'veroid_2fa_pending_user_id',
+  PENDING_EMAIL: 'veroid_2fa_pending_email',
+  PENDING_PASSWORD: 'veroid_2fa_pending_password',
+};
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -46,6 +53,26 @@ export default function Login() {
     console.log('%c⏰ TIMESTAMP: ' + new Date().toISOString(), 'background: #FF9800; color: white; font-size: 14px; padding: 5px;');
     console.log('🔍 Se você está vendo esta mensagem, o código NOVO foi carregado!');
     console.log('🔍 Se NÃO vê esta mensagem, o Vercel está servindo código antigo em cache.');
+    
+    // 🆕 Verifica se há dados de 2FA pendentes no sessionStorage
+    const storedUserId = sessionStorage.getItem(STORAGE_KEYS.PENDING_USER_ID);
+    const storedEmail = sessionStorage.getItem(STORAGE_KEYS.PENDING_EMAIL);
+    const storedPassword = sessionStorage.getItem(STORAGE_KEYS.PENDING_PASSWORD);
+    
+    if (storedUserId && storedEmail && storedPassword) {
+      console.log('%c🔄 RESTAURANDO ESTADO 2FA DO SESSIONSTORAGE', 'background: #FF9800; color: white; font-size: 18px; padding: 8px;');
+      console.log('👤 User ID:', storedUserId);
+      console.log('📧 Email:', storedEmail);
+      
+      // Restaura os estados
+      setPendingUserId(storedUserId);
+      setPendingEmail(storedEmail);
+      setPendingPassword(storedPassword);
+      setNeeds2FA(true);
+      setSuccess("Senha correta! Agora digite o código 2FA.");
+      
+      console.log('✅ Estado 2FA restaurado com sucesso!');
+    }
   }, []);
 
   // Check rate limit status on mount
@@ -174,29 +201,27 @@ export default function Login() {
         console.log('🔒 É true?', has2FA === true);
 
         if (has2FA === true) {
-          // 🔒 Usuário tem 2FA - FAZER LOGOUT IMEDIATAMENTE
-          console.log('%c🔒 2FA ATIVADO - FAZENDO LOGOUT TEMPORÁRIO', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
+          // 🔒 Usuário tem 2FA - SALVAR NO SESSIONSTORAGE E FAZER LOGOUT
+          console.log('%c🔒 2FA ATIVADO - SALVANDO NO SESSIONSTORAGE', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
+          
+          // 🆕 Salva no sessionStorage ANTES do logout
+          sessionStorage.setItem(STORAGE_KEYS.PENDING_USER_ID, result.user.id);
+          sessionStorage.setItem(STORAGE_KEYS.PENDING_EMAIL, sanitizedEmail);
+          sessionStorage.setItem(STORAGE_KEYS.PENDING_PASSWORD, sanitizedPassword);
+          console.log('💾 Dados salvos no sessionStorage');
           
           // Faz logout para evitar que o App.tsx detecte a autenticação
+          console.log('🔄 Fazendo logout temporário...');
           await supabase.auth.signOut();
           console.log('✅ Logout temporário realizado');
           
-          // Salva credenciais para login após 2FA
-          setPendingEmail(sanitizedEmail);
-          setPendingPassword(sanitizedPassword);
-          
           // Define os estados para mostrar a tela de 2FA
           console.log('📝 Configurando estados...');
-          console.log('  → setPendingUserId:', result.user.id);
           setPendingUserId(result.user.id);
-          
-          console.log('  → setSuccess: "Senha correta! Agora digite o código 2FA."');
+          setPendingEmail(sanitizedEmail);
+          setPendingPassword(sanitizedPassword);
           setSuccess("Senha correta! Agora digite o código 2FA.");
-          
-          console.log('  → setLoading: false');
           setLoading(false);
-          
-          console.log('  → setNeeds2FA: true');
           setNeeds2FA(true);
           
           console.log('%c✅ TELA DE 2FA SERÁ EXIBIDA', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
@@ -285,6 +310,12 @@ export default function Login() {
     setLoading(true);
     
     try {
+      // 🆕 Limpa o sessionStorage
+      sessionStorage.removeItem(STORAGE_KEYS.PENDING_USER_ID);
+      sessionStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+      sessionStorage.removeItem(STORAGE_KEYS.PENDING_PASSWORD);
+      console.log('🧹 SessionStorage limpo');
+      
       // Faz login novamente com as credenciais salvas
       console.log('🔄 Fazendo login novamente após verificação 2FA...');
       const result = await loginUser(pendingEmail, pendingPassword);
@@ -326,6 +357,13 @@ export default function Login() {
   // 🆕 Handler para cancelar 2FA
   function handle2FACancel() {
     console.log('❌ [Login] Verificação 2FA cancelada');
+    
+    // 🆕 Limpa o sessionStorage
+    sessionStorage.removeItem(STORAGE_KEYS.PENDING_USER_ID);
+    sessionStorage.removeItem(STORAGE_KEYS.PENDING_EMAIL);
+    sessionStorage.removeItem(STORAGE_KEYS.PENDING_PASSWORD);
+    console.log('🧹 SessionStorage limpo');
+    
     setNeeds2FA(false);
     setPendingUserId(null);
     setPendingEmail("");
