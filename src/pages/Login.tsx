@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,11 @@ import { supabase } from "@/lib/supabase";
 import Verify2FAInput from "@/components/Verify2FAInput";
 // 🔒 CSRF Protection - HOOK COMPLETO
 import { useCSRFProtection } from "@/hooks/useCSRFProtection";
+// 🆕 Password Policy
+import { checkPasswordExpiration } from "@/lib/password-policy";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "CSRF-MANUAL-FIX-v1.1-2026-01-05-17:10";
+const CODE_VERSION = "PASSWORD-POLICY-v1.0-2026-01-05";
 
 // 🔑 Chaves para sessionStorage
 const STORAGE_KEYS = {
@@ -26,6 +28,7 @@ const STORAGE_KEYS = {
 };
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -60,8 +63,6 @@ export default function Login() {
     console.log('%c🚀 LOGIN PAGE LOADED', 'background: #4CAF50; color: white; font-size: 20px; padding: 10px;');
     console.log('%c📦 CODE VERSION: ' + CODE_VERSION, 'background: #2196F3; color: white; font-size: 16px; padding: 5px;');
     console.log('%c⏰ TIMESTAMP: ' + new Date().toISOString(), 'background: #FF9800; color: white; font-size: 14px; padding: 5px;');
-    console.log('🔍 Se você está vendo esta mensagem, o código NOVO foi carregado!');
-    console.log('🔍 Se NÃO vê esta mensagem, o Vercel está servindo código antigo em cache.');
     
     // 🆕 Verifica se há dados de 2FA pendentes no sessionStorage
     const storedUserId = sessionStorage.getItem(STORAGE_KEYS.PENDING_USER_ID);
@@ -70,8 +71,6 @@ export default function Login() {
     
     if (storedUserId && storedEmail && storedPassword) {
       console.log('%c🔄 RESTAURANDO ESTADO 2FA DO SESSIONSTORAGE', 'background: #FF9800; color: white; font-size: 18px; padding: 8px;');
-      console.log('👤 User ID:', storedUserId);
-      console.log('📧 Email:', storedEmail);
       
       // Restaura os estados
       setPendingUserId(storedUserId);
@@ -159,7 +158,6 @@ export default function Login() {
     setSuccess("");
 
     console.log('%c🔐 INICIANDO LOGIN', 'background: #9C27B0; color: white; font-size: 18px; padding: 8px;');
-    console.log('📧 Email digitado:', email);
 
     // 🔒 Verifica se CSRF token está disponível
     if (!csrfToken) {
@@ -173,8 +171,6 @@ export default function Login() {
     // Sanitização de inputs
     const sanitizedEmail = sanitizeEmail(limitLength(email, 100));
     const sanitizedPassword = limitLength(sanitizeInput(password), 100);
-
-    console.log('🧹 [Login] Email sanitizado:', sanitizedEmail);
 
     // Validação básica
     if (!sanitizedEmail || !sanitizedPassword) {
@@ -207,30 +203,39 @@ export default function Login() {
     try {
       console.log('%c🔄 CHAMANDO loginUser() COM CSRF TOKEN', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
       
-      // 🔒 Chama loginUser com CSRF token
-      // Nota: loginUser já usa supabase.auth.signInWithPassword que é protegido pelo Supabase
-      // O CSRF token é mais relevante para operações customizadas via REST API
-      // Mas vamos incluir no header para futuras operações
       const result = await loginUser(sanitizedEmail, sanitizedPassword);
       
       console.log('%c📦 RESULTADO DO LOGIN', 'background: #673AB7; color: white; font-size: 16px; padding: 5px;');
       console.log('✅ Success:', result.success);
       console.log('👤 User ID:', result.user?.id);
-      console.log('📧 User Email:', result.user?.email);
 
       if (result.success && result.user) {
         console.log('%c✅ LOGIN BEM-SUCEDIDO!', 'background: #4CAF50; color: white; font-size: 18px; padding: 8px;');
         
+        // 🆕 VERIFICA EXPIRAÇÃO DE SENHA
+        console.log('🔐 [PASSWORD POLICY] Verificando expiração de senha...');
+        const expirationStatus = await checkPasswordExpiration(result.user.id);
+        
+        console.log('📊 [PASSWORD POLICY] Status:', expirationStatus);
+        
+        // Se senha expirou ou deve ser trocada
+        if (expirationStatus.isExpired || expirationStatus.mustChangePassword) {
+          console.log('⚠️ [PASSWORD POLICY] Senha expirada ou deve ser trocada!');
+          
+          // Redireciona para página de troca de senha
+          navigate('/change-password', {
+            state: { expirationStatus }
+          });
+          return;
+        }
+        
         // 🆕 Verifica se usuário tem 2FA ativado
         console.log('%c🔐 VERIFICANDO 2FA...', 'background: #FF5722; color: white; font-size: 18px; padding: 8px;');
-        console.log('🔍 Chamando has2FAEnabled para user ID:', result.user.id);
         
         const has2FA = await has2FAEnabled(result.user.id);
         
         console.log('%c📊 RESULTADO 2FA:', 'background: #E91E63; color: white; font-size: 16px; padding: 5px;');
         console.log('🔒 has2FA =', has2FA);
-        console.log('🔒 Tipo:', typeof has2FA);
-        console.log('🔒 É true?', has2FA === true);
 
         if (has2FA === true) {
           // 🔒 Usuário tem 2FA - SALVAR NO SESSIONSTORAGE E FAZER LOGOUT
@@ -248,7 +253,6 @@ export default function Login() {
           console.log('✅ Logout temporário realizado');
           
           // Define os estados para mostrar a tela de 2FA
-          console.log('📝 Configurando estados...');
           setPendingUserId(result.user.id);
           setPendingEmail(sanitizedEmail);
           setPendingPassword(sanitizedPassword);
@@ -352,8 +356,20 @@ export default function Login() {
       console.log('🔄 Fazendo login novamente após verificação 2FA...');
       const result = await loginUser(pendingEmail, pendingPassword);
       
-      if (result.success) {
+      if (result.success && result.user) {
         console.log('✅ Login pós-2FA bem-sucedido!');
+        
+        // 🆕 Verifica expiração de senha APÓS 2FA
+        console.log('🔐 [PASSWORD POLICY] Verificando expiração após 2FA...');
+        const expirationStatus = await checkPasswordExpiration(result.user.id);
+        
+        if (expirationStatus.isExpired || expirationStatus.mustChangePassword) {
+          console.log('⚠️ [PASSWORD POLICY] Senha expirada após 2FA!');
+          navigate('/change-password', {
+            state: { expirationStatus }
+          });
+          return;
+        }
         
         // Reseta rate limit
         rateLimiter.reset();
@@ -446,7 +462,6 @@ export default function Login() {
   }
 
   // Tela de login normal
-  console.log('🖥️ Renderizando tela de login normal');
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">

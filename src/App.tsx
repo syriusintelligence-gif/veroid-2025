@@ -18,6 +18,7 @@ import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Verify from './pages/Verify';
 import Certificate from './pages/Certificate';
+import ChangePassword from './pages/ChangePassword';
 
 // 🔒 CSRF Protection imports
 import { initializeCSRF } from './lib/csrf-protection';
@@ -213,6 +214,10 @@ function AppContent() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/verify" element={<Verify />} />
       <Route path="/certificate" element={<Certificate />} />
+      <Route
+        path="/change-password"
+        element={session ? <ChangePassword /> : <Navigate to="/login" />}
+      />
       <Route
         path="/dashboard"
         element={session ? <Dashboard /> : <Navigate to="/login" />}
