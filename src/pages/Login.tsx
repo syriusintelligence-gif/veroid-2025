@@ -10,10 +10,11 @@ import { loginUser } from "@/lib/supabase-auth-v2";
 import { RateLimiter, RateLimitPresets, formatTimeRemaining } from "@/lib/rate-limiter";
 import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer";
 import { has2FAEnabled } from "@/lib/supabase-2fa";
+import { supabase } from "@/lib/supabase";
 import Verify2FAInput from "@/components/Verify2FAInput";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "2FA-FIX-v3.0-2026-01-05-13:35";
+const CODE_VERSION = "2FA-FIX-v4.0-2026-01-05-14:00";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -26,6 +27,8 @@ export default function Login() {
   // 🆕 2FA State
   const [needs2FA, setNeeds2FA] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string>("");
+  const [pendingPassword, setPendingPassword] = useState<string>("");
   
   // Rate limiting state
   const [rateLimitBlocked, setRateLimitBlocked] = useState(false);
@@ -146,9 +149,6 @@ export default function Login() {
     // Prosseguir com login
     setLoading(true);
 
-    // 🆕 Flag para controlar se deve executar o finally
-    let shouldRunFinally = true;
-
     try {
       console.log('%c🔄 CHAMANDO loginUser()', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
       
@@ -174,11 +174,16 @@ export default function Login() {
         console.log('🔒 É true?', has2FA === true);
 
         if (has2FA === true) {
-          // 🔒 Usuário tem 2FA - mostrar tela de verificação
-          console.log('%c🔒 2FA ATIVADO - MOSTRANDO TELA DE VERIFICAÇÃO', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
+          // 🔒 Usuário tem 2FA - FAZER LOGOUT IMEDIATAMENTE
+          console.log('%c🔒 2FA ATIVADO - FAZENDO LOGOUT TEMPORÁRIO', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
           
-          // 🆕 DESABILITA o finally block
-          shouldRunFinally = false;
+          // Faz logout para evitar que o App.tsx detecte a autenticação
+          await supabase.auth.signOut();
+          console.log('✅ Logout temporário realizado');
+          
+          // Salva credenciais para login após 2FA
+          setPendingEmail(sanitizedEmail);
+          setPendingPassword(sanitizedPassword);
           
           // Define os estados para mostrar a tela de 2FA
           console.log('📝 Configurando estados...');
@@ -194,10 +199,8 @@ export default function Login() {
           console.log('  → setNeeds2FA: true');
           setNeeds2FA(true);
           
-          console.log('%c✅ ESTADOS CONFIGURADOS - RETORNANDO SEM EXECUTAR FINALLY', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
-          console.log('🛑 Executando RETURN para parar aqui');
+          console.log('%c✅ TELA DE 2FA SERÁ EXIBIDA', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
           
-          // ⚠️ IMPORTANTE: Retorna aqui para não executar o resto do código
           return;
         } else {
           // ✅ Usuário NÃO tem 2FA - login completo
@@ -270,31 +273,54 @@ export default function Login() {
         console.error('❌ [Login] Erro ao registrar no rate limiter:', rateLimitError);
       }
     } finally {
-      // 🆕 Só executa o finally se não for caso de 2FA
-      if (shouldRunFinally) {
-        setLoading(false);
-        console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
-      } else {
-        console.log('%c⏭️ FINALLY IGNORADO - AGUARDANDO 2FA', 'background: #FFC107; color: black; font-size: 16px; padding: 5px;');
-      }
+      setLoading(false);
+      console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
     }
   }
 
   // 🆕 Handler para sucesso do 2FA
-  function handle2FASuccess() {
+  async function handle2FASuccess() {
     console.log('✅ [Login] 2FA verificado com sucesso!');
-    setSuccess("2FA verificado! Redirecionando...");
+    setSuccess("2FA verificado! Fazendo login...");
+    setLoading(true);
     
-    // Reseta rate limit
-    rateLimiter.reset();
-    setRateLimitRemaining(5);
-    setRateLimitMessage("");
-    
-    // Redireciona
-    setTimeout(() => {
-      console.log('🔀 [Login] Redirecionando para /dashboard...');
-      window.location.href = '/dashboard';
-    }, 1000);
+    try {
+      // Faz login novamente com as credenciais salvas
+      console.log('🔄 Fazendo login novamente após verificação 2FA...');
+      const result = await loginUser(pendingEmail, pendingPassword);
+      
+      if (result.success) {
+        console.log('✅ Login pós-2FA bem-sucedido!');
+        
+        // Reseta rate limit
+        rateLimiter.reset();
+        setRateLimitRemaining(5);
+        setRateLimitMessage("");
+        
+        setSuccess("Login completo! Redirecionando...");
+        
+        // Redireciona
+        setTimeout(() => {
+          console.log('🔀 [Login] Redirecionando para /dashboard...');
+          window.location.href = '/dashboard';
+        }, 1000);
+      } else {
+        setError("Erro ao completar login. Tente novamente.");
+        setNeeds2FA(false);
+        setPendingUserId(null);
+        setPendingEmail("");
+        setPendingPassword("");
+      }
+    } catch (err) {
+      console.error('❌ Erro ao fazer login pós-2FA:', err);
+      setError("Erro ao completar login. Tente novamente.");
+      setNeeds2FA(false);
+      setPendingUserId(null);
+      setPendingEmail("");
+      setPendingPassword("");
+    } finally {
+      setLoading(false);
+    }
   }
 
   // 🆕 Handler para cancelar 2FA
@@ -302,6 +328,8 @@ export default function Login() {
     console.log('❌ [Login] Verificação 2FA cancelada');
     setNeeds2FA(false);
     setPendingUserId(null);
+    setPendingEmail("");
+    setPendingPassword("");
     setSuccess("");
     setError("Login cancelado. Faça login novamente.");
   }
@@ -328,6 +356,12 @@ export default function Login() {
               <Alert className="border-green-500 bg-green-50 mb-4">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
+            )}
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             <Verify2FAInput
