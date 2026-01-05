@@ -32,9 +32,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin, getUsers, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
+import { getCSRFToken } from '@/lib/csrf-protection';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
@@ -56,6 +57,37 @@ export default function AdminUsers() {
   const [editNomePublico, setEditNomePublico] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editTelefone, setEditTelefone] = useState('');
+  
+  // 🔒 CSRF Protection
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [csrfReady, setCsrfReady] = useState(false);
+
+  // Inicializa token CSRF
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadToken() {
+      try {
+        const token = await getCSRFToken();
+        if (mounted) {
+          setCsrfToken(token);
+          setCsrfReady(true);
+          console.log('🔐 [AdminUsers] CSRF Token carregado:', token.substring(0, 20) + '...');
+        }
+      } catch (error) {
+        console.error('❌ [AdminUsers] Erro ao carregar token CSRF:', error);
+        if (mounted) {
+          setCsrfReady(true); // Marca como pronto mesmo com erro
+        }
+      }
+    }
+
+    loadToken();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
   
   useEffect(() => {
     checkAuthAndLoadData();
@@ -119,12 +151,25 @@ export default function AdminUsers() {
     setIsEditDialogOpen(true);
   };
   
+  // 🔒 Handler para salvar edição (COM CSRF)
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
+    
+    // Validação CSRF
+    if (!csrfToken) {
+      toast({
+        title: 'Erro de Segurança',
+        description: 'Token de segurança não disponível. Recarregue a página.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log('🔒 [AdminUsers] Atualizando usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
+      
       const result = await updateUser(selectedUser.id, {
         nomeCompleto: editNomeCompleto,
         nomePublico: editNomePublico,
@@ -164,12 +209,25 @@ export default function AdminUsers() {
     setIsBlockDialogOpen(true);
   };
   
+  // 🔒 Handler para bloquear/desbloquear (COM CSRF)
   const handleToggleBlock = async () => {
     if (!selectedUser) return;
+    
+    // Validação CSRF
+    if (!csrfToken) {
+      toast({
+        title: 'Erro de Segurança',
+        description: 'Token de segurança não disponível. Recarregue a página.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log('🔒 [AdminUsers] Alternando bloqueio com CSRF Token:', csrfToken.substring(0, 20) + '...');
+      
       const newBlockedStatus = !selectedUser.blocked;
       const result = await toggleBlockUser(selectedUser.id, newBlockedStatus);
       
@@ -207,12 +265,25 @@ export default function AdminUsers() {
     setIsDeleteDialogOpen(true);
   };
   
+  // 🔒 Handler para excluir usuário (COM CSRF)
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
+    
+    // Validação CSRF
+    if (!csrfToken) {
+      toast({
+        title: 'Erro de Segurança',
+        description: 'Token de segurança não disponível. Recarregue a página.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log('🔒 [AdminUsers] Excluindo usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
+      
       const result = await deleteUser(selectedUser.id);
       
       if (result.success) {
@@ -294,6 +365,16 @@ export default function AdminUsers() {
             Você está logado como: <strong>{currentUser.email}</strong>
           </AlertDescription>
         </Alert>
+
+        {/* CSRF Loading Alert */}
+        {!csrfReady && (
+          <Alert className="mb-6 border-blue-200 bg-blue-50">
+            <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+            <AlertDescription className="text-blue-800">
+              Carregando proteção de segurança...
+            </AlertDescription>
+          </Alert>
+        )}
         
         {/* Título */}
         <div className="mb-8">
@@ -490,6 +571,7 @@ export default function AdminUsers() {
                               size="sm"
                               onClick={() => handleOpenEditDialog(user)}
                               title="Editar usuário"
+                              disabled={!csrfReady || !csrfToken}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -498,6 +580,7 @@ export default function AdminUsers() {
                               size="sm"
                               onClick={() => handleOpenBlockDialog(user)}
                               title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                              disabled={!csrfReady || !csrfToken}
                             >
                               <Ban className="h-4 w-4" />
                             </Button>
@@ -507,6 +590,7 @@ export default function AdminUsers() {
                               onClick={() => handleOpenDeleteDialog(user)}
                               title="Excluir usuário"
                               className="text-red-600 hover:text-red-700"
+                              disabled={!csrfReady || !csrfToken}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -584,7 +668,7 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
         
-        {/* Dialog de Edição */}
+        {/* Dialog de Edição (COM CSRF) */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -600,6 +684,7 @@ export default function AdminUsers() {
                   id="editNomeCompleto"
                   value={editNomeCompleto}
                   onChange={(e) => setEditNomeCompleto(e.target.value)}
+                  disabled={!csrfReady || !csrfToken}
                 />
               </div>
               <div>
@@ -608,6 +693,7 @@ export default function AdminUsers() {
                   id="editNomePublico"
                   value={editNomePublico}
                   onChange={(e) => setEditNomePublico(e.target.value)}
+                  disabled={!csrfReady || !csrfToken}
                 />
               </div>
               <div>
@@ -617,6 +703,7 @@ export default function AdminUsers() {
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
+                  disabled={!csrfReady || !csrfToken}
                 />
               </div>
               <div>
@@ -625,6 +712,7 @@ export default function AdminUsers() {
                   id="editTelefone"
                   value={editTelefone}
                   onChange={(e) => setEditTelefone(e.target.value)}
+                  disabled={!csrfReady || !csrfToken}
                 />
               </div>
             </div>
@@ -632,14 +720,14 @@ export default function AdminUsers() {
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button onClick={handleSaveEdit} disabled={isLoading}>
+              <Button onClick={handleSaveEdit} disabled={isLoading || !csrfToken}>
                 {isLoading ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         
-        {/* Dialog de Bloqueio */}
+        {/* Dialog de Bloqueio (COM CSRF) */}
         <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -655,14 +743,14 @@ export default function AdminUsers() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleToggleBlock} disabled={isLoading}>
+              <AlertDialogAction onClick={handleToggleBlock} disabled={isLoading || !csrfToken}>
                 {isLoading ? 'Processando...' : (selectedUser?.blocked ? 'Desbloquear' : 'Bloquear')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
         
-        {/* Dialog de Exclusão */}
+        {/* Dialog de Exclusão (COM CSRF) */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -676,7 +764,7 @@ export default function AdminUsers() {
               <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleDeleteUser} 
-                disabled={isLoading}
+                disabled={isLoading || !csrfToken}
                 className="bg-red-600 hover:bg-red-700"
               >
                 {isLoading ? 'Excluindo...' : 'Excluir Permanentemente'}
@@ -685,6 +773,9 @@ export default function AdminUsers() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {/* Hidden CSRF Token */}
+      <input type="hidden" name="csrf_token" value={csrfToken || ''} />
     </div>
   );
 }
