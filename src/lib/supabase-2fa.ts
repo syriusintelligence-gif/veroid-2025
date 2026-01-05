@@ -21,19 +21,30 @@ export interface User2FA {
  */
 export async function has2FAEnabled(userId: string): Promise<boolean> {
   try {
+    console.log('🔍 [2FA CHECK] Verificando 2FA para usuário:', userId);
+    
     const { data, error } = await supabase
       .from('user_2fa')
       .select('enabled')
       .eq('user_id', userId)
       .single();
     
-    if (error || !data) {
+    console.log('📊 [2FA CHECK] Resultado da query:', { data, error });
+    
+    if (error) {
+      console.error('❌ [2FA CHECK] Erro ao verificar 2FA:', error);
       return false;
     }
     
+    if (!data) {
+      console.log('⚠️ [2FA CHECK] Nenhum registro 2FA encontrado para este usuário');
+      return false;
+    }
+    
+    console.log('✅ [2FA CHECK] Status 2FA:', data.enabled);
     return data.enabled === true;
   } catch (error) {
-    console.error('❌ Erro ao verificar 2FA:', error);
+    console.error('❌ [2FA CHECK] Erro crítico ao verificar 2FA:', error);
     return false;
   }
 }
@@ -43,11 +54,15 @@ export async function has2FAEnabled(userId: string): Promise<boolean> {
  */
 export async function get2FASettings(userId: string): Promise<User2FA | null> {
   try {
+    console.log('🔍 [2FA SETTINGS] Buscando configurações para usuário:', userId);
+    
     const { data, error } = await supabase
       .from('user_2fa')
       .select('*')
       .eq('user_id', userId)
       .single();
+    
+    console.log('📊 [2FA SETTINGS] Resultado:', { hasData: !!data, error });
     
     if (error || !data) {
       return null;
@@ -78,15 +93,15 @@ export async function setup2FA(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log('🔐 Iniciando configuração 2FA para usuário:', userId);
+    console.log('🔐 [2FA SETUP] Iniciando configuração 2FA para usuário:', userId);
     
     // Gera secret TOTP
     const secret = generateTOTPSecret();
-    console.log('✅ Secret gerado:', secret.substring(0, 10) + '...');
+    console.log('✅ [2FA SETUP] Secret gerado:', secret.substring(0, 10) + '...');
     
     // Gera códigos de backup
     const backupCodes = generateBackupCodes(10);
-    console.log('✅ Códigos de backup gerados:', backupCodes.length);
+    console.log('✅ [2FA SETUP] Códigos de backup gerados:', backupCodes.length);
     
     // Hasheia códigos de backup para armazenamento
     const hashedBackupCodes = await Promise.all(
@@ -97,6 +112,7 @@ export async function setup2FA(userId: string): Promise<{
     const existing = await get2FASettings(userId);
     
     if (existing) {
+      console.log('🔄 [2FA SETUP] Atualizando configuração existente...');
       // Atualiza configuração existente (mas mantém desabilitado até verificação)
       const { error } = await supabase
         .from('user_2fa')
@@ -108,10 +124,11 @@ export async function setup2FA(userId: string): Promise<{
         .eq('user_id', userId);
       
       if (error) {
-        console.error('❌ Erro ao atualizar 2FA:', error);
+        console.error('❌ [2FA SETUP] Erro ao atualizar 2FA:', error);
         return { success: false, error: 'Erro ao atualizar configuração 2FA' };
       }
     } else {
+      console.log('➕ [2FA SETUP] Criando nova configuração...');
       // Cria nova configuração
       const { error } = await supabase
         .from('user_2fa')
@@ -123,12 +140,12 @@ export async function setup2FA(userId: string): Promise<{
         });
       
       if (error) {
-        console.error('❌ Erro ao criar 2FA:', error);
+        console.error('❌ [2FA SETUP] Erro ao criar 2FA:', error);
         return { success: false, error: 'Erro ao criar configuração 2FA' };
       }
     }
     
-    console.log('✅ Configuração 2FA salva (aguardando ativação)');
+    console.log('✅ [2FA SETUP] Configuração 2FA salva (aguardando ativação)');
     
     return {
       success: true,
@@ -136,7 +153,7 @@ export async function setup2FA(userId: string): Promise<{
       backupCodes, // Retorna códigos em texto plano para o usuário salvar
     };
   } catch (error) {
-    console.error('❌ Erro ao configurar 2FA:', error);
+    console.error('❌ [2FA SETUP] Erro crítico:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -152,41 +169,56 @@ export async function enable2FA(
   verificationCode: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('🔐 Ativando 2FA para usuário:', userId);
+    console.log('🔐 [2FA ENABLE] Ativando 2FA para usuário:', userId);
+    console.log('🔢 [2FA ENABLE] Código recebido:', verificationCode);
     
     // Busca configuração
     const settings = await get2FASettings(userId);
     
     if (!settings) {
+      console.error('❌ [2FA ENABLE] Configuração não encontrada');
       return { success: false, error: 'Configuração 2FA não encontrada. Execute setup2FA primeiro.' };
     }
     
+    console.log('✅ [2FA ENABLE] Configuração encontrada, verificando código...');
+    
     // Verifica código TOTP
     const isValid = await verifyTOTPCode(settings.secret, verificationCode);
+    
+    console.log('📊 [2FA ENABLE] Código válido:', isValid);
     
     if (!isValid) {
       return { success: false, error: 'Código de verificação inválido' };
     }
     
+    console.log('✅ [2FA ENABLE] Código válido, ativando 2FA...');
+    
     // Ativa 2FA
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('user_2fa')
       .update({
         enabled: true,
         last_used_at: new Date().toISOString(),
       })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select();
+    
+    console.log('📊 [2FA ENABLE] Resultado do update:', { data, error });
     
     if (error) {
-      console.error('❌ Erro ao ativar 2FA:', error);
+      console.error('❌ [2FA ENABLE] Erro ao ativar 2FA:', error);
       return { success: false, error: 'Erro ao ativar 2FA' };
     }
     
-    console.log('✅ 2FA ativado com sucesso');
+    console.log('✅ [2FA ENABLE] 2FA ativado com sucesso!');
+    
+    // Verifica se realmente foi ativado
+    const verification = await has2FAEnabled(userId);
+    console.log('🔍 [2FA ENABLE] Verificação pós-ativação:', verification);
     
     return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao ativar 2FA:', error);
+    console.error('❌ [2FA ENABLE] Erro crítico:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -199,7 +231,7 @@ export async function enable2FA(
  */
 export async function disable2FA(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('🔓 Desativando 2FA para usuário:', userId);
+    console.log('🔓 [2FA DISABLE] Desativando 2FA para usuário:', userId);
     
     const { error } = await supabase
       .from('user_2fa')
@@ -207,15 +239,15 @@ export async function disable2FA(userId: string): Promise<{ success: boolean; er
       .eq('user_id', userId);
     
     if (error) {
-      console.error('❌ Erro ao desativar 2FA:', error);
+      console.error('❌ [2FA DISABLE] Erro ao desativar 2FA:', error);
       return { success: false, error: 'Erro ao desativar 2FA' };
     }
     
-    console.log('✅ 2FA desativado com sucesso');
+    console.log('✅ [2FA DISABLE] 2FA desativado com sucesso');
     
     return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao desativar 2FA:', error);
+    console.error('❌ [2FA DISABLE] Erro crítico:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -231,7 +263,7 @@ export async function verify2FALogin(
   code: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('🔐 Verificando código 2FA para login:', userId);
+    console.log('🔐 [2FA LOGIN] Verificando código 2FA para login:', userId);
     
     // Busca configuração
     const settings = await get2FASettings(userId);
