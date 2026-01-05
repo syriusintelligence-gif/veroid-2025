@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Shield, ArrowLeft, Mail, Loader2, CheckCircle2, AlertCircle } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail } from '@/lib/supabase-auth-v2';
-import { useCSRFProtection } from '@/hooks/useCSRFProtection';
+import { getCSRFToken } from '@/lib/csrf-protection';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -17,8 +17,36 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   
-  // CSRF Protection
-  const { csrfToken, isLoading: csrfLoading } = useCSRFProtection();
+  // CSRF Protection - Abordagem Simplificada
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [csrfReady, setCsrfReady] = useState(false);
+
+  // Inicializa token CSRF uma única vez
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadToken() {
+      try {
+        const token = await getCSRFToken();
+        if (mounted) {
+          setCsrfToken(token);
+          setCsrfReady(true);
+          console.log('🔐 [ForgotPassword] CSRF Token carregado:', token.substring(0, 20) + '...');
+        }
+      } catch (error) {
+        console.error('❌ [ForgotPassword] Erro ao carregar token CSRF:', error);
+        if (mounted) {
+          setCsrfReady(true); // Marca como pronto mesmo com erro para não bloquear UI
+        }
+      }
+    }
+
+    loadToken();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +74,7 @@ export default function ForgotPassword() {
 
     try {
       console.log('🔑 [FORGOT PASSWORD] Enviando link de recuperação para:', email);
-      console.log('🔒 [CSRF] Token:', csrfToken);
+      console.log('🔒 [CSRF] Token:', csrfToken.substring(0, 20) + '...');
       console.log('🌐 Origin:', window.location.origin);
       
       // Usando o template customizado do Supabase com token_hash
@@ -121,6 +149,13 @@ export default function ForgotPassword() {
                   </Alert>
                 )}
 
+                {!csrfReady && (
+                  <Alert>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <AlertDescription>Carregando proteção de segurança...</AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
@@ -132,7 +167,7 @@ export default function ForgotPassword() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
-                      disabled={isLoading || csrfLoading}
+                      disabled={isLoading || !csrfReady}
                     />
                   </div>
                 </div>
@@ -140,13 +175,17 @@ export default function ForgotPassword() {
                 {/* Hidden CSRF Token Input */}
                 <input type="hidden" name="csrf_token" value={csrfToken || ''} />
 
-                <Button type="submit" className="w-full" disabled={isLoading || csrfLoading || !csrfToken}>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading || !csrfReady || !csrfToken}
+                >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Enviando...
                     </>
-                  ) : csrfLoading ? (
+                  ) : !csrfReady ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Carregando...
