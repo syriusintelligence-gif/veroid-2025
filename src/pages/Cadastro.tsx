@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
@@ -24,6 +24,8 @@ import {
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+// 🔒 CSRF Protection
+import { useCSRFProtection } from '@/hooks/useCSRFProtection';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -84,6 +86,13 @@ export default function Cadastro() {
   // Rate limiting: 3 contas por hora
   const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('REGISTER');
   
+  // 🔒 CSRF Protection
+  const { 
+    token: csrfToken, 
+    isLoading: csrfLoading, 
+    error: csrfError 
+  } = useCSRFProtection();
+  
   // Dados do formulário
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [nomePublico, setNomePublico] = useState('');
@@ -110,6 +119,16 @@ export default function Cadastro() {
       }
     };
   }, [stream]);
+  
+  // 🔒 Log CSRF token status
+  useEffect(() => {
+    if (csrfToken) {
+      console.log('🔐 [Cadastro] CSRF Token disponível:', csrfToken.substring(0, 16) + '...');
+    }
+    if (csrfError) {
+      console.error('❌ [Cadastro] Erro ao obter CSRF token:', csrfError);
+    }
+  }, [csrfToken, csrfError]);
   
   // Adiciona efeito para garantir que o vídeo seja reproduzido quando o stream estiver disponível
   useEffect(() => {
@@ -326,6 +345,15 @@ export default function Cadastro() {
       return;
     }
     
+    // 🔒 Verifica se CSRF token está disponível
+    if (!csrfToken) {
+      console.error('❌ [Cadastro] CSRF token não disponível!');
+      setError('Erro de segurança. Recarregue a página e tente novamente.');
+      return;
+    }
+    
+    console.log('🔐 [Cadastro] CSRF Token será incluído na requisição');
+    
     // Verifica rate limiting ANTES de criar conta
     const rateLimitResult = await checkRateLimit();
     if (!rateLimitResult.allowed) {
@@ -441,6 +469,25 @@ export default function Cadastro() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* 🔒 CSRF Loading/Error - apenas no step 3 */}
+              {step === 3 && csrfLoading && (
+                <Alert className="border-blue-500 bg-blue-50 mb-4">
+                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  <AlertDescription className="text-blue-800">
+                    Inicializando proteção de segurança...
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {step === 3 && csrfError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Erro de segurança. Recarregue a página.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* Rate Limit Alert - apenas no step 3 */}
               {step === 3 && isBlocked && (
                 <RateLimitAlert 
@@ -696,7 +743,7 @@ export default function Cadastro() {
                       placeholder="••••••••"
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
-                      disabled={isBlocked}
+                      disabled={isBlocked || csrfLoading}
                       maxLength={100}
                     />
                   </div>
@@ -712,7 +759,7 @@ export default function Cadastro() {
                       placeholder="••••••••"
                       value={confirmarSenha}
                       onChange={(e) => setConfirmarSenha(e.target.value)}
-                      disabled={isBlocked}
+                      disabled={isBlocked || csrfLoading}
                       maxLength={100}
                     />
                   </div>
@@ -730,15 +777,24 @@ export default function Cadastro() {
                       variant="outline"
                       onClick={() => setStep(2)}
                       className="flex-1"
-                      disabled={isLoading || isBlocked}
+                      disabled={isLoading || isBlocked || csrfLoading}
                     >
                       Voltar
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isLoading || isBlocked}>
+                    <Button 
+                      type="submit" 
+                      className="flex-1" 
+                      disabled={isLoading || isBlocked || csrfLoading || !csrfToken}
+                    >
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Criando conta...
+                        </>
+                      ) : csrfLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Inicializando...
                         </>
                       ) : (
                         'Criar Conta'
