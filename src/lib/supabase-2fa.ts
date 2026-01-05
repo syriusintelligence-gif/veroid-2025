@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase';
 import { generateTOTPSecret, generateBackupCodes, hashBackupCode, verifyTOTPCode, verifyBackupCode } from './totp';
+import { logAuditEvent, AuditAction } from './audit-logger';
 
 export interface User2FA {
   id: string;
@@ -208,6 +209,14 @@ export async function setup2FA(userId: string): Promise<{
     
     console.log('✅ [2FA SETUP] Configuração 2FA salva (aguardando ativação)');
     
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.TWO_FA_SETUP, {
+      success: true,
+      metadata: {
+        backupCodesGenerated: backupCodes.length,
+      }
+    }, userId);
+    
     return {
       success: true,
       secret,
@@ -249,6 +258,13 @@ export async function enable2FA(
     console.log('📊 [2FA ENABLE] Código válido:', isValid);
     
     if (!isValid) {
+      // 📊 Log de auditoria - Falha na ativação
+      await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+        success: false,
+        error: 'Código de verificação inválido',
+        action: 'enable',
+      }, userId);
+      
       return { success: false, error: 'Código de verificação inválido' };
     }
     
@@ -276,6 +292,11 @@ export async function enable2FA(
     // Verifica se realmente foi ativado
     const verification = await has2FAEnabled(userId);
     console.log('🔍 [2FA ENABLE] Verificação pós-ativação:', verification);
+    
+    // 📊 Log de auditoria - Ativação bem-sucedida
+    await logAuditEvent(AuditAction.TWO_FA_ENABLED, {
+      success: true,
+    }, userId);
     
     return { success: true };
   } catch (error) {
@@ -305,6 +326,11 @@ export async function disable2FA(userId: string): Promise<{ success: boolean; er
     }
     
     console.log('✅ [2FA DISABLE] 2FA desativado com sucesso');
+    
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.TWO_FA_DISABLED, {
+      success: true,
+    }, userId);
     
     return { success: true };
   } catch (error) {
@@ -338,11 +364,27 @@ export async function verify2FALogin(
     
     if (error) {
       console.error('❌ [2FA LOGIN] Erro ao verificar via RPC:', error);
+      
+      // 📊 Log de auditoria - Erro
+      await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+        success: false,
+        error: 'Erro ao verificar código 2FA',
+        action: 'login',
+      }, userId);
+      
       return { success: false, error: 'Erro ao verificar código 2FA' };
     }
     
     if (!data || data.length === 0) {
       console.log('❌ [2FA LOGIN] Nenhum dado retornado');
+      
+      // 📊 Log de auditoria - 2FA não configurado
+      await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+        success: false,
+        error: '2FA não configurado',
+        action: 'login',
+      }, userId);
+      
       return { success: false, error: '2FA não configurado' };
     }
     
@@ -350,6 +392,14 @@ export async function verify2FALogin(
     
     if (!row.success) {
       console.log('❌ [2FA LOGIN] 2FA não ativado:', row.message);
+      
+      // 📊 Log de auditoria - 2FA não ativado
+      await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+        success: false,
+        error: row.message,
+        action: 'login',
+      }, userId);
+      
       return { success: false, error: row.message };
     }
     
@@ -366,13 +416,36 @@ export async function verify2FALogin(
         .eq('user_id', userId);
       
       console.log('✅ [2FA LOGIN] Código TOTP válido!');
+      
+      // 📊 Log de auditoria - Verificação bem-sucedida
+      await logAuditEvent(AuditAction.TWO_FA_VERIFIED, {
+        success: true,
+        action: 'login',
+      }, userId);
+      
       return { success: true };
     }
     
     console.log('❌ [2FA LOGIN] Código inválido');
+    
+    // 📊 Log de auditoria - Código inválido
+    await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+      success: false,
+      error: 'Código de verificação inválido',
+      action: 'login',
+    }, userId);
+    
     return { success: false, error: 'Código de verificação inválido' };
   } catch (error) {
     console.error('❌ [2FA LOGIN] Erro crítico:', error);
+    
+    // 📊 Log de auditoria - Erro crítico
+    await logAuditEvent(AuditAction.TWO_FA_FAILED, {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      action: 'login',
+    }, userId);
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -411,6 +484,15 @@ export async function regenerateBackupCodes(userId: string): Promise<{
     }
     
     console.log('✅ Códigos de backup regenerados');
+    
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.TWO_FA_SETUP, {
+      success: true,
+      action: 'regenerate_backup_codes',
+      metadata: {
+        backupCodesGenerated: backupCodes.length,
+      }
+    }, userId);
     
     return {
       success: true,

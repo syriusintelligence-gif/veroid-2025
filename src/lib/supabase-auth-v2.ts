@@ -6,6 +6,7 @@
 import { supabase } from './supabase';
 import type { Database } from './supabase';
 import { setUserContext, clearUserContext } from './sentry';
+import { logAuditEvent, AuditAction } from './audit-logger';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type UserInsert = Database['public']['Tables']['users']['Insert'];
@@ -307,6 +308,17 @@ export async function registerUser(
       username: userData.nome_publico,
     });
     
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.USER_CREATED, {
+      success: true,
+      email: userData.email,
+      isAdmin: userData.is_admin,
+      metadata: {
+        nomeCompleto: userData.nome_completo,
+        verified: userData.verified,
+      }
+    }, userData.id);
+    
     return {
       success: true,
       user: dbUserToAppUser(userData),
@@ -375,6 +387,14 @@ export async function loginUser(
         userId: userInTable?.id,
       };
       
+      // 📊 Log de auditoria - Login falhou
+      await logAuditEvent(AuditAction.LOGIN_FAILED, {
+        success: false,
+        error: authError.message,
+        email: email.toLowerCase(),
+        userExists: !!userInTable,
+      });
+      
       if (userInTable) {
         return { 
           success: false, 
@@ -429,6 +449,14 @@ export async function loginUser(
           username: syncedUser.nomePublico,
         });
         
+        // 📊 Log de auditoria - Login bem-sucedido
+        await logAuditEvent(AuditAction.LOGIN, {
+          success: true,
+          email: syncedUser.email,
+          isAdmin: syncedUser.isAdmin,
+          synced: true,
+        }, syncedUser.id);
+        
         return { success: true, user: syncedUser, debugInfo };
       }
       
@@ -452,6 +480,13 @@ export async function loginUser(
       username: userData.nome_publico,
     });
     
+    // 📊 Log de auditoria - Login bem-sucedido
+    await logAuditEvent(AuditAction.LOGIN, {
+      success: true,
+      email: userData.email,
+      isAdmin: userData.is_admin,
+    }, userData.id);
+    
     return {
       success: true,
       user: dbUserToAppUser(userData),
@@ -459,6 +494,14 @@ export async function loginUser(
     };
   } catch (error) {
     console.error('❌ Erro crítico ao fazer login:', error);
+    
+    // 📊 Log de auditoria - Erro crítico
+    await logAuditEvent(AuditAction.LOGIN_FAILED, {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      email: email.toLowerCase(),
+    });
+    
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -474,11 +517,22 @@ export async function logout(): Promise<void> {
   try {
     console.log('👋 Fazendo logout...');
     
+    // Obtém usuário antes do logout para log
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+    
     // Limpa contexto do usuário no Sentry
     clearUserContext();
     
     await supabase.auth.signOut();
     console.log('✅ Logout realizado com sucesso');
+    
+    // 📊 Log de auditoria
+    if (userId) {
+      await logAuditEvent(AuditAction.LOGOUT, {
+        success: true,
+      }, userId);
+    }
   } catch (error) {
     console.error('❌ Erro ao fazer logout:', error);
   }
@@ -559,6 +613,12 @@ export async function requestPasswordReset(
     console.log('📧 Verifique o email:', email);
     console.log('🔗 O link redirecionará para:', redirectUrl);
     
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.PASSWORD_RESET_REQUEST, {
+      success: true,
+      email: email.toLowerCase(),
+    });
+    
     return {
       success: true,
       message: 'Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.',
@@ -611,6 +671,13 @@ export async function resetPassword(
     }
     
     console.log('✅ Senha alterada com sucesso');
+    
+    // 📊 Log de auditoria
+    if (data.user) {
+      await logAuditEvent(AuditAction.PASSWORD_RESET_COMPLETE, {
+        success: true,
+      }, data.user.id);
+    }
     
     return {
       success: true,
@@ -699,6 +766,16 @@ export async function updateUser(
     
     console.log('✅ Usuário atualizado com sucesso');
     
+    // 📊 Log de auditoria
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      await logAuditEvent(AuditAction.USER_UPDATED, {
+        success: true,
+        targetUserId: userId,
+        updates: updates,
+      }, currentUser.id);
+    }
+    
     return {
       success: true,
       user: dbUserToAppUser(data),
@@ -740,6 +817,16 @@ export async function toggleBlockUser(
     }
     
     console.log(`✅ Usuário ${blocked ? 'bloqueado' : 'desbloqueado'} com sucesso`);
+    
+    // 📊 Log de auditoria
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      await logAuditEvent(AuditAction.ADMIN_ACTION, {
+        success: true,
+        action: blocked ? 'block_user' : 'unblock_user',
+        targetUserId: userId,
+      }, currentUser.id);
+    }
     
     return { success: true };
   } catch (error) {
@@ -792,6 +879,14 @@ export async function deleteUser(
     }
     
     console.log('✅ Usuário excluído com sucesso');
+    
+    // 📊 Log de auditoria
+    if (currentUser) {
+      await logAuditEvent(AuditAction.USER_DELETED, {
+        success: true,
+        targetUserId: userId,
+      }, currentUser.id);
+    }
     
     return { success: true };
   } catch (error) {
