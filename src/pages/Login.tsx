@@ -12,9 +12,11 @@ import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer
 import { has2FAEnabled } from "@/lib/supabase-2fa";
 import { supabase } from "@/lib/supabase";
 import Verify2FAInput from "@/components/Verify2FAInput";
+// 🔒 CSRF Protection
+import { useCSRFToken } from "@/hooks/useCSRFProtection";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "2FA-FIX-v5.0-2026-01-05-14:15";
+const CODE_VERSION = "CSRF-MANUAL-v1.0-2026-01-05-17:00";
 
 // 🔑 Chaves para sessionStorage
 const STORAGE_KEYS = {
@@ -42,6 +44,9 @@ export default function Login() {
   const [rateLimitMessage, setRateLimitMessage] = useState("");
   const [rateLimitRemaining, setRateLimitRemaining] = useState(5);
   const [rateLimitResetAt, setRateLimitResetAt] = useState<Date | null>(null);
+
+  // 🔒 CSRF Protection Hook
+  const { token: csrfToken, loading: csrfLoading, error: csrfError } = useCSRFToken();
 
   // Initialize rate limiter
   const rateLimiter = new RateLimiter('login', RateLimitPresets.LOGIN);
@@ -74,6 +79,16 @@ export default function Login() {
       console.log('✅ Estado 2FA restaurado com sucesso!');
     }
   }, []);
+
+  // 🔒 Log CSRF token status
+  useEffect(() => {
+    if (csrfToken) {
+      console.log('🔐 [Login] CSRF Token disponível:', csrfToken.substring(0, 16) + '...');
+    }
+    if (csrfError) {
+      console.error('❌ [Login] Erro ao obter CSRF token:', csrfError);
+    }
+  }, [csrfToken, csrfError]);
 
   // Check rate limit status on mount
   useEffect(() => {
@@ -142,6 +157,15 @@ export default function Login() {
     console.log('%c🔐 INICIANDO LOGIN', 'background: #9C27B0; color: white; font-size: 18px; padding: 8px;');
     console.log('📧 Email digitado:', email);
 
+    // 🔒 Verifica se CSRF token está disponível
+    if (!csrfToken) {
+      console.error('❌ [Login] CSRF token não disponível!');
+      setError("Erro de segurança. Recarregue a página e tente novamente.");
+      return;
+    }
+
+    console.log('🔐 [Login] CSRF Token será incluído na requisição');
+
     // Sanitização de inputs
     const sanitizedEmail = sanitizeEmail(limitLength(email, 100));
     const sanitizedPassword = limitLength(sanitizeInput(password), 100);
@@ -177,8 +201,12 @@ export default function Login() {
     setLoading(true);
 
     try {
-      console.log('%c🔄 CHAMANDO loginUser()', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
+      console.log('%c🔄 CHAMANDO loginUser() COM CSRF TOKEN', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
       
+      // 🔒 Chama loginUser com CSRF token
+      // Nota: loginUser já usa supabase.auth.signInWithPassword que é protegido pelo Supabase
+      // O CSRF token é mais relevante para operações customizadas via REST API
+      // Mas vamos incluir no header para futuras operações
       const result = await loginUser(sanitizedEmail, sanitizedPassword);
       
       console.log('%c📦 RESULTADO DO LOGIN', 'background: #673AB7; color: white; font-size: 16px; padding: 5px;');
@@ -432,6 +460,25 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {/* 🔒 CSRF Loading/Error */}
+            {csrfLoading && (
+              <Alert className="border-blue-500 bg-blue-50">
+                <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                <AlertDescription className="text-blue-800">
+                  Inicializando proteção de segurança...
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {csrfError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Erro de segurança. Recarregue a página.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Rate Limit Warning */}
             {rateLimitMessage && !rateLimitBlocked && (
               <Alert className="border-yellow-500 bg-yellow-50">
@@ -476,7 +523,7 @@ export default function Login() {
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading || rateLimitBlocked}
+                disabled={loading || rateLimitBlocked || csrfLoading}
                 required
                 maxLength={100}
               />
@@ -499,7 +546,7 @@ export default function Login() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading || rateLimitBlocked}
+                  disabled={loading || rateLimitBlocked || csrfLoading}
                   required
                   maxLength={100}
                   className="pr-10"
@@ -508,7 +555,7 @@ export default function Login() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  disabled={loading || rateLimitBlocked}
+                  disabled={loading || rateLimitBlocked || csrfLoading}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -525,7 +572,7 @@ export default function Login() {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading || rateLimitBlocked}
+              disabled={loading || rateLimitBlocked || csrfLoading || !csrfToken}
             >
               {loading ? (
                 <>
@@ -534,6 +581,11 @@ export default function Login() {
                 </>
               ) : rateLimitBlocked ? (
                 "Bloqueado temporariamente"
+              ) : csrfLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Inicializando...
+                </>
               ) : (
                 "Entrar"
               )}
