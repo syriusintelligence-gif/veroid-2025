@@ -37,7 +37,7 @@ function AppContent() {
   
   // 🆕 Modal de aviso de timeout
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(120); // 2 minutos
+  const [remainingSeconds, setRemainingSeconds] = useState(30); // 30 segundos para teste
   
   // 🆕 CSRF initialization state
   const [csrfInitialized, setCsrfInitialized] = useState(false);
@@ -88,16 +88,21 @@ function AppContent() {
     setupCSRFProtection();
   }, []); // Executa apenas uma vez ao montar
 
-  // Auto-logout por inatividade (15 minutos) + Modal de aviso (2 minutos antes)
+  // 🧪 MODO TESTE: Auto-logout por inatividade (1 minuto) + Modal de aviso (30 segundos antes)
   useEffect(() => {
     if (!session) return;
 
-    const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos em milissegundos
-    const WARNING_TIME = 2 * 60 * 1000; // 2 minutos antes (aviso aos 13 minutos)
+    // 🧪 VALORES PARA TESTE - Reduzir para produção
+    const INACTIVITY_TIME = 1 * 60 * 1000; // 1 minuto (TESTE)
+    const WARNING_TIME = 30 * 1000; // 30 segundos antes (TESTE)
+    // 🔴 PRODUÇÃO: Usar 15 minutos e 2 minutos
+    // const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos
+    // const WARNING_TIME = 2 * 60 * 1000; // 2 minutos antes
+    
     const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
 
     const handleLogout = async () => {
-      console.log('🔒 Auto-logout por inatividade (15 minutos)');
+      console.log('🔒 Auto-logout por inatividade (1 minuto - TESTE)');
       
       // Fecha modal se estiver aberto
       setShowTimeoutWarning(false);
@@ -115,9 +120,9 @@ function AppContent() {
     };
 
     const showWarning = () => {
-      console.log('⚠️ Mostrando aviso de timeout (2 minutos restantes)');
+      console.log('⚠️ Mostrando aviso de timeout (30 segundos restantes - TESTE)');
       setShowTimeoutWarning(true);
-      setRemainingSeconds(120); // 2 minutos = 120 segundos
+      setRemainingSeconds(30); // 30 segundos para teste
       
       // Log de auditoria
       logAuditEvent(AuditAction.SECURITY_EVENT, {
@@ -151,10 +156,10 @@ function AppContent() {
       // Atualiza timestamp da última atividade
       updateLastActivity();
 
-      // Inicia timer para mostrar aviso (aos 13 minutos)
+      // Inicia timer para mostrar aviso (aos 30 segundos - TESTE)
       warningTimerRef.current = setTimeout(showWarning, INACTIVITY_TIME - WARNING_TIME);
 
-      // Inicia timer para logout (aos 15 minutos)
+      // Inicia timer para logout (ao 1 minuto - TESTE)
       inactivityTimerRef.current = setTimeout(handleLogout, INACTIVITY_TIME);
     };
 
@@ -167,7 +172,7 @@ function AppContent() {
           const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
           
           if (timeSinceLastActivity >= INACTIVITY_TIME) {
-            // Passou mais de 15 minutos, faz logout imediatamente
+            // Passou mais de 1 minuto, faz logout imediatamente
             console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
             handleLogout();
             return;
@@ -193,25 +198,6 @@ function AppContent() {
         // Aba ficou inativa, salva timestamp
         updateLastActivity();
       }
-    };
-
-    // Handler para "Continuar Conectado"
-    const handleContinueSession = () => {
-      console.log('✅ Usuário escolheu continuar conectado');
-      setShowTimeoutWarning(false);
-      resetTimer();
-      
-      // Log de auditoria
-      logAuditEvent(AuditAction.SECURITY_EVENT, {
-        success: true,
-        event: 'session_renewed_by_user',
-      });
-    };
-
-    // Handler para "Fazer Logout"
-    const handleManualLogout = () => {
-      console.log('👋 Usuário escolheu fazer logout');
-      handleLogout();
     };
 
     // Eventos que detectam atividade do usuário
