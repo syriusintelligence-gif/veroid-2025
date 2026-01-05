@@ -13,7 +13,7 @@ import { has2FAEnabled } from "@/lib/supabase-2fa";
 import Verify2FAInput from "@/components/Verify2FAInput";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "2FA-FIX-v2.0-2026-01-05-10:30";
+const CODE_VERSION = "2FA-FIX-v3.0-2026-01-05-13:35";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -146,6 +146,9 @@ export default function Login() {
     // Prosseguir com login
     setLoading(true);
 
+    // 🆕 Flag para controlar se deve executar o finally
+    let shouldRunFinally = true;
+
     try {
       console.log('%c🔄 CHAMANDO loginUser()', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
       
@@ -174,6 +177,9 @@ export default function Login() {
           // 🔒 Usuário tem 2FA - mostrar tela de verificação
           console.log('%c🔒 2FA ATIVADO - MOSTRANDO TELA DE VERIFICAÇÃO', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
           
+          // 🆕 DESABILITA o finally block
+          shouldRunFinally = false;
+          
           // Define os estados para mostrar a tela de 2FA
           console.log('📝 Configurando estados...');
           console.log('  → setPendingUserId:', result.user.id);
@@ -188,7 +194,7 @@ export default function Login() {
           console.log('  → setNeeds2FA: true');
           setNeeds2FA(true);
           
-          console.log('%c✅ ESTADOS CONFIGURADOS - RETORNANDO', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
+          console.log('%c✅ ESTADOS CONFIGURADOS - RETORNANDO SEM EXECUTAR FINALLY', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
           console.log('🛑 Executando RETURN para parar aqui');
           
           // ⚠️ IMPORTANTE: Retorna aqui para não executar o resto do código
@@ -264,11 +270,13 @@ export default function Login() {
         console.error('❌ [Login] Erro ao registrar no rate limiter:', rateLimitError);
       }
     } finally {
-      // Só desativa loading se NÃO estiver esperando 2FA
-      if (!needs2FA) {
+      // 🆕 Só executa o finally se não for caso de 2FA
+      if (shouldRunFinally) {
         setLoading(false);
+        console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
+      } else {
+        console.log('%c⏭️ FINALLY IGNORADO - AGUARDANDO 2FA', 'background: #FFC107; color: black; font-size: 16px; padding: 5px;');
       }
-      console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
     }
   }
 
