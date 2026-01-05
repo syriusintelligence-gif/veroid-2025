@@ -12,6 +12,9 @@ import { sanitizeEmail, sanitizeInput, limitLength } from "@/lib/input-sanitizer
 import { has2FAEnabled } from "@/lib/supabase-2fa";
 import Verify2FAInput from "@/components/Verify2FAInput";
 
+// 🆕 VERSÃO DO CÓDIGO - Para debug de cache
+const CODE_VERSION = "2FA-FIX-v2.0-2026-01-05-10:30";
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +35,15 @@ export default function Login() {
 
   // Initialize rate limiter
   const rateLimiter = new RateLimiter('login', RateLimitPresets.LOGIN);
+
+  // 🆕 LOG IMEDIATO QUANDO O COMPONENTE MONTA
+  useEffect(() => {
+    console.log('%c🚀 LOGIN PAGE LOADED', 'background: #4CAF50; color: white; font-size: 20px; padding: 10px;');
+    console.log('%c📦 CODE VERSION: ' + CODE_VERSION, 'background: #2196F3; color: white; font-size: 16px; padding: 5px;');
+    console.log('%c⏰ TIMESTAMP: ' + new Date().toISOString(), 'background: #FF9800; color: white; font-size: 14px; padding: 5px;');
+    console.log('🔍 Se você está vendo esta mensagem, o código NOVO foi carregado!');
+    console.log('🔍 Se NÃO vê esta mensagem, o Vercel está servindo código antigo em cache.');
+  }, []);
 
   // Check rate limit status on mount
   useEffect(() => {
@@ -97,7 +109,8 @@ export default function Login() {
     setError("");
     setSuccess("");
 
-    console.log('🔐 [Login] Iniciando processo de login...');
+    console.log('%c🔐 INICIANDO LOGIN', 'background: #9C27B0; color: white; font-size: 18px; padding: 8px;');
+    console.log('📧 Email digitado:', email);
 
     // Sanitização de inputs
     const sanitizedEmail = sanitizeEmail(limitLength(email, 100));
@@ -134,46 +147,55 @@ export default function Login() {
     setLoading(true);
 
     try {
-      console.log('🔄 [Login] Chamando função de login...');
+      console.log('%c🔄 CHAMANDO loginUser()', 'background: #00BCD4; color: white; font-size: 16px; padding: 5px;');
       
       const result = await loginUser(sanitizedEmail, sanitizedPassword);
       
-      console.log('📦 [Login] Resultado do login:', {
-        success: result.success,
-        hasUser: !!result.user,
-        userId: result.user?.id,
-      });
+      console.log('%c📦 RESULTADO DO LOGIN', 'background: #673AB7; color: white; font-size: 16px; padding: 5px;');
+      console.log('✅ Success:', result.success);
+      console.log('👤 User ID:', result.user?.id);
+      console.log('📧 User Email:', result.user?.email);
 
       if (result.success && result.user) {
-        console.log('✅ [Login] Login bem-sucedido!');
-        console.log('👤 [Login] Usuário:', {
-          id: result.user.id,
-          email: result.user.email,
-          nomeCompleto: result.user.nomeCompleto,
-        });
-
+        console.log('%c✅ LOGIN BEM-SUCEDIDO!', 'background: #4CAF50; color: white; font-size: 18px; padding: 8px;');
+        
         // 🆕 Verifica se usuário tem 2FA ativado
-        console.log('🔐 [Login] Verificando se usuário tem 2FA...');
+        console.log('%c🔐 VERIFICANDO 2FA...', 'background: #FF5722; color: white; font-size: 18px; padding: 8px;');
+        console.log('🔍 Chamando has2FAEnabled para user ID:', result.user.id);
+        
         const has2FA = await has2FAEnabled(result.user.id);
-        console.log('📊 [Login] Resultado has2FAEnabled:', has2FA);
+        
+        console.log('%c📊 RESULTADO 2FA:', 'background: #E91E63; color: white; font-size: 16px; padding: 5px;');
+        console.log('🔒 has2FA =', has2FA);
+        console.log('🔒 Tipo:', typeof has2FA);
+        console.log('🔒 É true?', has2FA === true);
 
         if (has2FA === true) {
           // 🔒 Usuário tem 2FA - mostrar tela de verificação
-          console.log('🔒 [Login] 2FA ativado - preparando tela de verificação...');
+          console.log('%c🔒 2FA ATIVADO - MOSTRANDO TELA DE VERIFICAÇÃO', 'background: #F44336; color: white; font-size: 20px; padding: 10px;');
           
           // Define os estados para mostrar a tela de 2FA
+          console.log('📝 Configurando estados...');
+          console.log('  → setPendingUserId:', result.user.id);
           setPendingUserId(result.user.id);
-          setSuccess("Senha correta! Agora digite o código 2FA.");
-          setLoading(false); // Para de mostrar loading
-          setNeeds2FA(true); // Ativa a tela de 2FA
           
-          console.log('✅ [Login] Estados configurados para tela 2FA');
+          console.log('  → setSuccess: "Senha correta! Agora digite o código 2FA."');
+          setSuccess("Senha correta! Agora digite o código 2FA.");
+          
+          console.log('  → setLoading: false');
+          setLoading(false);
+          
+          console.log('  → setNeeds2FA: true');
+          setNeeds2FA(true);
+          
+          console.log('%c✅ ESTADOS CONFIGURADOS - RETORNANDO', 'background: #8BC34A; color: black; font-size: 16px; padding: 5px;');
+          console.log('🛑 Executando RETURN para parar aqui');
           
           // ⚠️ IMPORTANTE: Retorna aqui para não executar o resto do código
           return;
         } else {
           // ✅ Usuário NÃO tem 2FA - login completo
-          console.log('✅ [Login] 2FA não ativado - login completo');
+          console.log('%c✅ 2FA NÃO ATIVADO - LOGIN COMPLETO', 'background: #4CAF50; color: white; font-size: 18px; padding: 8px;');
           setSuccess("Login realizado com sucesso! Redirecionando...");
           
           // Reseta rate limit após login bem-sucedido
@@ -190,7 +212,8 @@ export default function Login() {
         }
       } else {
         // LOGIN FALHOU - Registra tentativa no rate limiter
-        console.error('❌ [Login] Login falhou:', result.error);
+        console.error('%c❌ LOGIN FALHOU', 'background: #F44336; color: white; font-size: 18px; padding: 8px;');
+        console.error('Erro:', result.error);
         
         // Registra a tentativa falhada no rate limiter
         console.log('📝 [Login] Registrando tentativa falhada no rate limiter...');
@@ -222,7 +245,8 @@ export default function Login() {
         }
       }
     } catch (err) {
-      console.error('❌ [Login] Erro durante login:', err);
+      console.error('%c❌ ERRO DURANTE LOGIN', 'background: #F44336; color: white; font-size: 18px; padding: 8px;');
+      console.error('Erro completo:', err);
       const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login. Tente novamente.";
       setError(errorMessage);
       
@@ -244,7 +268,7 @@ export default function Login() {
       if (!needs2FA) {
         setLoading(false);
       }
-      console.log('🏁 [Login] Processo de login finalizado');
+      console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
     }
   }
 
@@ -276,6 +300,7 @@ export default function Login() {
 
   // 🆕 Se precisa de 2FA, mostra tela de verificação
   if (needs2FA && pendingUserId) {
+    console.log('%c🔒 RENDERIZANDO TELA DE 2FA', 'background: #9C27B0; color: white; font-size: 18px; padding: 8px;');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <Card className="w-full max-w-md">
@@ -309,6 +334,7 @@ export default function Login() {
   }
 
   // Tela de login normal
+  console.log('🖥️ Renderizando tela de login normal');
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
