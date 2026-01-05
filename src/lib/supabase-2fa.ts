@@ -51,6 +51,7 @@ export async function has2FAEnabled(userId: string): Promise<boolean> {
 
 /**
  * Obtém configurações de 2FA do usuário usando a função RPC (bypassa RLS)
+ * ⚠️ APENAS para uso durante LOGIN (quando 2FA já está ativado)
  */
 export async function get2FASettings(userId: string): Promise<User2FA | null> {
   try {
@@ -94,6 +95,47 @@ export async function get2FASettings(userId: string): Promise<User2FA | null> {
     };
   } catch (error) {
     console.error('❌ [2FA SETTINGS] Erro crítico:', error);
+    return null;
+  }
+}
+
+/**
+ * 🆕 Obtém configurações de 2FA durante o SETUP (não precisa estar ativado)
+ * Busca diretamente da tabela, usado durante enable2FA()
+ */
+async function get2FASettingsForSetup(userId: string): Promise<User2FA | null> {
+  try {
+    console.log('🔍 [2FA SETUP SETTINGS] Buscando configurações para setup:', userId);
+    
+    const { data, error } = await supabase
+      .from('user_2fa')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    console.log('📊 [2FA SETUP SETTINGS] Resultado:', { hasData: !!data, error });
+    
+    if (error) {
+      console.error('❌ [2FA SETUP SETTINGS] Erro ao buscar:', error);
+      return null;
+    }
+    
+    if (!data) {
+      console.log('⚠️ [2FA SETUP SETTINGS] Nenhum dado encontrado');
+      return null;
+    }
+    
+    return {
+      id: data.id,
+      userId: data.user_id,
+      secret: data.secret,
+      enabled: data.enabled,
+      backupCodes: data.backup_codes || [],
+      createdAt: data.created_at,
+      lastUsedAt: data.last_used_at,
+    };
+  } catch (error) {
+    console.error('❌ [2FA SETUP SETTINGS] Erro crítico:', error);
     return null;
   }
 }
@@ -191,8 +233,8 @@ export async function enable2FA(
     console.log('🔐 [2FA ENABLE] Ativando 2FA para usuário:', userId);
     console.log('🔢 [2FA ENABLE] Código recebido:', verificationCode);
     
-    // Busca configuração via RPC
-    const settings = await get2FASettings(userId);
+    // 🆕 Busca configuração usando função específica para setup
+    const settings = await get2FASettingsForSetup(userId);
     
     if (!settings) {
       console.error('❌ [2FA ENABLE] Configuração não encontrada');
