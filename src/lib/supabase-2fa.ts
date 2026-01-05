@@ -50,35 +50,50 @@ export async function has2FAEnabled(userId: string): Promise<boolean> {
 }
 
 /**
- * Obtém configurações de 2FA do usuário
+ * Obtém configurações de 2FA do usuário usando a função RPC (bypassa RLS)
  */
 export async function get2FASettings(userId: string): Promise<User2FA | null> {
   try {
     console.log('🔍 [2FA SETTINGS] Buscando configurações para usuário:', userId);
     
+    // 🆕 Usa a função RPC que bypassa RLS
     const { data, error } = await supabase
-      .from('user_2fa')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+      .rpc('verify_2fa_code_for_login', {
+        p_user_id: userId,
+        p_token: '' // Token vazio, só queremos buscar os dados
+      });
     
-    console.log('📊 [2FA SETTINGS] Resultado:', { hasData: !!data, error });
+    console.log('📊 [2FA SETTINGS] Resultado RPC:', { hasData: !!data, error });
     
-    if (error || !data) {
+    if (error) {
+      console.error('❌ [2FA SETTINGS] Erro ao buscar via RPC:', error);
       return null;
     }
     
+    if (!data || data.length === 0) {
+      console.log('⚠️ [2FA SETTINGS] Nenhum dado retornado');
+      return null;
+    }
+    
+    const row = data[0];
+    
+    if (!row.success) {
+      console.log('⚠️ [2FA SETTINGS] 2FA não ativado:', row.message);
+      return null;
+    }
+    
+    // Retorna objeto no formato esperado
     return {
-      id: data.id,
-      userId: data.user_id,
-      secret: data.secret,
-      enabled: data.enabled,
-      backupCodes: data.backup_codes || [],
-      createdAt: data.created_at,
-      lastUsedAt: data.last_used_at,
+      id: userId, // Usamos userId como id temporário
+      userId: userId,
+      secret: row.secret,
+      enabled: row.success,
+      backupCodes: [], // Não retornamos backup codes por segurança
+      createdAt: new Date().toISOString(),
+      lastUsedAt: null,
     };
   } catch (error) {
-    console.error('❌ Erro ao buscar configurações 2FA:', error);
+    console.error('❌ [2FA SETTINGS] Erro crítico:', error);
     return null;
   }
 }
@@ -109,7 +124,11 @@ export async function setup2FA(userId: string): Promise<{
     );
     
     // Verifica se já existe configuração
-    const existing = await get2FASettings(userId);
+    const { data: existing } = await supabase
+      .from('user_2fa')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
     
     if (existing) {
       console.log('🔄 [2FA SETUP] Atualizando configuração existente...');
@@ -172,7 +191,7 @@ export async function enable2FA(
     console.log('🔐 [2FA ENABLE] Ativando 2FA para usuário:', userId);
     console.log('🔢 [2FA ENABLE] Código recebido:', verificationCode);
     
-    // Busca configuração
+    // Busca configuração via RPC
     const settings = await get2FASettings(userId);
     
     if (!settings) {
@@ -256,7 +275,7 @@ export async function disable2FA(userId: string): Promise<{ success: boolean; er
 }
 
 /**
- * Verifica código 2FA durante login
+ * Verifica código 2FA durante login (usa função RPC que bypassa RLS)
  */
 export async function verify2FALogin(
   userId: string,
@@ -264,16 +283,38 @@ export async function verify2FALogin(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('🔐 [2FA LOGIN] Verificando código 2FA para login:', userId);
+    console.log('🔢 [2FA LOGIN] Código recebido:', code);
     
-    // Busca configuração
-    const settings = await get2FASettings(userId);
+    // 🆕 Usa a função RPC que bypassa RLS
+    const { data, error } = await supabase
+      .rpc('verify_2fa_code_for_login', {
+        p_user_id: userId,
+        p_token: code
+      });
     
-    if (!settings || !settings.enabled) {
-      return { success: false, error: '2FA não está ativado para este usuário' };
+    console.log('📊 [2FA LOGIN] Resultado RPC:', { data, error });
+    
+    if (error) {
+      console.error('❌ [2FA LOGIN] Erro ao verificar via RPC:', error);
+      return { success: false, error: 'Erro ao verificar código 2FA' };
     }
     
-    // Tenta verificar como código TOTP
-    const isTOTPValid = await verifyTOTPCode(settings.secret, code);
+    if (!data || data.length === 0) {
+      console.log('❌ [2FA LOGIN] Nenhum dado retornado');
+      return { success: false, error: '2FA não configurado' };
+    }
+    
+    const row = data[0];
+    
+    if (!row.success) {
+      console.log('❌ [2FA LOGIN] 2FA não ativado:', row.message);
+      return { success: false, error: row.message };
+    }
+    
+    // Verifica o código TOTP
+    const isTOTPValid = await verifyTOTPCode(row.secret, code);
+    
+    console.log('📊 [2FA LOGIN] Código TOTP válido:', isTOTPValid);
     
     if (isTOTPValid) {
       // Atualiza last_used_at
@@ -282,35 +323,14 @@ export async function verify2FALogin(
         .update({ last_used_at: new Date().toISOString() })
         .eq('user_id', userId);
       
-      console.log('✅ Código TOTP válido');
+      console.log('✅ [2FA LOGIN] Código TOTP válido!');
       return { success: true };
     }
     
-    // Se não for TOTP, tenta verificar como código de backup
-    const isBackupValid = await verifyBackupCode(code, settings.backupCodes);
-    
-    if (isBackupValid) {
-      // Remove código de backup usado
-      const updatedCodes = settings.backupCodes.filter(
-        async (hashedCode) => hashedCode !== await hashBackupCode(code)
-      );
-      
-      await supabase
-        .from('user_2fa')
-        .update({
-          backup_codes: updatedCodes,
-          last_used_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
-      
-      console.log('✅ Código de backup válido (removido da lista)');
-      return { success: true };
-    }
-    
-    console.log('❌ Código inválido');
+    console.log('❌ [2FA LOGIN] Código inválido');
     return { success: false, error: 'Código de verificação inválido' };
   } catch (error) {
-    console.error('❌ Erro ao verificar código 2FA:', error);
+    console.error('❌ [2FA LOGIN] Erro crítico:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
