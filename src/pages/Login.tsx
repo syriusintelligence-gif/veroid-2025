@@ -154,18 +154,27 @@ export default function Login() {
 
         // 🆕 Verifica se usuário tem 2FA ativado
         console.log('🔐 [Login] Verificando se usuário tem 2FA...');
+        console.log('🔐 [Login] User ID para verificação:', result.user.id);
+        
         const has2FA = await has2FAEnabled(result.user.id);
-        console.log('📊 [Login] Usuário tem 2FA:', has2FA);
+        
+        console.log('📊 [Login] Resultado has2FAEnabled:', has2FA);
+        console.log('📊 [Login] Tipo do resultado:', typeof has2FA);
 
-        if (has2FA) {
+        // 🚨 DEBUG TEMPORÁRIO - REMOVER DEPOIS
+        alert(`DEBUG 2FA:\nUser ID: ${result.user.id}\nhas2FA: ${has2FA}\nTipo: ${typeof has2FA}`);
+
+        if (has2FA === true) {
           // Usuário tem 2FA - mostrar tela de verificação
           console.log('🔒 [Login] 2FA ativado - solicitando código...');
+          alert('🔒 2FA ATIVADO! Mostrando tela de verificação...');
           setPendingUserId(result.user.id);
           setNeeds2FA(true);
           setSuccess("Senha correta! Agora digite o código 2FA.");
         } else {
           // Usuário NÃO tem 2FA - login completo
           console.log('✅ [Login] 2FA não ativado - login completo');
+          alert('✅ 2FA NÃO ATIVADO - Login direto');
           setSuccess("Login realizado com sucesso! Redirecionando...");
           
           // Reseta rate limit após login bem-sucedido
