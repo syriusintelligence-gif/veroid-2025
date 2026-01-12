@@ -10,7 +10,8 @@ import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileTy
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
-import { getKeyPair, signContent } from '@/lib/supabase-crypto';
+import { getKeyPair } from '@/lib/supabase-crypto';
+import { signContent } from '@/lib/services/supabase-crypto-enhanced';
 import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { compressImage, isImageDataUrl } from '@/lib/image-compression';
