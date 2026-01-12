@@ -284,3 +284,7 @@ function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): any {
     verificationCount: dbContent.verification_count,
   };
 }
+
+// 🔄 EXPORT ALIAS: Mantém compatibilidade com código existente
+// Permite importar como "signContent" em vez de "signContentEnhanced"
+export { signContentEnhanced as signContent };
