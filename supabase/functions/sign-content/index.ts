@@ -1,6 +1,7 @@
 // =====================================================
 // EDGE FUNCTION: sign-content
 // Assinatura segura de conteúdo no backend
+// VERSÃO CORRIGIDA - Fix 401 "Auth session missing!"
 // =====================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -32,6 +33,7 @@ interface SignContentResponse {
     verificationCount: number;
   };
   error?: string;
+  details?: string;
 }
 
 // CORS headers
@@ -62,38 +64,70 @@ serve(async (req) => {
     // 2. Obter token de autenticação
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('❌ Header Authorization ausente');
       return new Response(
-        JSON.stringify({ success: false, error: 'Token de autenticação não fornecido.' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Usuário não autenticado.',
+          details: 'Authorization header missing!' 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ [3/10] Token de autenticação encontrado');
+    console.log('✅ [3/10] Header Authorization encontrado');
+
+    // 🔧 CORREÇÃO CRÍTICA: Extrair o token do header
+    const token = authHeader.replace('Bearer ', '').trim();
+    
+    if (!token) {
+      console.error('❌ Token vazio após extração');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Usuário não autenticado.',
+          details: 'Token is empty!' 
+        }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('✅ [3.5/10] Token extraído do header:', token.substring(0, 20) + '...');
 
     // 3. Criar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
+    // Verificar se as variáveis de ambiente existem
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('❌ Variáveis de ambiente ausentes');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Configuração do servidor incorreta.',
+          details: 'Missing environment variables' 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('✅ [4/10] Variáveis de ambiente carregadas');
+    
     // Detectar se está usando service_role key
-    const isServiceRole = authHeader.includes(supabaseServiceKey);
+    const isServiceRole = token === supabaseServiceKey;
     
-    // 🔧 CORREÇÃO: Usar ANON_KEY para usuários normais, SERVICE_ROLE_KEY apenas para admin/testes
-    const supabaseKey = isServiceRole ? supabaseServiceKey : supabaseAnonKey;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    // 🔧 CORREÇÃO: Criar cliente com o token do usuário
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: `Bearer ${token}` },
+      },
       auth: {
         persistSession: false,
       },
-      global: {
-        headers: { Authorization: authHeader },
-      },
     });
 
-    console.log('✅ [4/10] Cliente Supabase criado', { 
-      isServiceRole,
-      usingKey: isServiceRole ? 'SERVICE_ROLE_KEY' : 'ANON_KEY'
-    });
+    console.log('✅ [4.5/10] Cliente Supabase criado com token do usuário');
 
     // 4. Validar usuário autenticado
     let userId: string;
@@ -105,11 +139,9 @@ serve(async (req) => {
       const body: SignContentRequest = await req.json();
       
       if (body.userId) {
-        // Se userId foi fornecido no body, usar ele
         userId = body.userId;
         console.log('✅ [5/10] userId fornecido no body:', userId);
       } else {
-        // Buscar o primeiro usuário que tem key_pairs
         const { data: keyPairs, error: keyPairsError } = await supabase
           .from('key_pairs')
           .select('user_id')
@@ -137,30 +169,32 @@ serve(async (req) => {
         body: JSON.stringify(body),
       });
     } else {
-      // Modo normal: validar JWT do usuário
+      // 🔧 CORREÇÃO CRÍTICA: Passar o token para getUser()
       console.log('🔐 [AUTH] Validando token JWT do usuário...');
       
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
       if (authError || !user) {
         console.error('❌ Erro de autenticação:', authError);
         console.error('❌ Detalhes do erro:', {
           message: authError?.message,
           status: authError?.status,
-          authHeader: authHeader.substring(0, 50) + '...',
+          name: authError?.name,
+          tokenPreview: token.substring(0, 20) + '...',
         });
         return new Response(
           JSON.stringify({ 
             success: false, 
             error: 'Usuário não autenticado.',
-            details: authError?.message 
+            details: 'Auth session missing!' 
           }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       userId = user.id;
-      console.log('✅ [5/10] Usuário autenticado:', userId);
+      console.log('✅ [5/10] Usuário autenticado com sucesso:', userId);
+      console.log('✅ [5.5/10] Email do usuário:', user.email);
     }
 
     // 5. Parse do body
@@ -204,11 +238,9 @@ serve(async (req) => {
     let privateKey: string;
     
     if (keyPairData.encrypted_private_key) {
-      // Nova implementação: chave criptografada
       console.log('🔓 Descriptografando chave privada...');
       privateKey = await decryptPrivateKey(keyPairData.encrypted_private_key);
     } else if (keyPairData.private_key) {
-      // Fallback: chave em texto plano (durante migração)
       console.warn('⚠️ Usando chave privada em texto plano (modo legado)');
       privateKey = keyPairData.private_key;
     } else {
@@ -277,7 +309,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: `Erro interno: ${error instanceof Error ? error.message : 'Erro desconhecido'}` 
+        error: `Erro interno: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        details: error instanceof Error ? error.stack : undefined
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
