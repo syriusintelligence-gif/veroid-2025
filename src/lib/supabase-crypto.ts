@@ -1,11 +1,13 @@
 /**
  * Integração de criptografia com Supabase
  * Gerencia chaves e conteúdos assinados no banco de dados
+ * 🆕 ATUALIZADO: Agora criptografa chaves privadas com AES-256-GCM
  */
 
 import { supabase } from './supabase';
 import type { Database, SocialLinks } from './supabase';
 import { generateHash, generateVerificationCode } from './crypto';
+import { encryptPrivateKey, decryptPrivateKey } from './encryption';
 
 type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
 type KeyPairInsert = Database['public']['Tables']['key_pairs']['Insert'];
@@ -42,7 +44,7 @@ function dbKeyPairToAppKeyPair(dbKeyPair: KeyPairRow): KeyPair {
     id: dbKeyPair.id,
     userId: dbKeyPair.user_id,
     publicKey: dbKeyPair.public_key,
-    privateKey: dbKeyPair.private_key,
+    privateKey: dbKeyPair.private_key, // ⚠️ Ainda em texto plano (modo legado)
     createdAt: dbKeyPair.created_at,
   };
 }
@@ -82,17 +84,31 @@ export async function generateKeyPair(userId: string): Promise<KeyPair> {
 }
 
 /**
- * Salva par de chaves no Supabase
+ * 🆕 Salva par de chaves no Supabase COM CRIPTOGRAFIA
  */
 export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('🔐 Criptografando chave privada antes de salvar...');
+    
+    // Criptografa a chave privada
+    const encryptedPrivateKey = await encryptPrivateKey(keyPair.privateKey);
+    
+    console.log('✅ Chave privada criptografada com sucesso');
+    console.log('📊 Tamanho:', {
+      original: keyPair.privateKey.length,
+      encrypted: encryptedPrivateKey.length,
+    });
+    
     const { error } = await supabase
       .from('key_pairs')
       .insert({
         id: keyPair.id,
         user_id: keyPair.userId,
         public_key: keyPair.publicKey,
-        private_key: keyPair.privateKey,
+        encrypted_private_key: encryptedPrivateKey, // 🆕 Salva criptografada
+        encryption_algorithm: 'AES-256-GCM',
+        key_version: 1,
+        // private_key: null, // 🆕 Não salva mais em texto plano
       });
     
     if (error) {
@@ -100,6 +116,7 @@ export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean;
       return { success: false, error: 'Erro ao salvar chaves' };
     }
     
+    console.log('✅ Chaves salvas no Supabase (criptografadas)');
     return { success: true };
   } catch (error) {
     console.error('❌ Erro ao salvar chaves:', error);
@@ -108,7 +125,7 @@ export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean;
 }
 
 /**
- * Obtém o par de chaves do usuário
+ * 🆕 Obtém o par de chaves do usuário COM DESCRIPTOGRAFIA
  */
 export async function getKeyPair(userId: string): Promise<KeyPair | null> {
   try {
@@ -124,7 +141,43 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
       return null;
     }
     
-    return dbKeyPairToAppKeyPair(data);
+    // 🆕 Verifica se tem chave criptografada
+    if (data.encrypted_private_key) {
+      console.log('🔓 Descriptografando chave privada...');
+      
+      try {
+        const decryptedPrivateKey = await decryptPrivateKey(data.encrypted_private_key);
+        
+        console.log('✅ Chave privada descriptografada com sucesso');
+        
+        return {
+          id: data.id,
+          userId: data.user_id,
+          publicKey: data.public_key,
+          privateKey: decryptedPrivateKey, // 🆕 Retorna descriptografada
+          createdAt: data.created_at,
+        };
+      } catch (decryptError) {
+        console.error('❌ Erro ao descriptografar chave privada:', decryptError);
+        
+        // Fallback: tenta usar chave em texto plano (modo legado)
+        if (data.private_key) {
+          console.warn('⚠️ Usando chave em texto plano (modo legado)');
+          return dbKeyPairToAppKeyPair(data);
+        }
+        
+        return null;
+      }
+    }
+    
+    // Modo legado: chave em texto plano
+    if (data.private_key) {
+      console.warn('⚠️ Chave encontrada em texto plano (modo legado)');
+      return dbKeyPairToAppKeyPair(data);
+    }
+    
+    console.error('❌ Nenhuma chave privada encontrada (nem criptografada nem texto plano)');
+    return null;
   } catch (error) {
     console.error('❌ Erro ao buscar chaves:', error);
     return null;

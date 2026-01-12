@@ -1,6 +1,7 @@
 /**
  * Funções de criptografia e gerenciamento de chaves
  * Inclui backup automático no Supabase
+ * 🆕 ATUALIZADO: Limpa chaves locais no logout
  */
 
 import { saveKeyPair as saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
@@ -87,12 +88,12 @@ export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean;
     console.log('🔄 Iniciando backup redundante...');
     await createRedundantBackup(keyPair);
     
-    // 3. 🆕 SALVA NO SUPABASE
-    console.log('☁️ Salvando no Supabase...');
+    // 3. 🆕 SALVA NO SUPABASE (CRIPTOGRAFADO)
+    console.log('☁️ Salvando no Supabase (criptografado)...');
     const supabaseResult = await saveKeyPairToSupabase(keyPair);
     
     if (supabaseResult.success) {
-      console.log('✅ Chaves salvas no Supabase com sucesso!');
+      console.log('✅ Chaves salvas no Supabase com sucesso (criptografadas)!');
     } else {
       console.warn('⚠️ Falha ao salvar no Supabase:', supabaseResult.error);
       console.warn('⚠️ Mas as chaves estão salvas localmente');
@@ -134,7 +135,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
     console.log('ℹ️ Nenhuma chave encontrada no localStorage para:', userId);
     console.log('ℹ️ Chave de storage procurada:', storageKey);
     
-    // 2. 🆕 Tenta restaurar do Supabase
+    // 2. 🆕 Tenta restaurar do Supabase (descriptografa automaticamente)
     console.log('☁️ Tentando restaurar do Supabase...');
     const supabaseKeyPair = await getKeyPairFromSupabase(userId);
     
@@ -288,27 +289,36 @@ function getFromIndexedDB(db: IDBDatabase, userId: string): Promise<KeyPair | nu
 }
 
 /**
- * Remove todas as chaves (logout)
+ * 🆕 Remove todas as chaves LOCAIS (logout)
+ * IMPORTANTE: NÃO remove do Supabase (para recuperação futura)
  */
 export function clearAllKeys(userId: string): void {
-  console.log('🗑️ Limpando todas as chaves para userId:', userId);
+  console.log('🗑️ Limpando todas as chaves LOCAIS para userId:', userId);
   
-  // Remove do localStorage
-  const storageKey = `${STORAGE_PREFIX}${userId}`;
-  localStorage.removeItem(storageKey);
-  
-  // Remove do sessionStorage
-  const backupKey = `${BACKUP_PREFIX}${userId}`;
-  sessionStorage.removeItem(backupKey);
-  
-  // Remove do IndexedDB
-  openDatabase().then(db => {
-    const transaction = db.transaction(['keyPairs'], 'readwrite');
-    const store = transaction.objectStore('keyPairs');
-    store.delete(userId);
-  }).catch(error => {
-    console.warn('⚠️ Erro ao limpar IndexedDB:', error);
-  });
-  
-  console.log('✅ Chaves locais limpas (mas mantidas no Supabase)');
+  try {
+    // Remove do localStorage
+    const storageKey = `${STORAGE_PREFIX}${userId}`;
+    localStorage.removeItem(storageKey);
+    console.log('✅ Chave removida do localStorage:', storageKey);
+    
+    // Remove do sessionStorage
+    const backupKey = `${BACKUP_PREFIX}${userId}`;
+    sessionStorage.removeItem(backupKey);
+    console.log('✅ Chave removida do sessionStorage:', backupKey);
+    
+    // Remove do IndexedDB
+    openDatabase().then(db => {
+      const transaction = db.transaction(['keyPairs'], 'readwrite');
+      const store = transaction.objectStore('keyPairs');
+      store.delete(userId);
+      console.log('✅ Chave removida do IndexedDB');
+    }).catch(error => {
+      console.warn('⚠️ Erro ao limpar IndexedDB:', error);
+    });
+    
+    console.log('✅ Chaves locais limpas com sucesso!');
+    console.log('ℹ️ As chaves permanecem no Supabase para recuperação futura');
+  } catch (error) {
+    console.error('❌ Erro ao limpar chaves locais:', error);
+  }
 }

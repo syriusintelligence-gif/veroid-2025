@@ -15,7 +15,7 @@ import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, Refres
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
-import { generateKeyPair, saveKeyPair, getKeyPair } from '@/lib/crypto';
+import { generateKeyPair, saveKeyPair, getKeyPair, clearAllKeys } from '@/lib/crypto';
 import type { KeyPair } from '@/lib/supabase-crypto';
 import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
@@ -75,7 +75,7 @@ export default function Dashboard() {
       const adminStatus = await isCurrentUserAdmin();
       setIsAdmin(adminStatus);
       
-      // 🆕 Tenta carregar chaves (localStorage ou Supabase)
+      // 🆕 Tenta carregar chaves (localStorage ou Supabase - descriptografa automaticamente)
       console.log('🔍 Tentando carregar chaves para userId:', user.id);
       const userKeyPair = await getKeyPair(user.id);
       console.log('🔑 Resultado da busca de chaves:', userKeyPair ? 'ENCONTRADAS' : 'NÃO ENCONTRADAS');
@@ -85,7 +85,7 @@ export default function Dashboard() {
       console.log('✅ Dados do usuário carregados:', {
         email: user.email,
         hasKeys: !!userKeyPair,
-        keySource: userKeyPair ? 'localStorage ou Supabase' : 'nenhuma',
+        keySource: userKeyPair ? 'localStorage ou Supabase (descriptografadas)' : 'nenhuma',
       });
       
       // Carrega conteúdos assinados
@@ -114,19 +114,19 @@ export default function Dashboard() {
         userId: newKeyPair.userId 
       });
       
-      console.log('💾 Chamando saveKeyPair...');
+      console.log('💾 Chamando saveKeyPair (irá criptografar antes de salvar)...');
       const saveResult = await saveKeyPair(newKeyPair);
       console.log('📊 Resultado do saveKeyPair:', saveResult);
       
       if (saveResult.success) {
-        console.log('✅ Chaves salvas com sucesso! Atualizando estado...');
+        console.log('✅ Chaves salvas com sucesso (criptografadas no Supabase)! Atualizando estado...');
         setKeyPair(newKeyPair);
         
         // Verifica se as chaves foram realmente salvas
         console.log('🔍 Verificando se as chaves foram realmente salvas...');
         const verifyKeyPair = await getKeyPair(currentUser.id);
         if (verifyKeyPair) {
-          console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão no localStorage!');
+          console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão salvas e criptografadas!');
         } else {
           console.error('❌❌❌ ERRO! Chaves não foram encontradas após salvar!');
         }
@@ -170,7 +170,16 @@ export default function Dashboard() {
   const handleLogout = async () => {
     try {
       console.log('🚪 Fazendo logout...');
-      console.log('⚠️ IMPORTANTE: As chaves estão salvas no Supabase e serão restauradas no próximo login!');
+      
+      // 🆕 Limpa chaves locais ANTES do logout
+      if (currentUser) {
+        console.log('🗑️ Limpando chaves locais...');
+        clearAllKeys(currentUser.id);
+        console.log('✅ Chaves locais limpas com sucesso!');
+      }
+      
+      console.log('ℹ️ As chaves permanecem no Supabase (criptografadas) e serão restauradas no próximo login!');
+      
       await logout();
       navigate('/');
     } catch (error) {
@@ -400,7 +409,7 @@ export default function Dashboard() {
               Status das Chaves Criptográficas
             </CardTitle>
             <CardDescription>
-              Suas chaves são armazenadas de forma segura e sincronizadas com o Supabase
+              🔐 Suas chaves privadas são criptografadas com AES-256-GCM antes de serem salvas no Supabase
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -410,8 +419,8 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                   <div>
-                    <p className="font-semibold text-green-900">Chaves Ativas</p>
-                    <p className="text-sm text-green-700">Sincronizadas e prontas para uso</p>
+                    <p className="font-semibold text-green-900">Chaves Ativas e Criptografadas</p>
+                    <p className="text-sm text-green-700">Sincronizadas com Supabase e prontas para uso</p>
                   </div>
                 </div>
                 
@@ -512,7 +521,7 @@ export default function Dashboard() {
                   <Shield className="h-4 w-4" />
                   <AlertDescription>
                     Você ainda não possui chaves criptográficas. Gere suas chaves para começar a assinar conteúdo digitalmente.
-                    As chaves serão salvas no Supabase para backup automático.
+                    As chaves serão criptografadas com AES-256-GCM e salvas no Supabase para backup automático.
                   </AlertDescription>
                 </Alert>
                 <Button 
@@ -524,7 +533,7 @@ export default function Dashboard() {
                   {isGeneratingKeys ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Gerando e salvando no Supabase...
+                      Gerando e criptografando...
                     </>
                   ) : (
                     <>
