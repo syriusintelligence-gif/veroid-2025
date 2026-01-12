@@ -5,11 +5,12 @@
  * sem modificar o código existente. Pode ser ativado/desativado via feature flag.
  * 
  * @module EdgeFunctionService
- * @version 1.0.0
+ * @version 1.0.1
  * @phase FASE 3 - Integração Frontend
  */
 
 import { supabase } from '../supabase';
+import type { SignedContent } from '../supabase-crypto';
 
 /**
  * Configuração do serviço
@@ -28,6 +29,7 @@ export interface EdgeFunctionSignResult {
   success: boolean;
   signature?: string;
   contentHash?: string;
+  signedContent?: SignedContent;
   error?: string;
   timestamp?: string;
   executionTime?: number;
@@ -35,11 +37,15 @@ export interface EdgeFunctionSignResult {
 
 /**
  * Interface para os dados de entrada da Edge Function
+ * 
+ * 🔧 ATUALIZADO: Agora corresponde exatamente ao que a Edge Function espera
  */
 export interface SignContentRequest {
   content: string;
-  userId: string;
-  keyPairId: string;
+  creatorName: string;
+  thumbnail?: string;
+  platforms?: string[];
+  userId?: string;
 }
 
 /**
@@ -49,16 +55,20 @@ export interface SignContentRequest {
  * à Edge Function, onde a chave privada permanece criptografada no servidor.
  * 
  * @param content - Conteúdo a ser assinado
+ * @param creatorName - Nome do criador
  * @param userId - ID do usuário
- * @param keyPairId - ID do par de chaves no banco
+ * @param thumbnail - Thumbnail opcional (base64 ou URL)
+ * @param platforms - Array de plataformas sociais
  * @returns Resultado da assinatura com hash e signature
  * 
  * @example
  * ```typescript
  * const result = await signContentViaEdgeFunction(
  *   'Meu conteúdo',
+ *   'João Silva',
  *   'user-123',
- *   'keypair-456'
+ *   'data:image/png;base64,...',
+ *   ['Instagram', 'Facebook']
  * );
  * 
  * if (result.success) {
@@ -69,16 +79,20 @@ export interface SignContentRequest {
  */
 export async function signContentViaEdgeFunction(
   content: string,
+  creatorName: string,
   userId: string,
-  keyPairId: string
+  thumbnail?: string,
+  platforms?: string[]
 ): Promise<EdgeFunctionSignResult> {
   const startTime = Date.now();
   
   console.log('🔐 [EdgeFunction] Iniciando assinatura segura via Edge Function...');
   console.log('📊 [EdgeFunction] Dados:', {
     contentLength: content.length,
+    creatorName,
     userId: userId.substring(0, 8) + '...',
-    keyPairId: keyPairId.substring(0, 8) + '...',
+    hasThumbnail: !!thumbnail,
+    platforms: platforms?.join(', '),
   });
 
   try {
@@ -95,11 +109,13 @@ export async function signContentViaEdgeFunction(
 
     console.log('✅ [EdgeFunction] Token de autenticação obtido');
 
-    // Prepara o payload
+    // Prepara o payload com todos os campos esperados pela Edge Function
     const payload: SignContentRequest = {
       content,
+      creatorName,
+      thumbnail,
+      platforms,
       userId,
-      keyPairId,
     };
 
     console.log('📤 [EdgeFunction] Enviando requisição para:', CONFIG.EDGE_FUNCTION_URL);
@@ -175,17 +191,19 @@ async function callEdgeFunctionWithRetry(
       const result = await response.json();
       console.log('✅ [EdgeFunction] Resposta parseada com sucesso');
 
-      // Valida a resposta
-      if (!result.signature || !result.contentHash) {
+      // Valida a resposta da Edge Function
+      if (!result.success || !result.signedContent) {
         console.error('❌ [EdgeFunction] Resposta inválida:', result);
         throw new Error('Resposta da Edge Function está incompleta');
       }
 
+      // Retorna o signedContent diretamente da Edge Function
       return {
         success: true,
-        signature: result.signature,
-        contentHash: result.contentHash,
-        timestamp: result.timestamp,
+        signedContent: result.signedContent,
+        signature: result.signedContent.signature,
+        contentHash: result.signedContent.contentHash,
+        timestamp: result.signedContent.createdAt,
       };
 
     } catch (error) {

@@ -294,6 +294,19 @@ export const FeatureFlagsDebug = {
 };
 
 /**
+ * Interface para as funções expostas no window
+ */
+interface WindowFeatureFlags {
+  printStatus: () => void;
+  enableEdgeFunction: () => void;
+  disableEdgeFunction: () => void;
+  enableDebug: () => void;
+  disableDebug: () => void;
+  reset: () => void;
+  getAll: () => Record<FeatureFlag, boolean>;
+}
+
+/**
  * 🌐 Expõe funções de debug no window para acesso via console do navegador
  * 
  * Uso no console do navegador:
@@ -302,7 +315,7 @@ export const FeatureFlagsDebug = {
  * - window.FeatureFlags.disableEdgeFunction()
  */
 if (typeof window !== 'undefined') {
-  (window as any).FeatureFlags = {
+  (window as Window & { FeatureFlags: WindowFeatureFlags }).FeatureFlags = {
     printStatus: FeatureFlagsDebug.printStatus,
     enableEdgeFunction: FeatureFlagsDebug.enableEdgeFunctionSafely,
     disableEdgeFunction: FeatureFlagsDebug.disableEdgeFunction,

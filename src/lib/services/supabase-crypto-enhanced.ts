@@ -5,15 +5,16 @@
  * à Edge Function, mantendo 100% de compatibilidade com o código existente.
  * 
  * @module SupabaseCryptoEnhanced
- * @version 1.0.0
+ * @version 1.0.1
  * @phase FASE 3 - Integração Frontend
  */
 
 import { supabase } from '../supabase';
-import type { Database, SocialLinks } from '../supabase';
+import type { Database } from '../supabase';
 import { generateHash, generateVerificationCode } from '../crypto';
 import { signContentViaEdgeFunction } from './edge-function-service';
 import { isFeatureEnabled, FeatureFlag } from './feature-flags';
+import type { SignedContent } from '../supabase-crypto';
 
 // Re-exporta tipos originais para compatibilidade
 export type {
@@ -34,7 +35,6 @@ export {
   verifySignature,
 } from '../supabase-crypto';
 
-type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
 type SignedContentRow = Database['public']['Tables']['signed_contents']['Row'];
 type SignedContentInsert = Database['public']['Tables']['signed_contents']['Insert'];
 
@@ -43,7 +43,7 @@ type SignedContentInsert = Database['public']['Tables']['signed_contents']['Inse
  */
 interface SignContentResult {
   success: boolean;
-  signedContent?: any;
+  signedContent?: SignedContent;
   error?: string;
   method?: 'edge_function' | 'client_side';
 }
@@ -106,27 +106,24 @@ export async function signContentEnhanced(
     try {
       console.log('🚀 [Enhanced] Usando Edge Function para assinatura segura...');
 
-      // Busca o ID do par de chaves
-      const { data: keyPairData, error: keyPairError } = await supabase
-        .from('key_pairs')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('public_key', publicKey)
-        .single();
-
-      if (keyPairError || !keyPairData) {
-        console.error('❌ [Enhanced] Erro ao buscar par de chaves:', keyPairError);
-        throw new Error('Par de chaves não encontrado');
-      }
-
-      const keyPairId = keyPairData.id;
-
       if (enableDebug) {
-        console.log('✅ [Enhanced] Par de chaves encontrado:', keyPairId.substring(0, 8) + '...');
+        console.log('✅ [Enhanced] Parâmetros preparados para Edge Function:', {
+          contentLength: content.length,
+          creatorName,
+          userId: userId.substring(0, 8) + '...',
+          hasThumbnail: !!thumbnail,
+          platforms: platforms?.length || 0,
+        });
       }
 
-      // Chama a Edge Function
-      const edgeResult = await signContentViaEdgeFunction(content, userId, keyPairId);
+      // Chama a Edge Function com todos os parâmetros necessários
+      const edgeResult = await signContentViaEdgeFunction(
+        content,
+        creatorName,
+        userId,
+        thumbnail,
+        platforms
+      );
 
       if (!edgeResult.success) {
         console.error('❌ [Enhanced] Edge Function falhou:', edgeResult.error);
@@ -145,46 +142,18 @@ export async function signContentEnhanced(
         // Edge Function teve sucesso!
         console.log('✅ [Enhanced] Assinatura via Edge Function concluída com sucesso!');
 
-        // Gera código de verificação
-        const verificationCode = generateVerificationCode(
-          edgeResult.signature!,
-          edgeResult.contentHash!
-        );
-
-        // Salva no banco de dados
-        const signedContent: SignedContentInsert = {
-          user_id: userId,
-          content,
-          content_hash: edgeResult.contentHash!,
-          signature: edgeResult.signature!,
-          public_key: publicKey,
-          creator_name: creatorName,
-          verification_code: verificationCode,
-          thumbnail: thumbnail || null,
-          platforms: platforms || null,
-          verification_count: 0,
-        };
-
-        const { data, error } = await supabase
-          .from('signed_contents')
-          .insert(signedContent)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ [Enhanced] Erro ao salvar no banco:', error);
-          return {
-            success: false,
-            error: `Erro ao salvar: ${error.message}`,
+        if (enableDebug) {
+          console.log('📊 [Enhanced] Resultado final:', {
+            success: true,
             method: 'edge_function',
-          };
+            contentId: edgeResult.signedContent?.id,
+            executionTime: edgeResult.executionTime,
+          });
         }
-
-        console.log('✅ [Enhanced] Conteúdo salvo com sucesso! ID:', data.id);
 
         return {
           success: true,
-          signedContent: dbSignedContentToAppSignedContent(data),
+          signedContent: edgeResult.signedContent,
           method: 'edge_function',
         };
       }
@@ -268,7 +237,7 @@ export async function signContentEnhanced(
 /**
  * Converte formato do banco para formato da aplicação
  */
-function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): any {
+function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): SignedContent {
   return {
     id: dbContent.id,
     userId: dbContent.user_id,
