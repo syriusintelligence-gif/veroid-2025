@@ -172,32 +172,19 @@ export default function Certificate() {
     }
   };
 
-  // Filtra links sociais baseado nas plataformas selecionadas
+  // 🆕 MODIFICADO: Mostra TODOS os links sociais do criador
   const getRelevantSocialLinks = () => {
-    if (!content?.creatorSocialLinks || !content?.platforms) {
+    if (!content?.creatorSocialLinks) {
       return [];
     }
 
     const relevantLinks: Array<{ platform: string; url: string }> = [];
+    const socialLinks = content.creatorSocialLinks;
     
-    content.platforms.forEach((platform) => {
-      const platformKey = platform.toLowerCase();
-      const socialLinks = content.creatorSocialLinks!;
-      
-      if (platformKey === 'instagram' && socialLinks.instagram) {
-        relevantLinks.push({ platform: 'instagram', url: socialLinks.instagram });
-      } else if (platformKey === 'facebook' && socialLinks.facebook) {
-        relevantLinks.push({ platform: 'facebook', url: socialLinks.facebook });
-      } else if (platformKey === 'tiktok' && socialLinks.tiktok) {
-        relevantLinks.push({ platform: 'tiktok', url: socialLinks.tiktok });
-      } else if ((platformKey === 'twitter' || platformKey === 'x') && socialLinks.twitter) {
-        relevantLinks.push({ platform: 'twitter', url: socialLinks.twitter });
-      } else if (platformKey === 'youtube' && socialLinks.youtube) {
-        relevantLinks.push({ platform: 'youtube', url: socialLinks.youtube });
-      } else if (platformKey === 'linkedin' && socialLinks.linkedin) {
-        relevantLinks.push({ platform: 'linkedin', url: socialLinks.linkedin });
-      } else if (platformKey === 'website' && socialLinks.website) {
-        relevantLinks.push({ platform: 'website', url: socialLinks.website });
+    // Itera sobre todos os links sociais disponíveis
+    Object.entries(socialLinks).forEach(([platform, url]) => {
+      if (url && typeof url === 'string' && url.trim() !== '') {
+        relevantLinks.push({ platform, url });
       }
     });
 
@@ -330,7 +317,7 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* Social Links */}
+          {/* Social Links - 🆕 AGORA MOSTRA TODOS OS LINKS */}
           {relevantSocialLinks.length > 0 && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -338,7 +325,7 @@ export default function Certificate() {
               </div>
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-5 rounded-lg border-l-4 border-blue-600">
                 <p className="text-sm text-gray-700 mb-3">
-                  Visite os perfis oficiais de <strong>{content.creatorName}</strong> nas plataformas onde o conteúdo foi publicado:
+                  Visite os perfis oficiais de <strong>{content.creatorName}</strong>:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {relevantSocialLinks.map(({ platform, url }) => (
