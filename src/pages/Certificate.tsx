@@ -47,32 +47,53 @@ export default function Certificate() {
     }
     
     if (dataParam) {
+      console.log('🔍 [QRCODE] Parâmetro encontrado na URL');
       const decodedContent = decodeContentFromUrl(dataParam);
       
       if (decodedContent) {
-        console.log('📄 Conteúdo decodificado da URL:', decodedContent.id);
-        console.log('🔍 [DEBUG] Links sociais na URL decodificada:', decodedContent.creatorSocialLinks);
+        console.log('📄 [QRCODE] Conteúdo decodificado da URL:', decodedContent.id);
+        console.log('🔍 [QRCODE] Links sociais na URL decodificada:', decodedContent.creatorSocialLinks);
         
-        // Busca o conteúdo completo do Supabase (inclui thumbnail e links sociais)
+        // 🆕 CORREÇÃO CRÍTICA: SEMPRE busca do Supabase para garantir links sociais
+        console.log('🔍 [QRCODE] Buscando conteúdo completo do Supabase...');
         const fullContent = await getSignedContentById(decodedContent.id);
         
         if (fullContent) {
-          console.log('✅ Conteúdo completo carregado do Supabase');
-          console.log('🔍 [DEBUG] Links sociais do Supabase:', fullContent.creatorSocialLinks);
-          console.log('🔍 [DEBUG] Quantidade de links:', fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0);
+          console.log('✅ [QRCODE] Conteúdo completo carregado do Supabase');
+          console.log('🔍 [QRCODE] Links sociais do Supabase:', fullContent.creatorSocialLinks);
+          console.log('🔍 [QRCODE] Quantidade de links:', fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0);
           setContent(fullContent);
           
           // Incrementa contador de verificações
           await incrementVerificationCount(fullContent.id);
         } else {
-          console.warn('⚠️ Conteúdo não encontrado no Supabase, usando dados da URL');
-          // Fallback: usa o conteúdo decodificado da URL
-          setContent(decodedContent);
+          // 🆕 CORREÇÃO: Se falhar busca no Supabase, tenta novamente com retry
+          console.warn('⚠️ [QRCODE] Primeira tentativa falhou, tentando novamente em 1 segundo...');
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const retryContent = await getSignedContentById(decodedContent.id);
+          
+          if (retryContent) {
+            console.log('✅ [QRCODE] Conteúdo carregado na segunda tentativa');
+            console.log('🔍 [QRCODE] Links sociais:', retryContent.creatorSocialLinks);
+            setContent(retryContent);
+            await incrementVerificationCount(retryContent.id);
+          } else {
+            console.error('❌ [QRCODE] Falha ao buscar conteúdo do Supabase após retry');
+            console.error('❌ [QRCODE] ID do conteúdo:', decodedContent.id);
+            // 🆕 ÚLTIMA OPÇÃO: Usa dados da URL (sem links sociais)
+            console.warn('⚠️ [QRCODE] Usando dados da URL como último recurso (SEM LINKS SOCIAIS)');
+            setContent(decodedContent);
+          }
         }
+      } else {
+        console.error('❌ [QRCODE] Falha ao decodificar conteúdo da URL');
       }
       
       setLoading(false);
     } else {
+      console.log('⚠️ [QRCODE] Nenhum parâmetro encontrado na URL');
       setLoading(false);
     }
   };
