@@ -51,12 +51,15 @@ export default function Certificate() {
       
       if (decodedContent) {
         console.log('📄 Conteúdo decodificado da URL:', decodedContent.id);
+        console.log('🔍 [DEBUG] Links sociais na URL decodificada:', decodedContent.creatorSocialLinks);
         
         // Busca o conteúdo completo do Supabase (inclui thumbnail e links sociais)
         const fullContent = await getSignedContentById(decodedContent.id);
         
         if (fullContent) {
           console.log('✅ Conteúdo completo carregado do Supabase');
+          console.log('🔍 [DEBUG] Links sociais do Supabase:', fullContent.creatorSocialLinks);
+          console.log('🔍 [DEBUG] Quantidade de links:', fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0);
           setContent(fullContent);
           
           // Incrementa contador de verificações
@@ -174,7 +177,12 @@ export default function Certificate() {
 
   // 🆕 MODIFICADO: Mostra TODOS os links sociais do criador
   const getRelevantSocialLinks = () => {
+    console.log('🔍 [DEBUG getRelevantSocialLinks] Verificando links sociais...');
+    console.log('🔍 [DEBUG] content:', content);
+    console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
+    
     if (!content?.creatorSocialLinks) {
+      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
       return [];
     }
 
@@ -183,11 +191,13 @@ export default function Certificate() {
     
     // Itera sobre todos os links sociais disponíveis
     Object.entries(socialLinks).forEach(([platform, url]) => {
+      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
       if (url && typeof url === 'string' && url.trim() !== '') {
         relevantLinks.push({ platform, url });
       }
     });
 
+    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
     return relevantLinks;
   };
 
