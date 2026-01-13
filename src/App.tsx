@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import Index from './pages/Index';
@@ -26,6 +26,7 @@ import { initializeCSRF } from './lib/csrf-protection';
 // 🚨 MIDDLEWARE DESATIVADO TEMPORARIAMENTE - Causando loop infinito
 // import { initializeCSRFMiddleware } from './lib/csrf-middleware';
 import { logAuditEvent, AuditAction } from './lib/audit-logger';
+import { clearAllKeys } from './lib/crypto';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ function AppContent() {
   
   // 🆕 Modal de aviso de timeout
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(30); // 30 segundos para teste
+  const [remainingSeconds, setRemainingSeconds] = useState(60); // 1 minuto de aviso
   
   // 🆕 CSRF initialization state
   const [csrfInitialized, setCsrfInitialized] = useState(false);
@@ -88,123 +89,137 @@ function AppContent() {
     setupCSRFProtection();
   }, []); // Executa apenas uma vez ao montar
 
-  // ⚠️ FUNCIONALIDADE DE TIMEOUT DESATIVADA TEMPORARIAMENTE
-  // Motivo: Bug na linha 241 - showTimeoutWarning nas dependências causa recriação constante dos event listeners
-  // TODO: Corrigir removendo showTimeoutWarning das dependências e usar useCallback para handlers
-  // Para reativar: descomentar o bloco abaixo e corrigir as dependências do useEffect
+  // 🔐 SESSION TIMEOUT - Auto-logout por inatividade (15 minutos) + Modal de aviso (1 minuto antes)
+  // ✅ CORRIGIDO: Removido showTimeoutWarning das dependências e usado useCallback
   
-  /*
-  // 🧪 MODO TESTE: Auto-logout por inatividade (1 minuto) + Modal de aviso (30 segundos antes)
+  // Configuração de tempos
+  const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos (PRODUÇÃO)
+  const WARNING_TIME = 1 * 60 * 1000; // 1 minuto antes (PRODUÇÃO)
+  const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
+
+  // ✅ Handler de logout com useCallback (evita recriação)
+  const handleLogout = useCallback(async () => {
+    console.log('🔒 Auto-logout por inatividade (15 minutos)');
+    
+    // Fecha modal se estiver aberto
+    setShowTimeoutWarning(false);
+    
+    // 🆕 Limpa chaves locais ANTES do logout
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        console.log('🗑️ Limpando chaves locais antes do logout...');
+        clearAllKeys(user.id);
+        console.log('✅ Chaves locais limpas com sucesso!');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao limpar chaves:', error);
+    }
+    
+    // Log de auditoria
+    await logAuditEvent(AuditAction.LOGOUT, {
+      success: true,
+      reason: 'session_timeout',
+      inactivity_duration: INACTIVITY_TIME,
+    });
+    
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    await supabase.auth.signOut();
+    navigate('/login');
+  }, [navigate, INACTIVITY_TIME]);
+
+  // ✅ Handler de aviso com useCallback
+  const showWarning = useCallback(() => {
+    console.log('⚠️ Mostrando aviso de timeout (1 minuto restante)');
+    setShowTimeoutWarning(true);
+    setRemainingSeconds(60); // 1 minuto
+    
+    // Log de auditoria
+    logAuditEvent(AuditAction.SECURITY_EVENT, {
+      success: true,
+      event: 'session_timeout_warning_shown',
+      remaining_time: WARNING_TIME,
+    });
+  }, [WARNING_TIME]);
+
+  // ✅ Atualiza última atividade
+  const updateLastActivity = useCallback(() => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
+  }, [LAST_ACTIVITY_KEY]);
+
+  // ✅ Reset timer com useCallback
+  const resetTimer = useCallback(() => {
+    // Fecha modal de aviso se estiver aberto
+    setShowTimeoutWarning(prev => {
+      if (prev) {
+        console.log('✅ Sessão renovada - modal de aviso fechado');
+      }
+      return false;
+    });
+
+    // Limpa os timers anteriores
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+    }
+
+    // Atualiza timestamp da última atividade
+    updateLastActivity();
+
+    // Inicia timer para mostrar aviso (aos 14 minutos)
+    warningTimerRef.current = setTimeout(showWarning, INACTIVITY_TIME - WARNING_TIME);
+
+    // Inicia timer para logout (aos 15 minutos)
+    inactivityTimerRef.current = setTimeout(handleLogout, INACTIVITY_TIME);
+  }, [INACTIVITY_TIME, WARNING_TIME, showWarning, handleLogout, updateLastActivity]);
+
+  // ✅ Verifica inatividade ao mudar visibilidade da aba
+  const checkInactivityOnVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible') {
+      // Aba voltou a ficar visível, verifica quanto tempo passou
+      const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      
+      if (lastActivity) {
+        const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
+        
+        if (timeSinceLastActivity >= INACTIVITY_TIME) {
+          // Passou mais de 15 minutos, faz logout imediatamente
+          console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
+          handleLogout();
+          return;
+        } else if (timeSinceLastActivity >= INACTIVITY_TIME - WARNING_TIME) {
+          // Está no período de aviso, mostra modal
+          const remainingTime = INACTIVITY_TIME - timeSinceLastActivity;
+          setRemainingSeconds(Math.floor(remainingTime / 1000));
+          setShowTimeoutWarning(true);
+          
+          // Agenda logout para o tempo restante
+          if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+          }
+          inactivityTimerRef.current = setTimeout(handleLogout, remainingTime);
+        }
+      }
+      
+      // Se não passou o tempo, reseta o timer
+      if (document.visibilityState === 'visible') {
+        resetTimer();
+      }
+    } else {
+      // Aba ficou inativa, salva timestamp
+      updateLastActivity();
+    }
+  }, [INACTIVITY_TIME, WARNING_TIME, LAST_ACTIVITY_KEY, handleLogout, resetTimer, updateLastActivity]);
+
+  // ✅ useEffect principal do timeout (SEM showTimeoutWarning nas dependências)
   useEffect(() => {
     if (!session) return;
 
-    // 🧪 VALORES PARA TESTE - Reduzir para produção
-    const INACTIVITY_TIME = 1 * 60 * 1000; // 1 minuto (TESTE)
-    const WARNING_TIME = 30 * 1000; // 30 segundos antes (TESTE)
-    // 🔴 PRODUÇÃO: Usar 15 minutos e 2 minutos
-    // const INACTIVITY_TIME = 15 * 60 * 1000; // 15 minutos
-    // const WARNING_TIME = 2 * 60 * 1000; // 2 minutos antes
-    
-    const LAST_ACTIVITY_KEY = 'lastActivityTimestamp';
-
-    const handleLogout = async () => {
-      console.log('🔒 Auto-logout por inatividade (1 minuto - TESTE)');
-      
-      // Fecha modal se estiver aberto
-      setShowTimeoutWarning(false);
-      
-      // Log de auditoria
-      await logAuditEvent(AuditAction.LOGOUT, {
-        success: true,
-        reason: 'session_timeout',
-        inactivity_duration: INACTIVITY_TIME,
-      });
-      
-      localStorage.removeItem(LAST_ACTIVITY_KEY);
-      await supabase.auth.signOut();
-      navigate('/login');
-    };
-
-    const showWarning = () => {
-      console.log('⚠️ Mostrando aviso de timeout (30 segundos restantes - TESTE)');
-      setShowTimeoutWarning(true);
-      setRemainingSeconds(30); // 30 segundos para teste
-      
-      // Log de auditoria
-      logAuditEvent(AuditAction.SECURITY_EVENT, {
-        success: true,
-        event: 'session_timeout_warning_shown',
-        remaining_time: WARNING_TIME,
-      });
-    };
-
-    const updateLastActivity = () => {
-      const now = Date.now();
-      lastActivityRef.current = now;
-      localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
-    };
-
-    const resetTimer = () => {
-      // Fecha modal de aviso se estiver aberto
-      if (showTimeoutWarning) {
-        setShowTimeoutWarning(false);
-        console.log('✅ Sessão renovada - modal de aviso fechado');
-      }
-
-      // Limpa os timers anteriores
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-      if (warningTimerRef.current) {
-        clearTimeout(warningTimerRef.current);
-      }
-
-      // Atualiza timestamp da última atividade
-      updateLastActivity();
-
-      // Inicia timer para mostrar aviso (aos 30 segundos - TESTE)
-      warningTimerRef.current = setTimeout(showWarning, INACTIVITY_TIME - WARNING_TIME);
-
-      // Inicia timer para logout (ao 1 minuto - TESTE)
-      inactivityTimerRef.current = setTimeout(handleLogout, INACTIVITY_TIME);
-    };
-
-    const checkInactivityOnVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Aba voltou a ficar visível, verifica quanto tempo passou
-        const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
-        
-        if (lastActivity) {
-          const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
-          
-          if (timeSinceLastActivity >= INACTIVITY_TIME) {
-            // Passou mais de 1 minuto, faz logout imediatamente
-            console.log('🔒 Auto-logout: Tempo de inatividade excedido ao retornar à aba');
-            handleLogout();
-            return;
-          } else if (timeSinceLastActivity >= INACTIVITY_TIME - WARNING_TIME) {
-            // Está no período de aviso, mostra modal
-            const remainingTime = INACTIVITY_TIME - timeSinceLastActivity;
-            setRemainingSeconds(Math.floor(remainingTime / 1000));
-            setShowTimeoutWarning(true);
-            
-            // Agenda logout para o tempo restante
-            if (inactivityTimerRef.current) {
-              clearTimeout(inactivityTimerRef.current);
-            }
-            inactivityTimerRef.current = setTimeout(handleLogout, remainingTime);
-          }
-        }
-        
-        // Se não passou o tempo, reseta o timer
-        if (document.visibilityState === 'visible') {
-          resetTimer();
-        }
-      } else {
-        // Aba ficou inativa, salva timestamp
-        updateLastActivity();
-      }
-    };
+    console.log('🔐 Timeout de sessão ativado: 15 minutos de inatividade');
 
     // Eventos que detectam atividade do usuário
     const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -244,8 +259,7 @@ function AppContent() {
         clearTimeout(warningTimerRef.current);
       }
     };
-  }, [session, navigate, showTimeoutWarning]); // ⚠️ BUG: showTimeoutWarning causa recriação constante
-  */
+  }, [session, resetTimer, checkInactivityOnVisibilityChange, handleLogout, INACTIVITY_TIME, LAST_ACTIVITY_KEY]); // ✅ CORRIGIDO: SEM showTimeoutWarning
 
   useEffect(() => {
     // Get initial session
@@ -265,7 +279,7 @@ function AppContent() {
   }, []);
 
   // Handler para "Continuar Conectado"
-  const handleContinueSession = () => {
+  const handleContinueSession = useCallback(() => {
     console.log('✅ Usuário escolheu continuar conectado');
     setShowTimeoutWarning(false);
     
@@ -278,12 +292,24 @@ function AppContent() {
       success: true,
       event: 'session_renewed_by_user',
     });
-  };
+  }, []);
 
   // Handler para "Fazer Logout"
-  const handleManualLogout = async () => {
+  const handleManualLogout = useCallback(async () => {
     console.log('👋 Usuário escolheu fazer logout');
     setShowTimeoutWarning(false);
+    
+    // 🆕 Limpa chaves locais ANTES do logout
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        console.log('🗑️ Limpando chaves locais...');
+        clearAllKeys(user.id);
+        console.log('✅ Chaves locais limpas!');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao limpar chaves:', error);
+    }
     
     // Log de auditoria
     await logAuditEvent(AuditAction.LOGOUT, {
@@ -294,7 +320,7 @@ function AppContent() {
     localStorage.removeItem('lastActivityTimestamp');
     await supabase.auth.signOut();
     navigate('/login');
-  };
+  }, [navigate]);
 
   // Loading apenas enquanto carrega sessão (CSRF não bloqueia mais)
   if (loading) {
@@ -307,15 +333,13 @@ function AppContent() {
 
   return (
     <>
-      {/* Modal de Aviso de Timeout - DESATIVADO TEMPORARIAMENTE */}
-      {/* 
+      {/* Modal de Aviso de Timeout - ATIVADO */}
       <SessionTimeoutWarning
         isOpen={showTimeoutWarning}
         remainingSeconds={remainingSeconds}
         onContinue={handleContinueSession}
         onLogout={handleManualLogout}
       />
-      */}
 
       <Routes>
         <Route path="/" element={<Index />} />
