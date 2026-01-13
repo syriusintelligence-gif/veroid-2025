@@ -175,32 +175,6 @@ export default function Certificate() {
     }
   };
 
-  // 🆕 MODIFICADO: Mostra TODOS os links sociais do criador
-  const getRelevantSocialLinks = () => {
-    console.log('🔍 [DEBUG getRelevantSocialLinks] Verificando links sociais...');
-    console.log('🔍 [DEBUG] content:', content);
-    console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
-    
-    if (!content?.creatorSocialLinks) {
-      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
-      return [];
-    }
-
-    const relevantLinks: Array<{ platform: string; url: string }> = [];
-    const socialLinks = content.creatorSocialLinks;
-    
-    // Itera sobre todos os links sociais disponíveis
-    Object.entries(socialLinks).forEach(([platform, url]) => {
-      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
-      if (url && typeof url === 'string' && url.trim() !== '') {
-        relevantLinks.push({ platform, url });
-      }
-    });
-
-    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
-    return relevantLinks;
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
@@ -233,7 +207,64 @@ export default function Certificate() {
   }
 
   const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
-  const relevantSocialLinks = getRelevantSocialLinks();
+
+  // 🆕 FUNÇÃO MOVIDA PARA DENTRO DO COMPONENTE - Garante que content está carregado
+  const renderSocialLinks = () => {
+    console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
+    console.log('🔍 [DEBUG] content:', content);
+    console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
+    
+    if (!content?.creatorSocialLinks) {
+      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
+      return null;
+    }
+
+    const relevantLinks: Array<{ platform: string; url: string }> = [];
+    const socialLinks = content.creatorSocialLinks;
+    
+    // Itera sobre todos os links sociais disponíveis
+    Object.entries(socialLinks).forEach(([platform, url]) => {
+      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
+      if (url && typeof url === 'string' && url.trim() !== '') {
+        relevantLinks.push({ platform, url });
+      }
+    });
+
+    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
+
+    if (relevantLinks.length === 0) {
+      console.log('⚠️ [DEBUG] Nenhum link válido encontrado');
+      return null;
+    }
+
+    return (
+      <div className="mb-6 sm:mb-8">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Perfis do Criador nas Plataformas
+        </div>
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-5 rounded-lg border-l-4 border-blue-600">
+          <p className="text-sm text-gray-700 mb-3">
+            Visite os perfis oficiais de <strong>{content.creatorName}</strong>:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {relevantLinks.map(({ platform, url }) => (
+              <a
+                key={platform}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-full border-2 border-blue-300 hover:border-blue-500 text-sm font-medium transition-all shadow-sm hover:shadow-md"
+              >
+                {getSocialIcon(platform)}
+                <span>{getPlatformLabel(platform)}</span>
+                <LinkIcon className="h-3.5 w-3.5 text-gray-400" />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
@@ -327,34 +358,8 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* Social Links - 🆕 AGORA MOSTRA TODOS OS LINKS */}
-          {relevantSocialLinks.length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Perfis do Criador nas Plataformas
-              </div>
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-5 rounded-lg border-l-4 border-blue-600">
-                <p className="text-sm text-gray-700 mb-3">
-                  Visite os perfis oficiais de <strong>{content.creatorName}</strong>:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {relevantSocialLinks.map(({ platform, url }) => (
-                    <a
-                      key={platform}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-full border-2 border-blue-300 hover:border-blue-500 text-sm font-medium transition-all shadow-sm hover:shadow-md"
-                    >
-                      {getSocialIcon(platform)}
-                      <span>{getPlatformLabel(platform)}</span>
-                      <LinkIcon className="h-3.5 w-3.5 text-gray-400" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Social Links - 🆕 RENDERIZAÇÃO DIRETA DENTRO DO JSX */}
+          {renderSocialLinks()}
 
           {/* Verification Code */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
