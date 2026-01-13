@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SignedContent, getSignedContentById } from '@/lib/supabase-crypto';
+import { SignedContent } from '@/lib/supabase-crypto';
 import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye, FileText, Image as ImageIcon, Video, Music, File, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
@@ -16,41 +16,24 @@ interface ContentCardProps {
 export default function ContentCard({ content: initialContent, onVerify }: ContentCardProps) {
   // 🆕 Estado local para conteúdo com links sociais
   const [content, setContent] = useState<SignedContent>(initialContent);
-  const [isLoadingSocialLinks, setIsLoadingSocialLinks] = useState(true);
+  const [isLoadingSocialLinks, setIsLoadingSocialLinks] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // 🆕 Carrega links sociais do criador quando o componente for montado
+  // 🆕 CORRIGIDO: Verifica se já tem links sociais completos
   useEffect(() => {
-    const loadCreatorSocialLinks = async () => {
-      try {
-        console.log('🔍 [ContentCard] Carregando links sociais do criador...');
-        setIsLoadingSocialLinks(true);
-        
-        // Busca o conteúdo completo com links sociais
-        const fullContent = await getSignedContentById(initialContent.id);
-        
-        if (fullContent && fullContent.creatorSocialLinks) {
-          console.log('✅ [ContentCard] Links sociais carregados:', fullContent.creatorSocialLinks);
-          setContent(fullContent);
-        } else {
-          console.log('⚠️ [ContentCard] Nenhum link social encontrado, usando conteúdo original');
-          setContent(initialContent);
-        }
-      } catch (error) {
-        console.error('❌ [ContentCard] Erro ao carregar links sociais:', error);
-        setContent(initialContent);
-      } finally {
-        setIsLoadingSocialLinks(false);
-      }
-    };
+    console.log('🔍 [ContentCard] Verificando links sociais...');
+    console.log('📊 [ContentCard] initialContent.creatorSocialLinks:', initialContent.creatorSocialLinks);
     
-    // Só carrega se não tiver links sociais
-    if (!initialContent.creatorSocialLinks) {
-      loadCreatorSocialLinks();
+    // Se já tem links sociais, usa diretamente
+    if (initialContent.creatorSocialLinks && Object.keys(initialContent.creatorSocialLinks).length > 0) {
+      console.log('✅ [ContentCard] Links sociais já disponíveis, usando diretamente');
+      setContent(initialContent);
+      setIsLoadingSocialLinks(false);
     } else {
-      console.log('✅ [ContentCard] Links sociais já disponíveis');
+      console.log('⚠️ [ContentCard] Sem links sociais, mas getSignedContentsByUserId já deveria ter buscado');
+      console.log('⚠️ [ContentCard] Isso indica que o usuário não tem links sociais cadastrados');
       setContent(initialContent);
       setIsLoadingSocialLinks(false);
     }
@@ -62,8 +45,10 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
   // Log QR data for debugging
   if (!isLoadingSocialLinks) {
     console.log('📊 [ContentCard] QR Code gerado:', {
+      contentId: content.id,
       length: qrData.length,
       hasSocialLinks: !!content.creatorSocialLinks,
+      socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
       socialLinks: content.creatorSocialLinks,
     });
   }
@@ -277,31 +262,27 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
           </div>
         )}
         
-        {/* QR Code - Com loading state */}
+        {/* QR Code - Sem loading state (já carregado) */}
         <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border-2 border-dashed border-muted-foreground/25">
-          {isLoadingSocialLinks ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
-              <p className="text-sm text-muted-foreground">Carregando dados completos...</p>
-            </div>
-          ) : (
-            <>
-              <QRCodeSVG
-                id={`qr-${content.id}`}
-                value={qrData}
-                size={220}
-                level="M"
-                includeMargin={true}
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
-              <p className="text-xs text-center text-muted-foreground mt-4">
-                URL: {qrData.substring(0, 50)}...
-              </p>
-              <p className="text-xs text-center text-muted-foreground">
-                Tamanho: {qrData.length} caracteres
-              </p>
-            </>
+          <QRCodeSVG
+            id={`qr-${content.id}`}
+            value={qrData}
+            size={220}
+            level="M"
+            includeMargin={true}
+            bgColor="#ffffff"
+            fgColor="#000000"
+          />
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            URL: {qrData.substring(0, 50)}...
+          </p>
+          <p className="text-xs text-center text-muted-foreground">
+            Tamanho: {qrData.length} caracteres
+          </p>
+          {content.creatorSocialLinks && Object.keys(content.creatorSocialLinks).length > 0 && (
+            <p className="text-xs text-center text-green-600 font-semibold mt-2">
+              ✅ Inclui {Object.keys(content.creatorSocialLinks).length} link(s) social(is)
+            </p>
           )}
         </div>
         
@@ -313,16 +294,14 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         
         {/* Share Buttons - Compact Version */}
-        {!isLoadingSocialLinks && (
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-            <ShareButtons 
-              certificateUrl={certificateUrl}
-              title={shareTitle}
-              description={shareDescription}
-              compact={true}
-            />
-          </div>
-        )}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+          <ShareButtons 
+            certificateUrl={certificateUrl}
+            title={shareTitle}
+            description={shareDescription}
+            compact={true}
+          />
+        </div>
         
         {/* Informações Técnicas */}
         <div className="text-xs text-muted-foreground space-y-2 bg-muted/50 p-3 rounded-lg">
@@ -343,7 +322,6 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
             size="sm"
             onClick={handleDownloadQR}
             className="w-full"
-            disabled={isLoadingSocialLinks}
           >
             <Download className="h-4 w-4 mr-2" />
             QR Code
@@ -353,7 +331,6 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
             size="sm"
             onClick={handleDownloadCertificate}
             className="w-full"
-            disabled={isLoadingSocialLinks}
           >
             <Download className="h-4 w-4 mr-2" />
             Certificado
