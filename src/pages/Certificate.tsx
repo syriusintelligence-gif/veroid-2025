@@ -229,7 +229,7 @@ export default function Certificate() {
 
   const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
 
-  // 🆕 FUNÇÃO MOVIDA PARA DENTRO DO COMPONENTE - Garante que content está carregado
+  // 🆕 FUNÇÃO RENDERIZAÇÃO DE LINKS SOCIAIS - MOVIDA PARA CIMA E COM CSS FORÇADO
   const renderSocialLinks = () => {
     console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
     console.log('🔍 [DEBUG] content:', content);
@@ -259,26 +259,47 @@ export default function Certificate() {
     }
 
     return (
-      <div className="mb-6 sm:mb-8">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          Perfis do Criador nas Plataformas
+      <div 
+        className="mb-8 w-full"
+        style={{ 
+          display: 'block !important',
+          visibility: 'visible !important',
+          opacity: '1 !important',
+          position: 'relative',
+          zIndex: 10,
+          minHeight: '100px'
+        }}
+      >
+        <div className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <Globe className="h-5 w-5" />
+          Perfis Oficiais do Criador
         </div>
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-5 rounded-lg border-l-4 border-blue-600">
-          <p className="text-sm text-gray-700 mb-3">
-            Visite os perfis oficiais de <strong>{content.creatorName}</strong>:
+        <div 
+          className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border-2 border-blue-300 shadow-lg"
+          style={{ 
+            display: 'block !important',
+            visibility: 'visible !important'
+          }}
+        >
+          <p className="text-base text-gray-800 mb-4 font-medium">
+            🔗 Conecte-se com <strong className="text-blue-600">{content.creatorName}</strong>:
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {relevantLinks.map(({ platform, url }) => (
               <a
                 key={platform}
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-full border-2 border-blue-300 hover:border-blue-500 text-sm font-medium transition-all shadow-sm hover:shadow-md"
+                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
+                style={{ 
+                  display: 'inline-flex !important',
+                  visibility: 'visible !important'
+                }}
               >
                 {getSocialIcon(platform)}
-                <span>{getPlatformLabel(platform)}</span>
-                <LinkIcon className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-gray-800">{getPlatformLabel(platform)}</span>
+                <LinkIcon className="h-4 w-4 text-blue-500" />
               </a>
             ))}
           </div>
@@ -336,6 +357,9 @@ export default function Certificate() {
             </div>
           </div>
 
+          {/* 🆕 LINKS SOCIAIS MOVIDOS PARA LOGO APÓS O NOME DO CRIADOR */}
+          {renderSocialLinks()}
+
           {/* Date */}
           <div className="mb-6 sm:mb-8">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -378,9 +402,6 @@ export default function Certificate() {
               </div>
             </div>
           )}
-
-          {/* Social Links - 🆕 RENDERIZAÇÃO DIRETA DENTRO DO JSX */}
-          {renderSocialLinks()}
 
           {/* Verification Code */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
