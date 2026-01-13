@@ -186,44 +186,46 @@ export function decodeQRData(qrUrl: string): { id?: string; code?: string; creat
 }
 
 /**
- * 🆕 Gera HTML para links sociais clicáveis
+ * 🆕 MODIFICADO: Gera HTML para TODOS os links sociais do criador
  */
 function generateSocialLinksHtml(signedContent: SignedContent): string {
-  // ✅ CORRIGIDO: Verifica se existem links sociais E plataformas
-  if (!signedContent.creatorSocialLinks || !signedContent.platforms || signedContent.platforms.length === 0) {
-    console.log('⚠️ Sem links sociais ou plataformas para exibir no HTML');
+  // ✅ CORRIGIDO: Só verifica se existem links sociais
+  if (!signedContent.creatorSocialLinks) {
+    console.log('⚠️ Sem links sociais para exibir no HTML');
     return '';
   }
 
   const relevantLinks: Array<{ platform: string; url: string; icon: string; label: string }> = [];
+  const socialLinks = signedContent.creatorSocialLinks;
   
-  signedContent.platforms.forEach((platform) => {
-    const platformKey = platform.toLowerCase();
-    const socialLinks = signedContent.creatorSocialLinks!;
-    
-    const platformMap: Record<string, { key: keyof SocialLinks; icon: string; label: string }> = {
-      'instagram': { key: 'instagram', icon: '📷', label: 'Instagram' },
-      'facebook': { key: 'facebook', icon: '👥', label: 'Facebook' },
-      'tiktok': { key: 'tiktok', icon: '🎵', label: 'TikTok' },
-      'twitter': { key: 'twitter', icon: '🐦', label: 'Twitter/X' },
-      'youtube': { key: 'youtube', icon: '📺', label: 'YouTube' },
-      'linkedin': { key: 'linkedin', icon: '💼', label: 'LinkedIn' },
-      'website': { key: 'website', icon: '🌐', label: 'Website' },
-    };
-    
-    const mapping = platformMap[platformKey];
-    if (mapping && socialLinks[mapping.key]) {
-      relevantLinks.push({
-        platform: platformKey,
-        url: socialLinks[mapping.key] as string,
-        icon: mapping.icon,
-        label: mapping.label,
-      });
+  // Mapeamento de plataformas para ícones e labels
+  const platformMap: Record<string, { icon: string; label: string }> = {
+    'instagram': { icon: '📷', label: 'Instagram' },
+    'facebook': { icon: '👥', label: 'Facebook' },
+    'tiktok': { icon: '🎵', label: 'TikTok' },
+    'twitter': { icon: '🐦', label: 'Twitter/X' },
+    'youtube': { icon: '📺', label: 'YouTube' },
+    'linkedin': { icon: '💼', label: 'LinkedIn' },
+    'website': { icon: '🌐', label: 'Website' },
+  };
+  
+  // ✅ CORRIGIDO: Itera sobre TODOS os links sociais disponíveis
+  Object.entries(socialLinks).forEach(([platform, url]) => {
+    if (url && typeof url === 'string' && url.trim() !== '') {
+      const mapping = platformMap[platform.toLowerCase()];
+      if (mapping) {
+        relevantLinks.push({
+          platform: platform.toLowerCase(),
+          url: url,
+          icon: mapping.icon,
+          label: mapping.label,
+        });
+      }
     }
   });
 
   if (relevantLinks.length === 0) {
-    console.log('⚠️ Nenhum link social relevante encontrado');
+    console.log('⚠️ Nenhum link social encontrado');
     return '';
   }
 
@@ -233,7 +235,7 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
     <div class="info-section" style="background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
       <div class="info-label" style="color: #4b5563; margin-bottom: 12px;">Perfis do Criador nas Plataformas</div>
       <p style="font-size: 14px; color: #6b7280; margin-bottom: 16px; line-height: 1.6;">
-        Visite os perfis oficiais de <strong>${signedContent.creatorName}</strong> nas plataformas onde o conteúdo foi publicado:
+        Visite os perfis oficiais de <strong>${signedContent.creatorName}</strong>:
       </p>
       <div style="display: flex; flex-wrap: wrap; gap: 10px;">
         ${relevantLinks.map(({ url, icon, label }) => `
@@ -315,7 +317,7 @@ export function generateCertificate(signedContent: SignedContent): string {
     </div>
   ` : '';
   
-  // 🆕 Gera HTML para links sociais clicáveis
+  // 🆕 Gera HTML para TODOS os links sociais
   const socialLinksHtml = generateSocialLinksHtml(signedContent);
   
   return `<!DOCTYPE html>
