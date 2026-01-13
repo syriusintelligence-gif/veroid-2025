@@ -40,6 +40,10 @@ function compactContentData(content: SignedContent): string {
   // Tenta comprimir thumbnail
   const compressedThumbnail = compressThumbnail(content.thumbnail);
   
+  // 🆕 LOG: Verifica plataformas antes de compactar
+  console.log('📊 [compactContentData] Plataformas:', content.platforms);
+  console.log('📊 [compactContentData] Links sociais:', content.creatorSocialLinks);
+  
   const compact: Record<string, unknown> = {
     i: content.id,
     c: content.content.substring(0, 200), // Limita conteúdo a 200 chars
@@ -59,6 +63,8 @@ function compactContentData(content: SignedContent): string {
   }
   
   const jsonStr = JSON.stringify(compact);
+  console.log(`📊 [compactContentData] JSON compactado: ${jsonStr.length} bytes`);
+  
   const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
   // Torna URL-safe
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -80,6 +86,10 @@ function expandContentData(compact: {
   sl?: SocialLinks;
   th?: string; // 🆕 Thumbnail (opcional)
 }): SignedContent {
+  // 🆕 LOG: Verifica plataformas após expandir
+  console.log('📊 [expandContentData] Plataformas expandidas:', compact.pl);
+  console.log('📊 [expandContentData] Links sociais expandidos:', compact.sl);
+  
   return {
     id: compact.i,
     userId: '', // Não disponível na URL compactada
@@ -254,6 +264,34 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
 }
 
 /**
+ * 🆕 Gera QR Code SVG inline para o HTML do certificado
+ */
+function generateQRCodeSVG(qrData: string): string {
+  // Usa a biblioteca qrcode para gerar o SVG
+  // Como estamos no backend, vamos gerar um placeholder
+  // O QR Code real será gerado pelo navegador usando a biblioteca qrcode.react
+  
+  const encodedUrl = encodeURIComponent(qrData);
+  
+  return `
+    <div class="info-section" style="text-align: center; padding: 30px; background: white; border-radius: 12px; border: 2px dashed #e5e7eb;">
+      <div class="info-label" style="margin-bottom: 15px;">QR Code para Verificação</div>
+      <div style="display: inline-block; padding: 20px; background: white; border-radius: 12px;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedUrl}" 
+             alt="QR Code" 
+             style="width: 250px; height: 250px; display: block;" />
+      </div>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 15px;">
+        Escaneie este QR Code para verificar a autenticidade do certificado
+      </p>
+      <p style="font-size: 10px; color: #9ca3af; margin-top: 5px; word-break: break-all;">
+        ${qrData.substring(0, 60)}...
+      </p>
+    </div>
+  `;
+}
+
+/**
  * Gera certificado digital em formato HTML moderno
  */
 export function generateCertificate(signedContent: SignedContent): string {
@@ -319,6 +357,10 @@ export function generateCertificate(signedContent: SignedContent): string {
   
   // 🆕 Gera HTML para TODOS os links sociais
   const socialLinksHtml = generateSocialLinksHtml(signedContent);
+  
+  // 🆕 Gera QR Code para o certificado
+  const qrData = generateQRData(signedContent);
+  const qrCodeHtml = generateQRCodeSVG(qrData);
   
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -538,6 +580,8 @@ export function generateCertificate(signedContent: SignedContent): string {
       ${platformsHtml}
       
       ${socialLinksHtml}
+      
+      ${qrCodeHtml}
       
       <div class="verification-code">
         <div class="verification-code-label">Código de Verificação</div>
