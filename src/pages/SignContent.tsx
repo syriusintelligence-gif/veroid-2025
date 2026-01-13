@@ -15,6 +15,9 @@ import { signContent } from '@/lib/services/supabase-crypto-enhanced';
 import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { compressImage, isImageDataUrl } from '@/lib/image-compression';
+// 🆕 RATE LIMITING - Imports adicionados
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { RateLimitAlert } from '@/components/RateLimitAlert';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -51,6 +54,16 @@ export default function SignContent() {
   const [signedContent, setSignedContent] = useState<SignedContent | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  
+  // 🆕 RATE LIMITING - Hook inicializado
+  // Limite: 10 assinaturas por hora, bloqueio de 2 horas se exceder
+  const { 
+    check: checkRateLimit, 
+    isBlocked, 
+    blockedUntil, 
+    remaining, 
+    message: rateLimitMessage 
+  } = useRateLimit('SIGN_CONTENT');
   
   useEffect(() => {
     loadUserData();
@@ -183,6 +196,18 @@ export default function SignContent() {
       publicKey: keyPair.publicKey.substring(0, 20) + '...',
       privateKey: keyPair.privateKey.substring(0, 20) + '...',
     });
+    
+    // 🆕 RATE LIMITING - Verificação ANTES de assinar
+    console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
+    const rateLimitResult = await checkRateLimit();
+    
+    if (!rateLimitResult.allowed) {
+      console.warn('🚫 [RATE LIMIT] Limite excedido:', rateLimitResult.message);
+      alert(rateLimitResult.message || 'Você excedeu o limite de assinaturas. Aguarde antes de tentar novamente.');
+      return;
+    }
+    
+    console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsSigning(true);
     try {
@@ -328,6 +353,24 @@ ${content}
                 </AlertDescription>
               </Alert>
               
+              {/* 🆕 RATE LIMITING - Alerta visual quando bloqueado */}
+              {isBlocked && (
+                <RateLimitAlert 
+                  blockedUntil={blockedUntil}
+                  message={rateLimitMessage}
+                  remaining={remaining}
+                />
+              )}
+              
+              {/* 🆕 RATE LIMITING - Aviso de tentativas restantes */}
+              {!isBlocked && remaining !== undefined && remaining <= 3 && remaining > 0 && (
+                <Alert className="border-yellow-500 bg-yellow-50">
+                  <AlertDescription className="text-yellow-800">
+                    ⚠️ Atenção: Você tem {remaining} {remaining === 1 ? 'assinatura restante' : 'assinaturas restantes'} nesta hora.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* Título do Conteúdo */}
               <div className="space-y-2">
                 <Label htmlFor="title">01 - Título do Conteúdo *</Label>
@@ -336,6 +379,7 @@ ${content}
                   placeholder="Ex: Minha nova campanha de produto"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  disabled={isBlocked}
                 />
               </div>
               
@@ -353,6 +397,7 @@ ${content}
                           : 'border-2 border-gray-200 hover:border-blue-400 hover:shadow-md'
                       }`}
                       onClick={() => setContentType(type.value)}
+                      disabled={isBlocked}
                     >
                       {type.icon}
                       <span className="text-sm">{type.label}</span>
@@ -375,6 +420,7 @@ ${content}
                         type="file"
                         className="hidden"
                         onChange={handleFileUpload}
+                        disabled={isBlocked}
                         accept={
                           contentType === 'image' ? 'image/*' :
                           contentType === 'video' ? 'video/*' :
@@ -383,7 +429,7 @@ ${content}
                           '*'
                         }
                       />
-                      <label htmlFor="file-upload" className="cursor-pointer">
+                      <label htmlFor="file-upload" className={isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
                         <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-sm text-muted-foreground mb-2">
                           Clique para fazer upload ou arraste o arquivo aqui
@@ -427,6 +473,7 @@ ${content}
                           size="icon"
                           onClick={handleRemoveFile}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={isBlocked}
                         >
                           <X className="h-5 w-5" />
                         </Button>
@@ -443,17 +490,18 @@ ${content}
                   {socialPlatforms.map((platform) => (
                     <div
                       key={platform.value}
-                      className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                      className={`border rounded-lg p-3 ${isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all ${
                         selectedPlatforms.includes(platform.value)
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-muted hover:border-muted-foreground/50'
                       }`}
-                      onClick={() => togglePlatform(platform.value)}
+                      onClick={() => !isBlocked && togglePlatform(platform.value)}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
-                          onCheckedChange={() => togglePlatform(platform.value)}
+                          onCheckedChange={() => !isBlocked && togglePlatform(platform.value)}
+                          disabled={isBlocked}
                         />
                         <span className="text-2xl">{platform.logo}</span>
                         <span className="text-sm font-medium">{platform.label}</span>
@@ -478,6 +526,7 @@ ${content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={8}
                   className="resize-none"
+                  disabled={isBlocked}
                 />
                 <p className="text-xs text-muted-foreground">
                   {content.length} caracteres
@@ -500,7 +549,7 @@ ${content}
               
               <Button
                 onClick={handleSign}
-                disabled={isSigning || !title.trim() || selectedPlatforms.length === 0}
+                disabled={isSigning || isBlocked || !title.trim() || selectedPlatforms.length === 0}
                 className="w-full"
                 size="lg"
               >
@@ -509,6 +558,8 @@ ${content}
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Assinando...
                   </>
+                ) : isBlocked ? (
+                  'Bloqueado Temporariamente'
                 ) : (
                   <>
                     <Shield className="mr-2 h-5 w-5" />
