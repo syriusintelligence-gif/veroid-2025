@@ -243,9 +243,9 @@ export const RateLimitPresets = {
     useBackend: true,
   },
 
-  // Assinatura de conteúdo: 10 por hora
+  // 🆕 MODIFICADO: Assinatura de conteúdo: 30 por hora (temporário para testes)
   SIGN_CONTENT: {
-    maxAttempts: 10,
+    maxAttempts: 30, // ✅ Aumentado de 10 para 30
     windowMs: 60 * 60 * 1000, // 1 hora
     blockDurationMs: 2 * 60 * 60 * 1000, // 2 horas de bloqueio
     useBackend: true,

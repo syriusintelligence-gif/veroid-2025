@@ -15,6 +15,28 @@ export interface BackendRateLimitResult {
 }
 
 /**
+ * 🆕 CONFIGURAÇÕES DE RATE LIMIT
+ * Centralizadas aqui para fácil modificação
+ */
+export const RATE_LIMIT_CONFIG = {
+  SIGN_CONTENT: {
+    maxAttempts: 30, // ✅ Aumentado de 10 para 30 (temporário para testes)
+    windowMs: 60 * 60 * 1000, // 1 hora
+    blockDurationMs: 2 * 60 * 60 * 1000, // 2 horas
+  },
+  LOGIN: {
+    maxAttempts: 5,
+    windowMs: 60 * 1000, // 1 minuto
+    blockDurationMs: 15 * 60 * 1000, // 15 minutos
+  },
+  REGISTER: {
+    maxAttempts: 3,
+    windowMs: 60 * 60 * 1000, // 1 hora
+    blockDurationMs: 24 * 60 * 60 * 1000, // 24 horas
+  },
+};
+
+/**
  * Verifica rate limit no backend via Edge Function
  */
 export async function checkBackendRateLimit(
