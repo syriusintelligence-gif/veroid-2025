@@ -1,11 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SignedContent } from '@/lib/supabase-crypto';
+import { SignedContent, getSignedContentById } from '@/lib/supabase-crypto';
 import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye, FileText, Image as ImageIcon, Video, Music, File } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ShareButtons from '@/components/ShareButtons';
 
 interface ContentCardProps {
@@ -13,17 +13,52 @@ interface ContentCardProps {
   onVerify?: (id: string) => void;
 }
 
-export default function ContentCard({ content, onVerify }: ContentCardProps) {
-  const qrData = generateQRData(content);
+export default function ContentCard({ content: initialContent, onVerify }: ContentCardProps) {
+  // 🆕 Estado local para conteúdo com links sociais
+  const [content, setContent] = useState<SignedContent>(initialContent);
   const [copiedCode, setCopiedCode] = useState(false);
   const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // 🆕 Carrega links sociais do criador quando o componente for montado
+  useEffect(() => {
+    const loadCreatorSocialLinks = async () => {
+      try {
+        console.log('🔍 [ContentCard] Carregando links sociais do criador...');
+        
+        // Busca o conteúdo completo com links sociais
+        const fullContent = await getSignedContentById(initialContent.id);
+        
+        if (fullContent && fullContent.creatorSocialLinks) {
+          console.log('✅ [ContentCard] Links sociais carregados:', fullContent.creatorSocialLinks);
+          setContent(fullContent);
+        } else {
+          console.log('⚠️ [ContentCard] Nenhum link social encontrado, usando conteúdo original');
+          setContent(initialContent);
+        }
+      } catch (error) {
+        console.error('❌ [ContentCard] Erro ao carregar links sociais:', error);
+        setContent(initialContent);
+      }
+    };
+    
+    // Só carrega se não tiver links sociais
+    if (!initialContent.creatorSocialLinks) {
+      loadCreatorSocialLinks();
+    } else {
+      console.log('✅ [ContentCard] Links sociais já disponíveis');
+      setContent(initialContent);
+    }
+  }, [initialContent]);
+  
+  const qrData = generateQRData(content);
   
   // Log QR data for debugging
   console.log('QR Code Data:', qrData);
   console.log('QR Code Length:', qrData.length);
   
   const handleDownloadCertificate = () => {
+    console.log('📥 [ContentCard] Gerando certificado com links sociais:', !!content.creatorSocialLinks);
     const certificate = generateCertificate(content);
     const blob = new Blob([certificate], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
