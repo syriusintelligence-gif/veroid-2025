@@ -5,12 +5,12 @@
  * à Edge Function, mantendo 100% de compatibilidade com o código existente.
  * 
  * @module SupabaseCryptoEnhanced
- * @version 1.0.1
+ * @version 1.0.2
  * @phase FASE 3 - Integração Frontend
  */
 
 import { supabase } from '../supabase';
-import type { Database } from '../supabase';
+import type { Database, SocialLinks } from '../supabase';
 import { generateHash, generateVerificationCode } from '../crypto';
 import { signContentViaEdgeFunction } from './edge-function-service';
 import { isFeatureEnabled, FeatureFlag } from './feature-flags';
@@ -201,6 +201,7 @@ export async function signContentEnhanced(
       verification_count: 0,
     };
 
+    console.log('💾 [Enhanced] Salvando conteúdo no banco...');
     const { data, error } = await supabase
       .from('signed_contents')
       .insert(signedContent)
@@ -216,11 +217,42 @@ export async function signContentEnhanced(
       };
     }
 
+    console.log('✅ [Enhanced] Conteúdo salvo com sucesso!');
+    console.log('🔍 [Enhanced] Buscando links sociais do criador...');
+
+    // 🆕 CORREÇÃO CRÍTICA: Busca o conteúdo completo com links sociais
+    const { data: fullContentData, error: fetchError } = await supabase
+      .from('signed_contents')
+      .select(`
+        *,
+        users!signed_contents_user_id_fkey(social_links)
+      `)
+      .eq('id', data.id)
+      .single();
+
+    if (fetchError || !fullContentData) {
+      console.warn('⚠️ [Enhanced] Erro ao buscar links sociais, usando dados básicos');
+      return {
+        success: true,
+        signedContent: dbSignedContentToAppSignedContent(data),
+        method: 'client_side',
+      };
+    }
+
+    // Extrai links sociais do criador
+    let creatorSocialLinks: SocialLinks | undefined = undefined;
+    if (fullContentData.users && typeof fullContentData.users === 'object' && 'social_links' in fullContentData.users) {
+      creatorSocialLinks = fullContentData.users.social_links as SocialLinks;
+      console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
+    } else {
+      console.log('⚠️ [Enhanced] Nenhum link social encontrado');
+    }
+
     console.log('✅ [Enhanced] Assinatura client-side concluída com sucesso!');
 
     return {
       success: true,
-      signedContent: dbSignedContentToAppSignedContent(data),
+      signedContent: dbSignedContentToAppSignedContent(fullContentData, creatorSocialLinks),
       method: 'client_side',
     };
 
@@ -235,9 +267,13 @@ export async function signContentEnhanced(
 }
 
 /**
- * Converte formato do banco para formato da aplicação
+ * 🆕 MODIFICADO: Converte formato do banco para formato da aplicação
+ * Agora aceita creatorSocialLinks como parâmetro opcional
  */
-function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): SignedContent {
+function dbSignedContentToAppSignedContent(
+  dbContent: SignedContentRow,
+  creatorSocialLinks?: SocialLinks
+): SignedContent {
   return {
     id: dbContent.id,
     userId: dbContent.user_id,
@@ -251,6 +287,7 @@ function dbSignedContentToAppSignedContent(dbContent: SignedContentRow): SignedC
     thumbnail: dbContent.thumbnail || undefined,
     platforms: dbContent.platforms || undefined,
     verificationCount: dbContent.verification_count,
+    creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
   };
 }
 
