@@ -193,9 +193,9 @@ export default function AdminAuditLogs() {
     setIsLoading(true);
 
     try {
-      console.log('📊 [AdminAuditLogs] Carregando logs...');
+      console.log('📊 [AdminAuditLogs] Carregando logs de TODOS os usuários...');
 
-      // Prepara filtros
+      // Prepara filtros - REMOVIDO O FILTRO DE USUÁRIO PADRÃO
       const filters: {
         userId?: string;
         action?: AuditAction;
@@ -208,8 +208,12 @@ export default function AdminAuditLogs() {
         offset: (currentPage - 1) * itemsPerPage,
       };
 
+      // Só aplica filtro de usuário se explicitamente selecionado
       if (filterUserId !== 'all') {
         filters.userId = filterUserId;
+        console.log('🔍 [AdminAuditLogs] Filtrando por usuário:', filterUserId);
+      } else {
+        console.log('🔍 [AdminAuditLogs] Buscando logs de TODOS os usuários');
       }
 
       if (filterAction !== 'all') {
@@ -234,6 +238,10 @@ export default function AdminAuditLogs() {
       setTotalLogs(result.total);
 
       console.log(`✅ [AdminAuditLogs] ${result.logs.length} logs carregados (total: ${result.total})`);
+      
+      // Log de debug para verificar usuários únicos
+      const uniqueUsers = new Set(result.logs.map((log: AuditLog) => log.user_id));
+      console.log(`👥 [AdminAuditLogs] Usuários únicos nos logs:`, Array.from(uniqueUsers));
     } catch (error) {
       console.error('❌ [AdminAuditLogs] Erro ao carregar logs:', error);
       toast({
@@ -550,7 +558,7 @@ export default function AdminAuditLogs() {
                   <SelectTrigger id="filter-user">
                     <SelectValue placeholder="Todos os usuários" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="all">Todos os usuários</SelectItem>
                     {allUsers.map(user => (
                       <SelectItem key={user.id} value={user.id}>
@@ -573,7 +581,7 @@ export default function AdminAuditLogs() {
                   <SelectTrigger id="filter-action">
                     <SelectValue placeholder="Todas as ações" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     <SelectItem value="all">Todas as ações</SelectItem>
                     {Object.values(AuditAction).map(action => (
                       <SelectItem key={action} value={action}>
