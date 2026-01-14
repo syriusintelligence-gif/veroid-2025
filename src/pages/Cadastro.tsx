@@ -28,6 +28,8 @@ import { RateLimitAlert } from '@/components/RateLimitAlert';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 // 🔒 CSRF Protection
 import { useCSRFProtection } from '@/hooks/useCSRFProtection';
+// 🔒 SEGURANÇA: Validação de arquivos com lista branca
+import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -58,27 +60,6 @@ function compareFaces(doc: string, selfie: string): { match: boolean; confidence
   };
 }
 
-function validateDocumentFile(file: File): { valid: boolean; message: string } {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-  
-  if (!allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      message: 'Formato de arquivo não suportado. Use JPG, PNG ou PDF.'
-    };
-  }
-  
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      message: 'Arquivo muito grande. O tamanho máximo é 10MB.'
-    };
-  }
-  
-  return { valid: true, message: 'Arquivo válido' };
-}
-
 export default function Cadastro() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -107,6 +88,9 @@ export default function Cadastro() {
   const [documentoUrl, setDocumentoUrl] = useState('');
   const [documentoType, setDocumentoType] = useState<'image' | 'pdf'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
+  
+  // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
+  const [fileValidationError, setFileValidationError] = useState<string>('');
   
   // Webcam
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -143,27 +127,59 @@ export default function Cadastro() {
     }
   }, [stream, webcamActive]);
   
+  /**
+   * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
+   */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Valida o arquivo
-      const validation = validateDocumentFile(file);
-      if (!validation.valid) {
-        setError(validation.message);
-        return;
-      }
-      
-      setError('');
-      setDocumentoFile(file);
-      
-      // Determina o tipo do arquivo
-      const isPdf = file.type === 'application/pdf';
-      setDocumentoType(isPdf ? 'pdf' : 'image');
-      
-      // Converte para base64
-      const base64 = await fileToBase64(file);
-      setDocumentoUrl(base64);
+    
+    // Limpa estados anteriores
+    setFileValidationError('');
+    setError('');
+    setDocumentoFile(null);
+    setDocumentoUrl('');
+    
+    if (!file) {
+      return;
     }
+    
+    console.log('📁 [DOCUMENTO UPLOAD] Arquivo selecionado:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+    
+    // =====================================================
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca de extensões
+    // =====================================================
+    const validationResult = validateFile(file, {
+      maxSizeBytes: 10 * 1024 * 1024, // 10MB
+      allowedCategories: ['image', 'document'], // Apenas imagens e PDFs
+      strictMode: true // Ativa validação de MIME type
+    });
+    
+    if (!validationResult.valid) {
+      console.error('❌ [DOCUMENTO UPLOAD] Validação falhou:', validationResult.message);
+      setFileValidationError(validationResult.message);
+      setError(validationResult.message);
+      
+      // Limpa o input de arquivo
+      e.target.value = '';
+      return;
+    }
+    
+    console.log('✅ [DOCUMENTO UPLOAD] Arquivo validado com sucesso:', validationResult.details);
+    
+    // Arquivo válido, prosseguir com upload
+    setDocumentoFile(file);
+    
+    // Determina o tipo do arquivo
+    const isPdf = file.type === 'application/pdf';
+    setDocumentoType(isPdf ? 'pdf' : 'image');
+    
+    // Converte para base64
+    const base64 = await fileToBase64(file);
+    setDocumentoUrl(base64);
   };
   
   const startWebcam = async () => {
@@ -543,7 +559,17 @@ export default function Cadastro() {
                 />
               )}
               
-              {error && !isBlocked && (
+              {/* 🔒 SEGURANÇA: Alerta de erro de validação de arquivo - apenas no step 2 */}
+              {step === 2 && fileValidationError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Arquivo não permitido:</strong> {fileValidationError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {error && !isBlocked && !fileValidationError && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -646,7 +672,7 @@ export default function Cadastro() {
                   <div className="space-y-2">
                     <Label>Documento de Identificação com Foto *</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      CNH, Passaporte ou RG (JPG, PNG ou PDF - máx. 10MB)
+                      CNH, Passaporte ou RG ({getExtensionDescription('image')}, {getExtensionDescription('document')} - máx. 10MB)
                     </p>
                     {!documentoUrl ? (
                       <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -656,12 +682,15 @@ export default function Cadastro() {
                             Clique para fazer upload
                           </span>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Formatos aceitos: JPG, PNG, PDF
+                            🔒 Formatos aceitos: {getExtensionDescription('image')}, PDF
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Validação de segurança ativa
                           </p>
                           <Input
                             id="documento"
                             type="file"
-                            accept="image/jpeg,image/jpg,image/png,application/pdf"
+                            accept={getAcceptString(['image', 'document'])}
                             className="hidden"
                             onChange={handleDocumentoUpload}
                           />
@@ -681,6 +710,9 @@ export default function Cadastro() {
                                 <p className="text-xs text-muted-foreground mt-1">
                                   {((documentoFile?.size || 0) / 1024 / 1024).toFixed(2)} MB
                                 </p>
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✓ Arquivo validado com sucesso
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -693,7 +725,7 @@ export default function Cadastro() {
                             />
                             <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
                               <Image className="h-3 w-3" />
-                              Imagem
+                              Imagem Validada
                             </div>
                           </div>
                         )}
@@ -704,6 +736,7 @@ export default function Cadastro() {
                           onClick={() => {
                             setDocumentoUrl('');
                             setDocumentoFile(null);
+                            setFileValidationError('');
                           }}
                         >
                           Trocar Documento

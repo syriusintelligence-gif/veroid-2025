@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -18,6 +18,9 @@ import { compressImage, isImageDataUrl } from '@/lib/image-compression';
 // 🆕 RATE LIMITING - Imports adicionados
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
+// 🔒 SEGURANÇA: Validação de arquivos com lista branca
+import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
+import type { FileCategory } from '@/lib/file-validator';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -54,6 +57,9 @@ export default function SignContent() {
   const [signedContent, setSignedContent] = useState<SignedContent | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  
+  // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
+  const [fileValidationError, setFileValidationError] = useState<string>('');
   
   // 🆕 RATE LIMITING - Hook inicializado
   // Limite: 10 assinaturas por hora, bloqueio de 2 horas se exceder
@@ -100,44 +106,105 @@ export default function SignContent() {
     }
   };
   
+  /**
+   * 🔒 SEGURANÇA: Mapeia ContentType para FileCategory do validador
+   */
+  const getFileCategoryFromContentType = (type: ContentType): FileCategory[] => {
+    switch (type) {
+      case 'image':
+        return ['image'];
+      case 'video':
+        return ['video'];
+      case 'music':
+        return ['audio'];
+      case 'document':
+        return ['document'];
+      case 'text':
+        return ['text', 'document']; // Texto aceita tanto .txt quanto documentos
+      default:
+        return ['image', 'video', 'audio', 'document', 'text']; // Fallback: aceita tudo
+    }
+  };
+  
+  /**
+   * 🔒 SEGURANÇA: Handler de upload com validação rigorosa
+   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFile(file);
+    
+    // Limpa estados anteriores
+    setFileValidationError('');
+    setUploadedFile(null);
+    setFilePreview(null);
+    
+    if (!file) {
+      return;
+    }
+    
+    console.log('📁 [FILE UPLOAD] Arquivo selecionado:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      contentType: contentType
+    });
+    
+    // =====================================================
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca de extensões
+    // =====================================================
+    const allowedCategories = getFileCategoryFromContentType(contentType);
+    const validationResult = validateFile(file, {
+      maxSizeBytes: 10 * 1024 * 1024, // 10MB
+      allowedCategories: allowedCategories,
+      strictMode: true // Ativa validação de MIME type
+    });
+    
+    if (!validationResult.valid) {
+      console.error('❌ [FILE UPLOAD] Validação falhou:', validationResult.message);
+      setFileValidationError(validationResult.message);
       
-      // Create preview for images
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const originalDataUrl = reader.result as string;
+      // Limpa o input de arquivo
+      e.target.value = '';
+      return;
+    }
+    
+    console.log('✅ [FILE UPLOAD] Arquivo validado com sucesso:', validationResult.details);
+    
+    // Arquivo válido, prosseguir com upload
+    setUploadedFile(file);
+    
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const originalDataUrl = reader.result as string;
+        
+        try {
+          // 🆕 Comprime a imagem automaticamente
+          console.log('🗜️ Comprimindo thumbnail...');
+          const compressedDataUrl = await compressImage(originalDataUrl, {
+            maxWidth: 800,
+            maxHeight: 600,
+            quality: 0.7,
+            maxSizeKB: 100,
+          });
           
-          try {
-            // 🆕 Comprime a imagem automaticamente
-            console.log('🗜️ Comprimindo thumbnail...');
-            const compressedDataUrl = await compressImage(originalDataUrl, {
-              maxWidth: 800,
-              maxHeight: 600,
-              quality: 0.7,
-              maxSizeKB: 100,
-            });
-            
-            setFilePreview(compressedDataUrl);
-          } catch (error) {
-            console.error('❌ Erro ao comprimir imagem:', error);
-            // Fallback: usa imagem original se compressão falhar
-            setFilePreview(originalDataUrl);
-          }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setFilePreview(null);
-      }
+          setFilePreview(compressedDataUrl);
+        } catch (error) {
+          console.error('❌ Erro ao comprimir imagem:', error);
+          // Fallback: usa imagem original se compressão falhar
+          setFilePreview(originalDataUrl);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
     }
   };
   
   const handleRemoveFile = () => {
     setUploadedFile(null);
     setFilePreview(null);
+    setFileValidationError('');
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -274,6 +341,7 @@ ${content}
     setUploadedFile(null);
     setFilePreview(null);
     setSignedContent(null);
+    setFileValidationError('');
   };
   
   if (isLoading) {
@@ -371,6 +439,16 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🔒 SEGURANÇA: Alerta de erro de validação de arquivo */}
+              {fileValidationError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Arquivo não permitido:</strong> {fileValidationError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* Título do Conteúdo */}
               <div className="space-y-2">
                 <Label htmlFor="title">01 - Título do Conteúdo *</Label>
@@ -396,7 +474,13 @@ ${content}
                           ? 'border-2 border-blue-600 bg-blue-600 text-white shadow-lg scale-105'
                           : 'border-2 border-gray-200 hover:border-blue-400 hover:shadow-md'
                       }`}
-                      onClick={() => setContentType(type.value)}
+                      onClick={() => {
+                        setContentType(type.value);
+                        // Limpa arquivo e erro ao mudar tipo
+                        setUploadedFile(null);
+                        setFilePreview(null);
+                        setFileValidationError('');
+                      }}
                       disabled={isBlocked}
                     >
                       {type.icon}
@@ -411,7 +495,7 @@ ${content}
               
               {/* Upload de Arquivo */}
               <div className="space-y-3">
-                <Label htmlFor="file-upload">03 - Upload do Arquivo (Opcional - será comprimido automaticamente)</Label>
+                <Label htmlFor="file-upload">03 - Upload do Arquivo (Opcional - será validado e comprimido automaticamente)</Label>
                 <div className="space-y-3">
                   {!uploadedFile ? (
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
@@ -421,13 +505,7 @@ ${content}
                         className="hidden"
                         onChange={handleFileUpload}
                         disabled={isBlocked}
-                        accept={
-                          contentType === 'image' ? 'image/*' :
-                          contentType === 'video' ? 'video/*' :
-                          contentType === 'music' ? 'audio/*' :
-                          contentType === 'document' ? '.pdf,.doc,.docx,.txt' :
-                          '*'
-                        }
+                        accept={getAcceptString(getFileCategoryFromContentType(contentType))}
                       />
                       <label htmlFor="file-upload" className={isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
                         <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -435,11 +513,14 @@ ${content}
                           Clique para fazer upload ou arraste o arquivo aqui
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {contentType === 'image' && 'Formatos: JPG, PNG, GIF, WebP (será comprimido automaticamente)'}
-                          {contentType === 'video' && 'Formatos: MP4, MOV, AVI, WebM'}
-                          {contentType === 'music' && 'Formatos: MP3, WAV, OGG, M4A'}
-                          {contentType === 'document' && 'Formatos: PDF, DOC, DOCX, TXT'}
-                          {contentType === 'text' && 'Qualquer tipo de arquivo'}
+                          {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
+                          {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
+                          {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
+                          {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
+                          {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          🔒 Máximo: 10MB | Validação de segurança ativa
                         </p>
                       </label>
                     </div>
@@ -464,7 +545,12 @@ ${content}
                           </p>
                           {filePreview && (
                             <p className="text-xs text-green-600 mt-1">
-                              ✓ Comprimida e otimizada para o certificado
+                              ✓ Validado e comprimido para o certificado
+                            </p>
+                          )}
+                          {!filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Arquivo validado com sucesso
                             </p>
                           )}
                         </div>
