@@ -502,6 +502,11 @@ export default function AdminDashboard() {
                   <span>Dashboard Admin</span>
                 </DropdownMenuItem>
                 
+                <DropdownMenuItem onClick={() => navigate('/admin/audit-logs')} className="cursor-pointer text-red-600">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>Logs de Auditoria</span>
+                </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
                 
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
