@@ -21,6 +21,16 @@ import { RateLimitAlert } from '@/components/RateLimitAlert';
 // 🔒 SEGURANÇA: Validação de arquivos com lista branca
 import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 import type { FileCategory } from '@/lib/file-validator';
+// 🎬 VIDEO PROCESSING - Imports adicionados
+import { 
+  processVideo, 
+  generateThumbnail, 
+  isVideoFile, 
+  validateVideoSize,
+  formatFileSize,
+  getVideoMetadata
+} from '@/lib/video-processor';
+import type { VideoProcessingResult } from '@/lib/video-processor';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -60,6 +70,17 @@ export default function SignContent() {
   
   // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
+  
+  // 🎬 VIDEO PROCESSING: Estados para processamento de vídeo
+  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
+  const [videoProcessingStatus, setVideoProcessingStatus] = useState<string>('');
+  const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
+  const [compressedVideo, setCompressedVideo] = useState<File | null>(null);
+  const [videoMetadata, setVideoMetadata] = useState<{
+    originalSize: number;
+    compressedSize?: number;
+    compressionRatio?: number;
+  } | null>(null);
   
   // 🆕 RATE LIMITING - Hook inicializado
   // Limite: 10 assinaturas por hora, bloqueio de 2 horas se exceder
@@ -127,6 +148,94 @@ export default function SignContent() {
   };
   
   /**
+   * 🎬 VIDEO PROCESSING: Processa vídeo (thumbnail + compressão)
+   */
+  const processVideoFile = async (file: File): Promise<void> => {
+    console.log('🎬 [VIDEO PROCESSING] Iniciando processamento do vídeo');
+    setIsProcessingVideo(true);
+    setVideoProcessingStatus('Analisando vídeo...');
+    
+    try {
+      // Etapa 1: Extrai metadados
+      setVideoProcessingStatus('Extraindo metadados do vídeo...');
+      const metadata = await getVideoMetadata(file);
+      console.log('📊 [VIDEO PROCESSING] Metadados:', metadata);
+      
+      // Etapa 2: Gera thumbnail
+      setVideoProcessingStatus('Gerando thumbnail da primeira imagem...');
+      const thumbnail = await generateThumbnail(file, {
+        maxWidth: 800,
+        maxHeight: 600,
+        quality: 0.8,
+        format: 'image/jpeg'
+      });
+      
+      setVideoThumbnail(thumbnail);
+      console.log('✅ [VIDEO PROCESSING] Thumbnail gerada com sucesso');
+      
+      // Etapa 3: Comprime vídeo (opcional - pode ser desativado se muito lento)
+      setVideoProcessingStatus('Comprimindo vídeo (isso pode levar alguns minutos)...');
+      
+      // ⚠️ NOTA: Compressão de vídeo pode ser MUITO lenta no navegador
+      // Para vídeos grandes (>50MB), considere pular esta etapa ou usar backend
+      if (file.size > 50 * 1024 * 1024) {
+        console.warn('⚠️ [VIDEO PROCESSING] Vídeo muito grande, pulando compressão');
+        setVideoProcessingStatus('Vídeo muito grande, usando original sem compressão');
+        setVideoMetadata({
+          originalSize: file.size
+        });
+      } else {
+        try {
+          const result = await processVideo(file, {
+            maxWidth: 800,
+            maxHeight: 600,
+            quality: 0.8
+          }, {
+            videoBitrate: 1000000, // 1 Mbps
+            audioBitrate: 128000   // 128 kbps
+          });
+          
+          if (result.success && result.compressedVideo) {
+            setCompressedVideo(result.compressedVideo);
+            setVideoMetadata({
+              originalSize: result.originalSize,
+              compressedSize: result.compressedSize,
+              compressionRatio: result.compressionRatio
+            });
+            console.log('✅ [VIDEO PROCESSING] Vídeo comprimido com sucesso');
+          } else {
+            console.warn('⚠️ [VIDEO PROCESSING] Compressão falhou, usando original');
+            setVideoMetadata({
+              originalSize: file.size
+            });
+          }
+        } catch (compressionError) {
+          console.error('❌ [VIDEO PROCESSING] Erro na compressão:', compressionError);
+          setVideoMetadata({
+            originalSize: file.size
+          });
+        }
+      }
+      
+      setVideoProcessingStatus('Processamento concluído!');
+      console.log('✅ [VIDEO PROCESSING] Processamento completo finalizado');
+      
+    } catch (error) {
+      console.error('❌ [VIDEO PROCESSING] Erro no processamento:', error);
+      setVideoProcessingStatus('Erro ao processar vídeo');
+      setFileValidationError(`Erro ao processar vídeo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      
+      // Limpa estados em caso de erro
+      setVideoThumbnail(null);
+      setCompressedVideo(null);
+      setVideoMetadata(null);
+      setUploadedFile(null);
+    } finally {
+      setIsProcessingVideo(false);
+    }
+  };
+  
+  /**
    * 🔒 SEGURANÇA: Handler de upload com validação rigorosa
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +245,10 @@ export default function SignContent() {
     setFileValidationError('');
     setUploadedFile(null);
     setFilePreview(null);
+    setVideoThumbnail(null);
+    setCompressedVideo(null);
+    setVideoMetadata(null);
+    setVideoProcessingStatus('');
     
     if (!file) {
       return;
@@ -152,8 +265,12 @@ export default function SignContent() {
     // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca de extensões
     // =====================================================
     const allowedCategories = getFileCategoryFromContentType(contentType);
+    
+    // 🎬 VIDEO: Aumenta limite para vídeos (50MB)
+    const maxSize = contentType === 'video' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    
     const validationResult = validateFile(file, {
-      maxSizeBytes: 10 * 1024 * 1024, // 10MB
+      maxSizeBytes: maxSize,
       allowedCategories: allowedCategories,
       strictMode: true // Ativa validação de MIME type
     });
@@ -172,15 +289,23 @@ export default function SignContent() {
     // Arquivo válido, prosseguir com upload
     setUploadedFile(file);
     
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
+    // =====================================================
+    // 🎬 PROCESSAMENTO ESPECÍFICO POR TIPO DE ARQUIVO
+    // =====================================================
+    
+    // VÍDEO: Processa automaticamente (thumbnail + compressão)
+    if (contentType === 'video' && isVideoFile(file)) {
+      await processVideoFile(file);
+    }
+    // IMAGEM: Cria preview e comprime
+    else if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const originalDataUrl = reader.result as string;
         
         try {
           // 🆕 Comprime a imagem automaticamente
-          console.log('🗜️ Comprimindo thumbnail...');
+          console.log('🗜️ Comprimindo imagem...');
           const compressedDataUrl = await compressImage(originalDataUrl, {
             maxWidth: 800,
             maxHeight: 600,
@@ -196,7 +321,9 @@ export default function SignContent() {
         }
       };
       reader.readAsDataURL(file);
-    } else {
+    }
+    // OUTROS: Sem preview
+    else {
       setFilePreview(null);
     }
   };
@@ -205,6 +332,10 @@ export default function SignContent() {
     setUploadedFile(null);
     setFilePreview(null);
     setFileValidationError('');
+    setVideoThumbnail(null);
+    setCompressedVideo(null);
+    setVideoMetadata(null);
+    setVideoProcessingStatus('');
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -292,8 +423,10 @@ ${content}
       console.log('📝 Assinando conteúdo no Supabase...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
       
+      // 🎬 VIDEO: Usa thumbnail do vídeo se disponível
+      let finalThumbnail = videoThumbnail || filePreview;
+      
       // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)
-      let finalThumbnail = filePreview;
       if (finalThumbnail && isImageDataUrl(finalThumbnail)) {
         try {
           finalThumbnail = await compressImage(finalThumbnail, {
@@ -342,6 +475,10 @@ ${content}
     setFilePreview(null);
     setSignedContent(null);
     setFileValidationError('');
+    setVideoThumbnail(null);
+    setCompressedVideo(null);
+    setVideoMetadata(null);
+    setVideoProcessingStatus('');
   };
   
   if (isLoading) {
@@ -449,6 +586,16 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🎬 VIDEO PROCESSING: Alerta de processamento */}
+              {isProcessingVideo && (
+                <Alert className="border-blue-500 bg-blue-50">
+                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Processando vídeo:</strong> {videoProcessingStatus}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* Título do Conteúdo */}
               <div className="space-y-2">
                 <Label htmlFor="title">01 - Título do Conteúdo *</Label>
@@ -457,7 +604,7 @@ ${content}
                   placeholder="Ex: Minha nova campanha de produto"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  disabled={isBlocked}
+                  disabled={isBlocked || isProcessingVideo}
                 />
               </div>
               
@@ -480,8 +627,12 @@ ${content}
                         setUploadedFile(null);
                         setFilePreview(null);
                         setFileValidationError('');
+                        setVideoThumbnail(null);
+                        setCompressedVideo(null);
+                        setVideoMetadata(null);
+                        setVideoProcessingStatus('');
                       }}
-                      disabled={isBlocked}
+                      disabled={isBlocked || isProcessingVideo}
                     >
                       {type.icon}
                       <span className="text-sm">{type.label}</span>
@@ -495,7 +646,10 @@ ${content}
               
               {/* Upload de Arquivo */}
               <div className="space-y-3">
-                <Label htmlFor="file-upload">03 - Upload do Arquivo (Opcional - será validado e comprimido automaticamente)</Label>
+                <Label htmlFor="file-upload">
+                  03 - Upload do Arquivo (Opcional - será validado e processado automaticamente)
+                  {contentType === 'video' && <span className="text-blue-600 font-medium"> - Vídeos serão comprimidos automaticamente</span>}
+                </Label>
                 <div className="space-y-3">
                   {!uploadedFile ? (
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
@@ -504,10 +658,10 @@ ${content}
                         type="file"
                         className="hidden"
                         onChange={handleFileUpload}
-                        disabled={isBlocked}
+                        disabled={isBlocked || isProcessingVideo}
                         accept={getAcceptString(getFileCategoryFromContentType(contentType))}
                       />
-                      <label htmlFor="file-upload" className={isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                      <label htmlFor="file-upload" className={isBlocked || isProcessingVideo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
                         <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-sm text-muted-foreground mb-2">
                           Clique para fazer upload ou arraste o arquivo aqui
@@ -520,16 +674,22 @@ ${content}
                           {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          🔒 Máximo: 10MB | Validação de segurança ativa
+                          🔒 Máximo: {contentType === 'video' ? '50MB' : '10MB'} | Validação de segurança ativa
                         </p>
+                        {contentType === 'video' && (
+                          <p className="text-xs text-blue-600 mt-2 font-medium">
+                            🎬 Vídeos serão automaticamente processados: thumbnail + compressão
+                          </p>
+                        )}
                       </label>
                     </div>
                   ) : (
                     <div className="border rounded-lg p-4 bg-muted/50">
                       <div className="flex items-start gap-4">
-                        {filePreview ? (
+                        {/* Preview da thumbnail (imagem ou vídeo) */}
+                        {(filePreview || videoThumbnail) ? (
                           <img
-                            src={filePreview}
+                            src={videoThumbnail || filePreview || ''}
                             alt="Preview"
                             className="w-24 h-24 object-cover rounded-lg"
                           />
@@ -541,14 +701,38 @@ ${content}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{uploadedFile.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                            {formatFileSize(uploadedFile.size)}
                           </p>
-                          {filePreview && (
+                          
+                          {/* Status de processamento de vídeo */}
+                          {contentType === 'video' && videoThumbnail && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-green-600">
+                                ✓ Thumbnail gerada automaticamente
+                              </p>
+                              {videoMetadata && videoMetadata.compressedSize && (
+                                <p className="text-xs text-green-600">
+                                  ✓ Vídeo comprimido: {formatFileSize(videoMetadata.compressedSize)} 
+                                  ({videoMetadata.compressionRatio?.toFixed(1)}% de redução)
+                                </p>
+                              )}
+                              {videoMetadata && !videoMetadata.compressedSize && (
+                                <p className="text-xs text-yellow-600">
+                                  ⚠️ Vídeo muito grande, usando original sem compressão
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Status de imagem */}
+                          {contentType === 'image' && filePreview && (
                             <p className="text-xs text-green-600 mt-1">
                               ✓ Validado e comprimido para o certificado
                             </p>
                           )}
-                          {!filePreview && (
+                          
+                          {/* Status de outros arquivos */}
+                          {contentType !== 'video' && contentType !== 'image' && (
                             <p className="text-xs text-green-600 mt-1">
                               ✓ Arquivo validado com sucesso
                             </p>
@@ -559,7 +743,7 @@ ${content}
                           size="icon"
                           onClick={handleRemoveFile}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          disabled={isBlocked}
+                          disabled={isBlocked || isProcessingVideo}
                         >
                           <X className="h-5 w-5" />
                         </Button>
@@ -576,18 +760,18 @@ ${content}
                   {socialPlatforms.map((platform) => (
                     <div
                       key={platform.value}
-                      className={`border rounded-lg p-3 ${isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all ${
+                      className={`border rounded-lg p-3 ${isBlocked || isProcessingVideo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all ${
                         selectedPlatforms.includes(platform.value)
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-muted hover:border-muted-foreground/50'
                       }`}
-                      onClick={() => !isBlocked && togglePlatform(platform.value)}
+                      onClick={() => !(isBlocked || isProcessingVideo) && togglePlatform(platform.value)}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
-                          onCheckedChange={() => !isBlocked && togglePlatform(platform.value)}
-                          disabled={isBlocked}
+                          onCheckedChange={() => !(isBlocked || isProcessingVideo) && togglePlatform(platform.value)}
+                          disabled={isBlocked || isProcessingVideo}
                         />
                         <span className="text-2xl">{platform.logo}</span>
                         <span className="text-sm font-medium">{platform.label}</span>
@@ -612,7 +796,7 @@ ${content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={8}
                   className="resize-none"
-                  disabled={isBlocked}
+                  disabled={isBlocked || isProcessingVideo}
                 />
                 <p className="text-xs text-muted-foreground">
                   {content.length} caracteres
@@ -623,6 +807,7 @@ ${content}
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   <li>✅ Thumbnail comprimida do conteúdo (salva no Supabase)</li>
+                  {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -635,7 +820,7 @@ ${content}
               
               <Button
                 onClick={handleSign}
-                disabled={isSigning || isBlocked || !title.trim() || selectedPlatforms.length === 0}
+                disabled={isSigning || isBlocked || isProcessingVideo || !title.trim() || selectedPlatforms.length === 0}
                 className="w-full"
                 size="lg"
               >
@@ -643,6 +828,11 @@ ${content}
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Assinando...
+                  </>
+                ) : isProcessingVideo ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processando vídeo...
                   </>
                 ) : isBlocked ? (
                   'Bloqueado Temporariamente'
