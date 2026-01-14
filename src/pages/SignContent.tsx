@@ -170,6 +170,7 @@ export default function SignContent() {
   
   /**
    * 🔒 SEGURANÇA: Handler de upload com validação rigorosa
+   * 🆕 ETAPA 3: Função agora é ASSÍNCRONA e usa await validateFile()
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,7 +193,7 @@ export default function SignContent() {
     });
     
     // =====================================================
-    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca de extensões
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
     // =====================================================
     const allowedCategories = getFileCategoryFromContentType(contentType);
     
@@ -200,10 +201,12 @@ export default function SignContent() {
     // Não fazemos upload do vídeo completo, apenas da thumbnail gerada
     const maxSize = contentType === 'video' ? 200 * 1024 * 1024 : 10 * 1024 * 1024;
     
-    const validationResult = validateFile(file, {
+    // 🆕 ETAPA 3: Adiciona await para validação assíncrona
+    const validationResult = await validateFile(file, {
       maxSizeBytes: maxSize,
       allowedCategories: allowedCategories,
-      strictMode: true // Ativa validação de MIME type
+      strictMode: true, // Ativa validação de MIME type
+      validateMagicNumbers: true // 🆕 Ativa validação de Magic Numbers
     });
     
     if (!validationResult.valid) {

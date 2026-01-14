@@ -129,6 +129,7 @@ export default function Cadastro() {
   
   /**
    * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
+   * 🆕 ETAPA 4: Função agora é ASSÍNCRONA e usa await validateFile()
    */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,12 +151,15 @@ export default function Cadastro() {
     });
     
     // =====================================================
-    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca de extensões
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
     // =====================================================
-    const validationResult = validateFile(file, {
+    
+    // 🆕 ETAPA 4: Adiciona await para validação assíncrona
+    const validationResult = await validateFile(file, {
       maxSizeBytes: 10 * 1024 * 1024, // 10MB
       allowedCategories: ['image', 'document'], // Apenas imagens e PDFs
-      strictMode: true // Ativa validação de MIME type
+      strictMode: true, // Ativa validação de MIME type
+      validateMagicNumbers: true // 🆕 Ativa validação de Magic Numbers
     });
     
     if (!validationResult.valid) {
