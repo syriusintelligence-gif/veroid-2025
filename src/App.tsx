@@ -13,6 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
+import AdminAuditLogs from './pages/AdminAuditLogs';
 import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -389,6 +390,10 @@ function AppContent() {
         <Route
           path="/admin/users"
           element={session ? <AdminUsers /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin/audit-logs"
+          element={session ? <AdminAuditLogs /> : <Navigate to="/login" />}
         />
       </Routes>
     </>

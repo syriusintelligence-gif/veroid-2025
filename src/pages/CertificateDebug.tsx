@@ -9,7 +9,7 @@ interface DebugLog {
   timestamp: string;
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 export default function CertificateDebug() {
@@ -19,7 +19,7 @@ export default function CertificateDebug() {
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const addLog = (type: DebugLog['type'], message: string, data?: any) => {
+  const addLog = (type: DebugLog['type'], message: string, data?: unknown) => {
     const timestamp = new Date().toLocaleTimeString('pt-BR');
     setLogs(prev => [...prev, { timestamp, type, message, data }]);
     console.log(`[${timestamp}] ${message}`, data || '');
