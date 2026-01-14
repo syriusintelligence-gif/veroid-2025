@@ -2,107 +2,61 @@ import { SignedContent } from '@/lib/supabase-crypto';
 import type { SocialLinks } from './supabase';
 
 /**
- * 🆕 Comprime thumbnail para incluir no QR Code (se for pequena o suficiente)
- * Retorna null se thumbnail for muito grande
- */
-function compressThumbnail(thumbnail: string | undefined): string | null {
-  if (!thumbnail) return null;
-  
-  // Se já for uma URL externa, não incluir (seria muito grande)
-  if (thumbnail.startsWith('http://') || thumbnail.startsWith('https://')) {
-    return null;
-  }
-  
-  // Se for Data URL, verifica o tamanho
-  if (thumbnail.startsWith('data:')) {
-    // Calcula tamanho aproximado em bytes
-    const base64Data = thumbnail.split(',')[1] || '';
-    const sizeInBytes = base64Data.length * 0.75; // Base64 é ~33% maior que binário
-    
-    // Se for menor que 2KB, pode incluir
-    if (sizeInBytes < 2048) {
-      console.log(`✅ Thumbnail pequena (${Math.round(sizeInBytes)} bytes), incluindo no QR Code`);
-      return thumbnail;
-    } else {
-      console.log(`⚠️ Thumbnail muito grande (${Math.round(sizeInBytes)} bytes), não incluindo no QR Code`);
-      return null;
-    }
-  }
-  
-  return null;
-}
-
-/**
- * Compacta dados do certificado para reduzir tamanho da URL
- * 🆕 AGORA TENTA INCLUIR thumbnail se for pequena o suficiente
+ * 🆕 VERSÃO ULTRA-COMPACTA: Apenas dados essenciais para buscar no Supabase
+ * Reduz URL de ~800 chars para ~150 chars
  */
 function compactContentData(content: SignedContent): string {
-  // Tenta comprimir thumbnail
-  const compressedThumbnail = compressThumbnail(content.thumbnail);
+  console.log('📊 [compactContentData] Gerando URL ultra-compacta...');
   
-  // 🆕 LOG: Verifica plataformas antes de compactar
-  console.log('📊 [compactContentData] Plataformas:', content.platforms);
-  console.log('📊 [compactContentData] Links sociais:', content.creatorSocialLinks);
-  
-  const compact: Record<string, unknown> = {
-    i: content.id,
-    c: content.content.substring(0, 200), // Limita conteúdo a 200 chars
-    h: content.contentHash.substring(0, 32), // Primeiros 32 chars do hash
-    s: content.signature.substring(0, 32), // Primeiros 32 chars da assinatura
-    p: content.publicKey.substring(0, 32), // Primeiros 32 chars da chave
-    t: content.createdAt, // ✅ CORRIGIDO: usa createdAt em vez de timestamp
-    n: content.creatorName,
-    v: content.verificationCode,
-    pl: content.platforms, // Plataformas (array de strings curtas)
-    sl: content.creatorSocialLinks, // Links sociais do criador
+  // 🆕 APENAS ID E CÓDIGO DE VERIFICAÇÃO
+  // Todos os outros dados serão buscados do Supabase
+  const compact = {
+    i: content.id,                    // ID do certificado (UUID)
+    v: content.verificationCode,      // Código de verificação
+    n: content.creatorName,           // Nome do criador (para fallback)
   };
   
-  // Adiciona thumbnail apenas se for pequena
-  if (compressedThumbnail) {
-    compact.th = compressedThumbnail;
-  }
-  
   const jsonStr = JSON.stringify(compact);
-  console.log(`📊 [compactContentData] JSON compactado: ${jsonStr.length} bytes`);
+  console.log(`✅ [compactContentData] JSON compactado: ${jsonStr.length} bytes`);
+  console.log(`📊 [compactContentData] Conteúdo: ${jsonStr}`);
   
   const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
   // Torna URL-safe
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const urlSafe = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  
+  console.log(`✅ [compactContentData] URL final: ${urlSafe.length} caracteres`);
+  
+  return urlSafe;
 }
 
 /**
  * Expande dados compactados de volta para o formato completo
+ * 🆕 VERSÃO MÍNIMA: Apenas ID, código e nome
  */
 function expandContentData(compact: {
   i: string;
-  c: string;
-  h: string;
-  s: string;
-  p: string;
-  t: string;
-  n: string;
   v: string;
-  pl?: string[];
-  sl?: SocialLinks;
-  th?: string; // 🆕 Thumbnail (opcional)
+  n: string;
 }): SignedContent {
-  // 🆕 LOG: Verifica plataformas após expandir
-  console.log('📊 [expandContentData] Plataformas expandidas:', compact.pl);
-  console.log('📊 [expandContentData] Links sociais expandidos:', compact.sl);
+  console.log('📊 [expandContentData] Expandindo dados mínimos...');
+  console.log('📊 [expandContentData] ID:', compact.i);
+  console.log('📊 [expandContentData] Código:', compact.v);
   
+  // 🆕 RETORNA APENAS DADOS MÍNIMOS
+  // Certificate.tsx vai buscar dados completos do Supabase usando o ID
   return {
     id: compact.i,
-    userId: '', // Não disponível na URL compactada
-    content: compact.c,
-    contentHash: compact.h,
-    signature: compact.s,
-    publicKey: compact.p,
-    createdAt: compact.t, // ✅ CORRIGIDO: usa createdAt
+    userId: '', // Será preenchido pelo Supabase
+    content: '', // Será preenchido pelo Supabase
+    contentHash: '', // Será preenchido pelo Supabase
+    signature: '', // Será preenchido pelo Supabase
+    publicKey: '', // Será preenchido pelo Supabase
+    createdAt: new Date().toISOString(), // Será preenchido pelo Supabase
     creatorName: compact.n,
     verificationCode: compact.v,
-    platforms: compact.pl,
-    creatorSocialLinks: compact.sl,
-    thumbnail: compact.th, // 🆕 Thumbnail (se disponível)
+    platforms: [], // Será preenchido pelo Supabase
+    creatorSocialLinks: undefined, // Será preenchido pelo Supabase
+    thumbnail: undefined, // Será preenchido pelo Supabase
     verificationCount: 0,
   };
 }
@@ -112,6 +66,9 @@ function expandContentData(compact: {
  */
 export function decodeContentFromUrl(encoded: string): SignedContent | null {
   try {
+    console.log('🔍 [decodeContentFromUrl] Decodificando URL...');
+    console.log('📊 [decodeContentFromUrl] Tamanho: ', encoded.length, 'caracteres');
+    
     // Reverte URL-safe para Base64 padrão
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
     // Adiciona padding se necessário
@@ -120,23 +77,19 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
     }
     
     const jsonStr = decodeURIComponent(escape(atob(base64)));
+    console.log('📊 [decodeContentFromUrl] JSON decodificado:', jsonStr);
+    
     const compact = JSON.parse(jsonStr) as {
       i: string;
-      c: string;
-      h: string;
-      s: string;
-      p: string;
-      t: string;
-      n: string;
       v: string;
-      pl?: string[];
-      sl?: SocialLinks;
-      th?: string; // 🆕 Thumbnail (opcional)
+      n: string;
     };
     
+    console.log('✅ [decodeContentFromUrl] Dados expandidos com sucesso');
     return expandContentData(compact);
   } catch (error) {
-    console.error('Erro ao decodificar conteúdo da URL:', error);
+    console.error('❌ [decodeContentFromUrl] Erro ao decodificar:', error);
+    console.error('📊 [decodeContentFromUrl] URL recebida:', encoded);
     return null;
   }
 }
@@ -145,14 +98,15 @@ export function decodeContentFromUrl(encoded: string): SignedContent | null {
  * Gera dados para QR Code que apontam para visualização pública do certificado
  */
 export function generateQRData(signedContent: SignedContent): string {
-  // Compacta dados (COM thumbnail se for pequena, COM links sociais)
+  // Compacta dados (APENAS ID, CÓDIGO E NOME)
   const encodedData = compactContentData(signedContent);
   
   // Cria URL pública que qualquer pessoa pode acessar
   const baseUrl = window.location.origin;
   const certificateUrl = `${baseUrl}/certificate?d=${encodedData}`;
   
-  console.log(`📊 URL do QR Code gerada (${certificateUrl.length} caracteres)`);
+  console.log(`✅ [generateQRData] URL do QR Code gerada (${certificateUrl.length} caracteres)`);
+  console.log(`📊 [generateQRData] URL completa: ${certificateUrl}`);
   
   return certificateUrl;
 }
