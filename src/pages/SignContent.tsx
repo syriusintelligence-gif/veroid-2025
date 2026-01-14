@@ -21,16 +21,12 @@ import { RateLimitAlert } from '@/components/RateLimitAlert';
 // 🔒 SEGURANÇA: Validação de arquivos com lista branca
 import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 import type { FileCategory } from '@/lib/file-validator';
-// 🎬 VIDEO PROCESSING - Imports adicionados
+// 🎬 VIDEO PROCESSING - Apenas thumbnail (SEM compressão)
 import { 
-  processVideo, 
   generateThumbnail, 
   isVideoFile, 
-  validateVideoSize,
-  formatFileSize,
-  getVideoMetadata
+  formatFileSize
 } from '@/lib/video-processor';
-import type { VideoProcessingResult } from '@/lib/video-processor';
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -71,16 +67,9 @@ export default function SignContent() {
   // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
   
-  // 🎬 VIDEO PROCESSING: Estados para processamento de vídeo
+  // 🎬 VIDEO PROCESSING: Estados simplificados (APENAS thumbnail)
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
-  const [videoProcessingStatus, setVideoProcessingStatus] = useState<string>('');
   const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
-  const [compressedVideo, setCompressedVideo] = useState<File | null>(null);
-  const [videoMetadata, setVideoMetadata] = useState<{
-    originalSize: number;
-    compressedSize?: number;
-    compressionRatio?: number;
-  } | null>(null);
   
   // 🆕 RATE LIMITING - Hook inicializado
   // Limite: 10 assinaturas por hora, bloqueio de 2 horas se exceder
@@ -148,21 +137,15 @@ export default function SignContent() {
   };
   
   /**
-   * 🎬 VIDEO PROCESSING: Processa vídeo (thumbnail + compressão)
+   * 🎬 VIDEO PROCESSING: Gera APENAS thumbnail (SEM compressão)
+   * Rápido e eficiente - funciona para vídeos de qualquer tamanho
    */
-  const processVideoFile = async (file: File): Promise<void> => {
-    console.log('🎬 [VIDEO PROCESSING] Iniciando processamento do vídeo');
+  const generateVideoThumbnail = async (file: File): Promise<void> => {
+    console.log('🎬 [VIDEO THUMBNAIL] Gerando thumbnail do vídeo');
     setIsProcessingVideo(true);
-    setVideoProcessingStatus('Analisando vídeo...');
     
     try {
-      // Etapa 1: Extrai metadados
-      setVideoProcessingStatus('Extraindo metadados do vídeo...');
-      const metadata = await getVideoMetadata(file);
-      console.log('📊 [VIDEO PROCESSING] Metadados:', metadata);
-      
-      // Etapa 2: Gera thumbnail
-      setVideoProcessingStatus('Gerando thumbnail da primeira imagem...');
+      // Gera thumbnail da primeira imagem do vídeo
       const thumbnail = await generateThumbnail(file, {
         maxWidth: 800,
         maxHeight: 600,
@@ -171,64 +154,14 @@ export default function SignContent() {
       });
       
       setVideoThumbnail(thumbnail);
-      console.log('✅ [VIDEO PROCESSING] Thumbnail gerada com sucesso');
-      
-      // Etapa 3: Comprime vídeo (opcional - pode ser desativado se muito lento)
-      setVideoProcessingStatus('Comprimindo vídeo (isso pode levar alguns minutos)...');
-      
-      // ⚠️ NOTA: Compressão de vídeo pode ser MUITO lenta no navegador
-      // Para vídeos grandes (>50MB), considere pular esta etapa ou usar backend
-      if (file.size > 50 * 1024 * 1024) {
-        console.warn('⚠️ [VIDEO PROCESSING] Vídeo muito grande, pulando compressão');
-        setVideoProcessingStatus('Vídeo muito grande, usando original sem compressão');
-        setVideoMetadata({
-          originalSize: file.size
-        });
-      } else {
-        try {
-          const result = await processVideo(file, {
-            maxWidth: 800,
-            maxHeight: 600,
-            quality: 0.8
-          }, {
-            videoBitrate: 1000000, // 1 Mbps
-            audioBitrate: 128000   // 128 kbps
-          });
-          
-          if (result.success && result.compressedVideo) {
-            setCompressedVideo(result.compressedVideo);
-            setVideoMetadata({
-              originalSize: result.originalSize,
-              compressedSize: result.compressedSize,
-              compressionRatio: result.compressionRatio
-            });
-            console.log('✅ [VIDEO PROCESSING] Vídeo comprimido com sucesso');
-          } else {
-            console.warn('⚠️ [VIDEO PROCESSING] Compressão falhou, usando original');
-            setVideoMetadata({
-              originalSize: file.size
-            });
-          }
-        } catch (compressionError) {
-          console.error('❌ [VIDEO PROCESSING] Erro na compressão:', compressionError);
-          setVideoMetadata({
-            originalSize: file.size
-          });
-        }
-      }
-      
-      setVideoProcessingStatus('Processamento concluído!');
-      console.log('✅ [VIDEO PROCESSING] Processamento completo finalizado');
+      console.log('✅ [VIDEO THUMBNAIL] Thumbnail gerada com sucesso');
       
     } catch (error) {
-      console.error('❌ [VIDEO PROCESSING] Erro no processamento:', error);
-      setVideoProcessingStatus('Erro ao processar vídeo');
-      setFileValidationError(`Erro ao processar vídeo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('❌ [VIDEO THUMBNAIL] Erro ao gerar thumbnail:', error);
+      setFileValidationError(`Erro ao gerar thumbnail: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
       // Limpa estados em caso de erro
       setVideoThumbnail(null);
-      setCompressedVideo(null);
-      setVideoMetadata(null);
       setUploadedFile(null);
     } finally {
       setIsProcessingVideo(false);
@@ -246,9 +179,6 @@ export default function SignContent() {
     setUploadedFile(null);
     setFilePreview(null);
     setVideoThumbnail(null);
-    setCompressedVideo(null);
-    setVideoMetadata(null);
-    setVideoProcessingStatus('');
     
     if (!file) {
       return;
@@ -266,8 +196,9 @@ export default function SignContent() {
     // =====================================================
     const allowedCategories = getFileCategoryFromContentType(contentType);
     
-    // 🎬 VIDEO: Aumenta limite para vídeos (50MB)
-    const maxSize = contentType === 'video' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    // 🎬 VIDEO: Aumenta limite para 200MB (apenas para leitura de metadados e thumbnail)
+    // Não fazemos upload do vídeo completo, apenas da thumbnail gerada
+    const maxSize = contentType === 'video' ? 200 * 1024 * 1024 : 10 * 1024 * 1024;
     
     const validationResult = validateFile(file, {
       maxSizeBytes: maxSize,
@@ -293,9 +224,9 @@ export default function SignContent() {
     // 🎬 PROCESSAMENTO ESPECÍFICO POR TIPO DE ARQUIVO
     // =====================================================
     
-    // VÍDEO: Processa automaticamente (thumbnail + compressão)
+    // VÍDEO: Gera APENAS thumbnail (SEM compressão)
     if (contentType === 'video' && isVideoFile(file)) {
-      await processVideoFile(file);
+      await generateVideoThumbnail(file);
     }
     // IMAGEM: Cria preview e comprime
     else if (file.type.startsWith('image/')) {
@@ -333,9 +264,6 @@ export default function SignContent() {
     setFilePreview(null);
     setFileValidationError('');
     setVideoThumbnail(null);
-    setCompressedVideo(null);
-    setVideoMetadata(null);
-    setVideoProcessingStatus('');
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -476,9 +404,6 @@ ${content}
     setSignedContent(null);
     setFileValidationError('');
     setVideoThumbnail(null);
-    setCompressedVideo(null);
-    setVideoMetadata(null);
-    setVideoProcessingStatus('');
   };
   
   if (isLoading) {
@@ -591,7 +516,7 @@ ${content}
                 <Alert className="border-blue-500 bg-blue-50">
                   <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
                   <AlertDescription className="text-blue-800">
-                    <strong>Processando vídeo:</strong> {videoProcessingStatus}
+                    <strong>Gerando thumbnail do vídeo...</strong> Isso levará apenas alguns segundos.
                   </AlertDescription>
                 </Alert>
               )}
@@ -628,9 +553,6 @@ ${content}
                         setFilePreview(null);
                         setFileValidationError('');
                         setVideoThumbnail(null);
-                        setCompressedVideo(null);
-                        setVideoMetadata(null);
-                        setVideoProcessingStatus('');
                       }}
                       disabled={isBlocked || isProcessingVideo}
                     >
@@ -648,7 +570,7 @@ ${content}
               <div className="space-y-3">
                 <Label htmlFor="file-upload">
                   03 - Upload do Arquivo (Opcional - será validado e processado automaticamente)
-                  {contentType === 'video' && <span className="text-blue-600 font-medium"> - Vídeos serão comprimidos automaticamente</span>}
+                  {contentType === 'video' && <span className="text-blue-600 font-medium"> - Apenas thumbnail será gerada (vídeo não será enviado)</span>}
                 </Label>
                 <div className="space-y-3">
                   {!uploadedFile ? (
@@ -674,11 +596,11 @@ ${content}
                           {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          🔒 Máximo: {contentType === 'video' ? '50MB' : '10MB'} | Validação de segurança ativa
+                          🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
                         </p>
                         {contentType === 'video' && (
                           <p className="text-xs text-blue-600 mt-2 font-medium">
-                            🎬 Vídeos serão automaticamente processados: thumbnail + compressão
+                            🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
                           </p>
                         )}
                       </label>
@@ -708,19 +630,11 @@ ${content}
                           {contentType === 'video' && videoThumbnail && (
                             <div className="mt-2 space-y-1">
                               <p className="text-xs text-green-600">
-                                ✓ Thumbnail gerada automaticamente
+                                ✓ Thumbnail gerada com sucesso
                               </p>
-                              {videoMetadata && videoMetadata.compressedSize && (
-                                <p className="text-xs text-green-600">
-                                  ✓ Vídeo comprimido: {formatFileSize(videoMetadata.compressedSize)} 
-                                  ({videoMetadata.compressionRatio?.toFixed(1)}% de redução)
-                                </p>
-                              )}
-                              {videoMetadata && !videoMetadata.compressedSize && (
-                                <p className="text-xs text-yellow-600">
-                                  ⚠️ Vídeo muito grande, usando original sem compressão
-                                </p>
-                              )}
+                              <p className="text-xs text-blue-600">
+                                ℹ️ Vídeo não será enviado (apenas thumbnail)
+                              </p>
                             </div>
                           )}
                           
@@ -808,6 +722,7 @@ ${content}
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   <li>✅ Thumbnail comprimida do conteúdo (salva no Supabase)</li>
                   {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
+                  {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -832,7 +747,7 @@ ${content}
                 ) : isProcessingVideo ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Processando vídeo...
+                    Gerando thumbnail...
                   </>
                 ) : isBlocked ? (
                   'Bloqueado Temporariamente'
