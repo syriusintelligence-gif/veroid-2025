@@ -32,7 +32,7 @@ import {
 // ========================================
 import FileScanStatus from '@/components/FileScanStatus';
 import { calculateFileHash } from '@/hooks/useFileScanStatus';
-import { createClient } from '@/lib/supabase-client';
+import { supabase } from '@/lib/supabase';
 // ========================================
 // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
 // ========================================
@@ -265,7 +265,6 @@ export default function SignContent() {
       console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
       
       // Chama Edge Function para scan
-      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
