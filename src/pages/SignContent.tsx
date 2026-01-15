@@ -27,6 +27,15 @@ import {
   isVideoFile, 
   formatFileSize
 } from '@/lib/video-processor';
+// ========================================
+// INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+// ========================================
+import FileScanStatus from '@/components/FileScanStatus';
+import { calculateFileHash } from '@/hooks/useFileScanStatus';
+import { createClient } from '@/lib/supabase-client';
+// ========================================
+// FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -80,6 +89,16 @@ export default function SignContent() {
     remaining, 
     message: rateLimitMessage 
   } = useRateLimit('SIGN_CONTENT');
+  
+  // ========================================
+  // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+  // ========================================
+  const [fileHash, setFileHash] = useState<string | null>(null);
+  const [isScanningFile, setIsScanningFile] = useState(false);
+  const [scanError, setScanError] = useState<string>('');
+  // ========================================
+  // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+  // ========================================
   
   useEffect(() => {
     loadUserData();
@@ -180,6 +199,15 @@ export default function SignContent() {
     setUploadedFile(null);
     setFilePreview(null);
     setVideoThumbnail(null);
+    // ========================================
+    // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
+    setFileHash(null);
+    setScanError('');
+    setIsScanningFile(false);
+    // ========================================
+    // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
     
     if (!file) {
       return;
@@ -222,6 +250,67 @@ export default function SignContent() {
     
     // Arquivo válido, prosseguir com upload
     setUploadedFile(file);
+    
+    // ========================================
+    // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
+    // Calcula hash do arquivo e inicia scan VirusTotal
+    setIsScanningFile(true);
+    setScanError('');
+    
+    try {
+      console.log('🔐 [VIRUSTOTAL] Calculando hash do arquivo...');
+      const hash = await calculateFileHash(file);
+      setFileHash(hash);
+      console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
+      
+      // Chama Edge Function para scan
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.warn('⚠️ [VIRUSTOTAL] Usuário não autenticado, pulando scan');
+        setIsScanningFile(false);
+        // Não bloqueia o upload, apenas não faz scan
+        return;
+      }
+      
+      console.log('🚀 [VIRUSTOTAL] Iniciando scan via Edge Function...');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-uploaded-file`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            file_name: file.name,
+            file_size: file.size,
+            file_hash: hash,
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ [VIRUSTOTAL] Erro ao iniciar scan:', errorData);
+        setScanError(errorData.error || 'Erro ao iniciar scan de segurança');
+        // Não bloqueia o upload, apenas exibe erro
+      } else {
+        const resultData = await response.json();
+        console.log('✅ [VIRUSTOTAL] Scan iniciado com sucesso:', resultData);
+      }
+    } catch (error) {
+      console.error('❌ [VIRUSTOTAL] Erro ao processar scan:', error);
+      setScanError('Erro ao processar scan de segurança');
+      // Não bloqueia o upload, apenas exibe erro
+    } finally {
+      setIsScanningFile(false);
+    }
+    // ========================================
+    // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
     
     // =====================================================
     // 🎬 PROCESSAMENTO ESPECÍFICO POR TIPO DE ARQUIVO
@@ -267,6 +356,15 @@ export default function SignContent() {
     setFilePreview(null);
     setFileValidationError('');
     setVideoThumbnail(null);
+    // ========================================
+    // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
+    setFileHash(null);
+    setScanError('');
+    setIsScanningFile(false);
+    // ========================================
+    // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -407,6 +505,15 @@ ${content}
     setSignedContent(null);
     setFileValidationError('');
     setVideoThumbnail(null);
+    // ========================================
+    // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
+    setFileHash(null);
+    setScanError('');
+    setIsScanningFile(false);
+    // ========================================
+    // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+    // ========================================
   };
   
   if (isLoading) {
@@ -556,6 +663,15 @@ ${content}
                         setFilePreview(null);
                         setFileValidationError('');
                         setVideoThumbnail(null);
+                        // ========================================
+                        // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+                        // ========================================
+                        setFileHash(null);
+                        setScanError('');
+                        setIsScanningFile(false);
+                        // ========================================
+                        // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+                        // ========================================
                       }}
                       disabled={isBlocked || isProcessingVideo}
                     >
@@ -654,6 +770,44 @@ ${content}
                               ✓ Arquivo validado com sucesso
                             </p>
                           )}
+                          
+                          {/* ========================================
+                              INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+                              ======================================== */}
+                          {/* Status do scan VirusTotal */}
+                          {fileHash && (
+                            <div className="mt-3 pt-3 border-t border-muted">
+                              <FileScanStatus 
+                                fileHash={fileHash}
+                                showDetails={true}
+                                showVirusTotalLink={true}
+                                compact={false}
+                              />
+                            </div>
+                          )}
+                          
+                          {isScanningFile && (
+                            <div className="mt-3 pt-3 border-t border-muted">
+                              <div className="flex items-center gap-2 text-sm text-blue-600">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Iniciando scan de segurança...</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {scanError && (
+                            <div className="mt-3 pt-3 border-t border-muted">
+                              <Alert variant="destructive" className="py-2">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription className="text-xs">
+                                  {scanError}
+                                </AlertDescription>
+                              </Alert>
+                            </div>
+                          )}
+                          {/* ========================================
+                              FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+                              ======================================== */}
                         </div>
                         <Button
                           variant="ghost"
