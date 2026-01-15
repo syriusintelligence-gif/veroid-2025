@@ -12,12 +12,22 @@
  * - Limite de tamanho configurável
  * - Prevenção contra MIME type spoofing
  * - Mensagens de erro específicas para debugging
+ * - 🆕 Sanitização de nomes de arquivos (ETAPA 4)
  * 
  * @author VeroID Security Team
- * @version 2.1.0
+ * @version 2.2.0
  * @date 2024-01-15
  * @updated 2026-01-15 - Relaxed .txt validation (user feedback)
+ * @updated 2026-01-15 - Added filename sanitization (ETAPA 4)
  */
+
+// ========================================
+// 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 4
+// ========================================
+import { sanitizeFileName } from './input-sanitizer';
+// ========================================
+// FIM: SANITIZAÇÃO - IMPORT
+// ========================================
 
 // =====================================================
 // TIPOS E INTERFACES
@@ -621,11 +631,20 @@ async function readFileBytes(file: File, numBytes: number = 16): Promise<number[
     const arrayBuffer = await slice.arrayBuffer();
     const bytes = Array.from(new Uint8Array(arrayBuffer));
     
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 4 (PONTO 1/1)
+    // ========================================
+    const sanitizedFileName = sanitizeFileName(file.name);
+    
     console.log('📖 [MAGIC NUMBER] Bytes lidos:', {
-      fileName: file.name.substring(0, 30) + (file.name.length > 30 ? '...' : ''),
+      originalFileName: file.name.substring(0, 30) + (file.name.length > 30 ? '...' : ''),
+      sanitizedFileName: sanitizedFileName.substring(0, 30) + (sanitizedFileName.length > 30 ? '...' : ''),
       bytesRead: bytes.length,
       bytesHex: bytesToHex(bytes)
     });
+    // ========================================
+    // FIM: SANITIZAÇÃO - PONTO 1/1
+    // ========================================
     
     return bytes;
   } catch (error) {
@@ -689,6 +708,7 @@ function checkMagicNumber(bytes: number[], extension: string): boolean {
  * 5. ✅ Verifica se MIME type corresponde à extensão (modo strict)
  * 6. ✅ Verifica se categoria é permitida
  * 7. 🆕 Verifica Magic Numbers (assinatura de arquivo) - EXCETO .txt
+ * 8. 🆕 Sanitiza nome do arquivo para logs e mensagens (ETAPA 4)
  * 
  * @param file - Objeto File do navegador
  * @param config - Configuração de validação (opcional)
@@ -727,18 +747,26 @@ export async function validateFile(
     };
   }
   
-  // Extrai informações do arquivo
-  const fileName = file.name;
+  // ========================================
+  // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 4
+  // Sanitiza o nome do arquivo ANTES de usar em logs/mensagens
+  // ========================================
+  const originalFileName = file.name;
+  const sanitizedFileName = sanitizeFileName(originalFileName);
   const fileSize = file.size;
   const mimeType = file.type;
-  const extension = getFileExtension(fileName);
+  const extension = getFileExtension(sanitizedFileName);
   
   console.log('🔍 [FILE VALIDATOR] Validando arquivo:', {
-    fileName,
+    originalFileName: originalFileName.substring(0, 50) + (originalFileName.length > 50 ? '...' : ''),
+    sanitizedFileName,
     fileSize: formatFileSize(fileSize),
     mimeType,
     extension
   });
+  // ========================================
+  // FIM: SANITIZAÇÃO - APLICADA
+  // ========================================
   
   // =====================================================
   // VALIDAÇÃO 2: Tamanho máximo
@@ -751,7 +779,7 @@ export async function validateFile(
       valid: false,
       message: `Arquivo muito grande. Tamanho: ${fileSizeFormatted}. Máximo permitido: ${maxSizeFormatted}.`,
       details: {
-        fileName,
+        fileName: sanitizedFileName,
         fileSize,
         fileType: mimeType,
         extension
@@ -767,7 +795,7 @@ export async function validateFile(
       valid: false,
       message: 'Arquivo sem extensão. Por favor, envie um arquivo com extensão válida.',
       details: {
-        fileName,
+        fileName: sanitizedFileName,
         fileSize,
         fileType: mimeType
       }
@@ -784,7 +812,7 @@ export async function validateFile(
       valid: false,
       message: `Tipo de arquivo não permitido. Arquivos executáveis e scripts são proibidos por motivos de segurança.`,
       details: {
-        fileName,
+        fileName: sanitizedFileName,
         fileSize,
         fileType: mimeType,
         extension
@@ -807,7 +835,7 @@ export async function validateFile(
       valid: false,
       message: `Extensão "${extension}" não é permitida. Extensões aceitas: ${allAllowedExtensions}`,
       details: {
-        fileName,
+        fileName: sanitizedFileName,
         fileSize,
         fileType: mimeType,
         extension
@@ -823,7 +851,7 @@ export async function validateFile(
       valid: false,
       message: `Categoria "${categoryByExtension}" não é permitida neste contexto.`,
       details: {
-        fileName,
+        fileName: sanitizedFileName,
         fileSize,
         fileType: mimeType,
         extension,
@@ -846,7 +874,7 @@ export async function validateFile(
         valid: false,
         message: `Tipo de arquivo não reconhecido. MIME type "${mimeType}" não é permitido.`,
         details: {
-          fileName,
+          fileName: sanitizedFileName,
           fileSize,
           fileType: mimeType,
           extension,
@@ -868,7 +896,7 @@ export async function validateFile(
         valid: false,
         message: `Arquivo suspeito detectado. A extensão "${extension}" não corresponde ao tipo real do arquivo.`,
         details: {
-          fileName,
+          fileName: sanitizedFileName,
           fileSize,
           fileType: mimeType,
           extension,
@@ -894,7 +922,7 @@ export async function validateFile(
       
       if (!isValidMagicNumber) {
         console.error('🚨 [MAGIC NUMBER] Arquivo suspeito detectado!', {
-          fileName,
+          sanitizedFileName,
           extension,
           actualBytes: bytesToHex(bytes.slice(0, 8))
         });
@@ -903,7 +931,7 @@ export async function validateFile(
           valid: false,
           message: `Arquivo suspeito detectado. O conteúdo real do arquivo não corresponde à extensão "${extension}". Possível tentativa de falsificação.`,
           details: {
-            fileName,
+            fileName: sanitizedFileName,
             fileSize,
             fileType: mimeType,
             extension,
@@ -933,7 +961,7 @@ export async function validateFile(
   // ✅ ARQUIVO VÁLIDO
   // =====================================================
   console.log('✅ [FILE VALIDATOR] Arquivo validado com sucesso:', {
-    fileName,
+    sanitizedFileName,
     category: categoryByExtension,
     size: formatFileSize(fileSize),
     magicNumberValidated: finalConfig.validateMagicNumbers && extension !== '.txt'
@@ -943,7 +971,7 @@ export async function validateFile(
     valid: true,
     message: 'Arquivo válido.',
     details: {
-      fileName,
+      fileName: sanitizedFileName,
       fileSize,
       fileType: mimeType,
       extension,
