@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 // =====================================================
 // TYPES AND INTERFACES
@@ -212,12 +212,6 @@ export function useFileScanStatus(
   const isScanning = scanResult?.scan_status === 'pending' || scanResult?.scan_status === 'scanning';
 
   // =====================================================
-  // SUPABASE CLIENT
-  // =====================================================
-
-  const supabase = createClient();
-
-  // =====================================================
   // FETCH SCAN STATUS
   // =====================================================
 
@@ -245,7 +239,7 @@ export function useFileScanStatus(
     } catch (err) {
       throw err instanceof Error ? err : new Error('Unknown error occurred');
     }
-  }, [fileHash, supabase]);
+  }, [fileHash]);
 
   // =====================================================
   // REFETCH FUNCTION
