@@ -684,11 +684,16 @@ export default function Cadastro() {
                 </Alert>
               )}
               
-              {step === 2 && scanStatus === 'complete' && scanResult && (
+              {/* 🔐 BUGFIX: Mostra alerta verde quando scan está completo, mesmo sem scanResult */}
+              {step === 2 && scanStatus === 'complete' && (
                 <Alert className="border-green-500 bg-green-50 mb-4">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    ✅ Arquivo verificado: {scanResult.harmless} engines OK, {scanResult.malicious} malicioso, {scanResult.suspicious} suspeito
+                    {scanResult ? (
+                      <>✅ Arquivo verificado: {scanResult.harmless} engines OK, {scanResult.malicious} malicioso, {scanResult.suspicious} suspeito</>
+                    ) : (
+                      <>✅ Arquivo já verificado anteriormente - Nenhuma ameaça detectada</>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
