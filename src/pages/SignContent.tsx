@@ -36,6 +36,13 @@ import { supabase } from '@/lib/supabase';
 // ========================================
 // FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
 // ========================================
+// ========================================
+// 🔒 SEGURANÇA: SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2
+// ========================================
+import { sanitizeFileName } from '@/lib/input-sanitizer';
+// ========================================
+// FIM: SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -213,12 +220,21 @@ export default function SignContent() {
       return;
     }
     
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 1/4)
+    // ========================================
+    const sanitizedFileName = sanitizeFileName(file.name);
+    
     console.log('📁 [FILE UPLOAD] Arquivo selecionado:', {
-      name: file.name,
+      originalName: file.name,
+      sanitizedName: sanitizedFileName,
       size: file.size,
       type: file.type,
       contentType: contentType
     });
+    // ========================================
+    // FIM: SANITIZAÇÃO - PONTO 1/4
+    // ========================================
     
     // =====================================================
     // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
@@ -275,6 +291,10 @@ export default function SignContent() {
       }
       
       console.log('🚀 [VIRUSTOTAL] Iniciando scan via Edge Function...');
+      
+      // ========================================
+      // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 2/4)
+      // ========================================
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-uploaded-file`,
         {
@@ -284,12 +304,15 @@ export default function SignContent() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            file_name: file.name,
+            file_name: sanitizedFileName, // 🔒 USANDO NOME SANITIZADO
             file_size: file.size,
             file_hash: hash,
           }),
         }
       );
+      // ========================================
+      // FIM: SANITIZAÇÃO - PONTO 2/4
+      // ========================================
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -437,16 +460,25 @@ export default function SignContent() {
     
     setIsSigning(true);
     try {
+      // ========================================
+      // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 3/4)
+      // ========================================
+      // Sanitiza o nome do arquivo antes de incluir no conteúdo assinado
+      const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
+      
       // Combine all information into the content to be signed
       const fullContent = `
 Título: ${title}
 Tipo: ${contentTypes.find(t => t.value === contentType)?.label}
 Redes: ${selectedPlatforms.join(', ')}
-${uploadedFile ? `Arquivo: ${uploadedFile.name}` : ''}
+${uploadedFile ? `Arquivo: ${sanitizedFileName}` : ''}
 
 Conteúdo:
 ${content}
       `.trim();
+      // ========================================
+      // FIM: SANITIZAÇÃO - PONTO 3/4
+      // ========================================
       
       console.log('📝 Assinando conteúdo no Supabase...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
@@ -739,7 +771,13 @@ ${content}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{uploadedFile.name}</p>
+                          {/* ========================================
+                              🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 4/4)
+                              ======================================== */}
+                          <p className="font-medium truncate">{sanitizeFileName(uploadedFile.name)}</p>
+                          {/* ========================================
+                              FIM: SANITIZAÇÃO - PONTO 4/4
+                              ======================================== */}
                           <p className="text-sm text-muted-foreground">
                             {formatFileSize(uploadedFile.size)}
                           </p>
