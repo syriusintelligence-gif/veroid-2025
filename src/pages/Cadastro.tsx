@@ -13,7 +13,7 @@ import {
   checkCpfCnpjExists,
   checkEmailExists,
 } from '@/lib/supabase-auth';
-import { supabase } from '@/lib/supabase-client';
+import { supabase } from '@/lib/supabase';
 import { isValidPassword } from '@/lib/password-validator';
 import { sanitizeCadastroData } from '@/lib/input-sanitizer';
 import { 
