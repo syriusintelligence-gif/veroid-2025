@@ -6,6 +6,7 @@
  * - Geração de thumbnail da primeira imagem
  * - Compressão básica de vídeo
  * - Validação de segurança integrada
+ * - 🆕 Sanitização de nomes de arquivos (ETAPA 5)
  * 
  * Tecnologias:
  * - Canvas API (thumbnail)
@@ -13,8 +14,17 @@
  * - Video Element (preview)
  * 
  * @author VeroID Security Team
- * @version 1.0.0
+ * @version 1.1.0
+ * @updated 2026-01-15 - Added filename sanitization (ETAPA 5)
  */
+
+// ========================================
+// 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 5
+// ========================================
+import { sanitizeFileName } from './input-sanitizer';
+// ========================================
+// FIM: SANITIZAÇÃO - IMPORT
+// ========================================
 
 // =====================================================
 // TYPES & INTERFACES
@@ -171,11 +181,20 @@ export async function generateThumbnail(
 ): Promise<string> {
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
   
+  // ========================================
+  // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 5 (PONTO 1/3)
+  // ========================================
+  const sanitizedFileName = sanitizeFileName(videoFile.name);
+  
   console.log('🎬 [VIDEO PROCESSOR] Gerando thumbnail do vídeo:', {
-    fileName: videoFile.name,
+    originalFileName: videoFile.name,
+    sanitizedFileName,
     fileSize: `${(videoFile.size / 1024 / 1024).toFixed(2)} MB`,
     options: opts
   });
+  // ========================================
+  // FIM: SANITIZAÇÃO - PONTO 1/3
+  // ========================================
   
   try {
     // Carrega o vídeo
@@ -253,11 +272,20 @@ export async function compressVideo(
 ): Promise<File> {
   const opts = { ...DEFAULT_COMPRESSION_OPTIONS, ...options };
   
+  // ========================================
+  // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 5 (PONTO 2/3)
+  // ========================================
+  const sanitizedFileName = sanitizeFileName(videoFile.name);
+  
   console.log('🗜️ [VIDEO PROCESSOR] Iniciando compressão de vídeo:', {
-    fileName: videoFile.name,
+    originalFileName: videoFile.name,
+    sanitizedFileName,
     originalSize: `${(videoFile.size / 1024 / 1024).toFixed(2)} MB`,
     options: opts
   });
+  // ========================================
+  // FIM: SANITIZAÇÃO - PONTO 2/3
+  // ========================================
   
   try {
     // Verifica suporte do navegador
@@ -334,20 +362,28 @@ export async function compressVideo(
       mediaRecorder.onstop = () => resolve();
     });
     
-    // Cria arquivo comprimido
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 5 (PONTO 3/3)
+    // Sanitiza o nome do arquivo comprimido antes de criar o File
+    // ========================================
     const compressedBlob = new Blob(chunks, { type: opts.mimeType });
+    const compressedFileName = sanitizedFileName.replace(/\.[^.]+$/, '_compressed.webm');
     const compressedFile = new File(
       [compressedBlob],
-      videoFile.name.replace(/\.[^.]+$/, '_compressed.webm'),
+      compressedFileName,
       { type: opts.mimeType }
     );
+    // ========================================
+    // FIM: SANITIZAÇÃO - PONTO 3/3
+    // ========================================
     
     const compressionRatio = ((1 - compressedFile.size / videoFile.size) * 100).toFixed(2);
     
     console.log('✅ [VIDEO PROCESSOR] Vídeo comprimido com sucesso:', {
       originalSize: `${(videoFile.size / 1024 / 1024).toFixed(2)} MB`,
       compressedSize: `${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`,
-      compressionRatio: `${compressionRatio}%`
+      compressionRatio: `${compressionRatio}%`,
+      compressedFileName
     });
     
     return compressedFile;
