@@ -15,7 +15,7 @@ import {
 } from '@/lib/supabase-auth';
 import { supabase } from '@/lib/supabase';
 import { isValidPassword } from '@/lib/password-validator';
-import { sanitizeCadastroData } from '@/lib/input-sanitizer';
+import { sanitizeCadastroData, sanitizeFileName } from '@/lib/input-sanitizer';
 import { 
   validateEmailStrict, 
   validatePhoneBR, 
@@ -178,11 +178,20 @@ export default function Cadastro() {
       return;
     }
     
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 3 (PONTO 1/3)
+    // ========================================
+    const sanitizedFileName = sanitizeFileName(file.name);
+    
     console.log('📁 [DOCUMENTO UPLOAD] Arquivo selecionado:', {
-      name: file.name,
+      originalName: file.name,
+      sanitizedName: sanitizedFileName,
       size: file.size,
       type: file.type
     });
+    // ========================================
+    // FIM: SANITIZAÇÃO - PONTO 1/3
+    // ========================================
     
     // =====================================================
     // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
@@ -227,13 +236,19 @@ export default function Cadastro() {
         console.warn('⚠️ [VIRUSTOTAL] Usuário não autenticado, pulando scan');
         setScanStatus('idle');
       } else {
+        // ========================================
+        // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 3 (PONTO 2/3)
+        // ========================================
         // Chama Edge Function para scan
         const { data: scanData, error: scanError } = await supabase.functions.invoke('scan-uploaded-file', {
           body: { 
             fileHash: hash,
-            fileName: file.name 
+            fileName: sanitizedFileName // 🔒 USANDO NOME SANITIZADO
           }
         });
+        // ========================================
+        // FIM: SANITIZAÇÃO - PONTO 2/3
+        // ========================================
         
         if (scanError) {
           console.error('❌ [VIRUSTOTAL] Erro no scan:', scanError);
@@ -813,9 +828,15 @@ export default function Cadastro() {
                               <FileText className="h-16 w-16 text-blue-600" />
                               <div className="text-left">
                                 <p className="font-medium">Documento PDF</p>
+                                {/* ========================================
+                                    🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 3 (PONTO 3/3)
+                                    ======================================== */}
                                 <p className="text-sm text-muted-foreground">
-                                  {documentoFile?.name}
+                                  {documentoFile ? sanitizeFileName(documentoFile.name) : 'documento.pdf'}
                                 </p>
+                                {/* ========================================
+                                    FIM: SANITIZAÇÃO - PONTO 3/3
+                                    ======================================== */}
                                 <p className="text-xs text-muted-foreground mt-1">
                                   {((documentoFile?.size || 0) / 1024 / 1024).toFixed(2)} MB
                                 </p>
