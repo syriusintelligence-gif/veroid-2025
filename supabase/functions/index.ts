@@ -15,9 +15,9 @@
  * - CORS support
  * 
  * @author Alex (Engineer)
- * @version 1.2.0
+ * @version 1.3.0
  * @created 2025-01-15
- * @updated 2026-01-15 - Fixed JSON body parsing (was expecting FormData)
+ * @updated 2026-01-15 - Fixed "File already scanned" infinite loading bug
  * =====================================================
  */
 
@@ -259,6 +259,41 @@ async function saveScanResult(
   console.log('✅ [DATABASE] Scan result saved successfully');
 }
 
+/**
+ * 🆕 Update existing scan result in database
+ */
+async function updateScanResult(
+  supabase: any,
+  scanId: string,
+  scanResult: any
+): Promise<void> {
+  console.log('🔄 [DATABASE] Updating scan result...');
+
+  const { error } = await supabase
+    .from('file_scans')
+    .update({
+      scan_status: scanResult.status,
+      threat_name: scanResult.threatName,
+      threat_category: scanResult.threatCategory,
+      threat_severity: scanResult.threatSeverity,
+      virustotal_scan_id: scanResult.scanId,
+      virustotal_permalink: scanResult.permalink,
+      engines_detected: scanResult.enginesDetected,
+      engines_total: scanResult.enginesTotal,
+      virustotal_response: scanResult.rawResponse,
+      scan_completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', scanId);
+
+  if (error) {
+    console.error('❌ [DATABASE] Error updating scan result:', error);
+    throw new Error('Failed to update scan result in database');
+  }
+
+  console.log('✅ [DATABASE] Scan result updated successfully');
+}
+
 // =====================================================
 // MAIN HANDLER
 // =====================================================
@@ -304,7 +339,7 @@ serve(async (req) => {
 
     console.log('✅ [AUTH] User authenticated:', user.id);
 
-    // 🆕 CORREÇÃO: Parse JSON body ao invés de FormData
+    // Parse JSON body
     const body: ScanRequest = await req.json();
     const { file_name, file_size, file_hash } = body;
 
@@ -329,10 +364,67 @@ serve(async (req) => {
     console.log('📁 [FILE] Processing:', file_name, `(${file_size} bytes)`);
     console.log('🔐 [HASH] SHA256:', file_hash);
 
-    // Check if already scanned
+    // =====================================================
+    // 🆕 BUGFIX: Check if already scanned AND verify status
+    // =====================================================
     const existingScan = await checkExistingScan(supabase, file_hash, user.id);
+    
     if (existingScan) {
       console.log('✅ [CACHE] Found existing scan result');
+      
+      // 🆕 If status is 'pending' or 'scanning', check VirusTotal for updates
+      if (existingScan.scan_status === 'pending' || existingScan.scan_status === 'scanning') {
+        console.log('🔄 [UPDATE] Existing scan is incomplete, checking VirusTotal for updates...');
+        
+        const existingReport = await getFileReport(file_hash);
+        
+        if (existingReport) {
+          // Update with completed scan results
+          const stats = existingReport.data.attributes.last_analysis_stats;
+          const results = existingReport.data.attributes.last_analysis_results;
+          const maliciousCount = stats.malicious + stats.suspicious;
+          const totalEngines = Object.keys(results).length;
+          const isInfected = maliciousCount > 0;
+
+          const updatedScanResult = {
+            scanId: existingReport.data.id,
+            status: isInfected ? 'infected' : 'clean',
+            threatName: isInfected ? extractThreatName(results) : undefined,
+            threatCategory: isInfected ? 'malware' : undefined,
+            threatSeverity: isInfected
+              ? determineThreatSeverity(maliciousCount, totalEngines)
+              : undefined,
+            enginesDetected: maliciousCount,
+            enginesTotal: totalEngines,
+            permalink: existingReport.data.links.self,
+            rawResponse: existingReport,
+          };
+
+          // Update database
+          await updateScanResult(supabase, existingScan.id, updatedScanResult);
+
+          console.log('✅ [UPDATE] Scan result updated to:', updatedScanResult.status);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: 'Scan completed',
+              data: {
+                scanId: updatedScanResult.scanId,
+                status: updatedScanResult.status,
+                threatName: updatedScanResult.threatName,
+                threatSeverity: updatedScanResult.threatSeverity,
+                enginesDetected: updatedScanResult.enginesDetected,
+                enginesTotal: updatedScanResult.enginesTotal,
+                permalink: updatedScanResult.permalink,
+              },
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      // Return existing scan result (already completed)
       return new Response(
         JSON.stringify({
           success: true,
