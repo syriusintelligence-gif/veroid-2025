@@ -15,9 +15,9 @@
  * - CORS support
  * 
  * @author Alex (Engineer)
- * @version 1.1.0
+ * @version 1.2.0
  * @created 2025-01-15
- * @updated 2026-01-15 - Fixed column names to match database schema
+ * @updated 2026-01-15 - Fixed JSON body parsing (was expecting FormData)
  * =====================================================
  */
 
@@ -29,9 +29,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 // =====================================================
 
 interface ScanRequest {
-  file: File;
-  filePath: string;
-  fileName: string;
+  file_name: string;
+  file_size: number;
+  file_hash: string;
 }
 
 interface ScanResponse {
@@ -108,8 +108,6 @@ interface VirusTotalFileReportResponse {
 const VIRUSTOTAL_API_KEY = Deno.env.get('VIRUSTOTAL_API_KEY');
 const VIRUSTOTAL_BASE_URL = 'https://www.virustotal.com/api/v3';
 const MAX_FILE_SIZE = 32 * 1024 * 1024; // 32MB (VirusTotal free tier limit)
-const POLL_INTERVAL = 2000; // 2 seconds
-const MAX_POLL_ATTEMPTS = 30; // 60 seconds total
 
 // =====================================================
 // CORS HEADERS
@@ -124,16 +122,6 @@ const corsHeaders = {
 // =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
-
-/**
- * Calculate SHA256 hash of file
- */
-async function calculateSHA256(file: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', file);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
-}
 
 /**
  * Determine threat severity based on detection rate
@@ -166,13 +154,6 @@ function extractThreatName(results: Record<string, any>): string | undefined {
   if (Object.keys(threatNames).length === 0) return undefined;
 
   return Object.entries(threatNames).sort((a, b) => b[1] - a[1])[0][0];
-}
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // =====================================================
@@ -210,75 +191,6 @@ async function getFileReport(sha256: string): Promise<VirusTotalFileReportRespon
   }
 }
 
-/**
- * Upload file to VirusTotal for scanning
- */
-async function uploadFile(fileData: Uint8Array, fileName: string): Promise<string> {
-  console.log('📤 [VIRUSTOTAL] Uploading file:', fileName);
-
-  const formData = new FormData();
-  const blob = new Blob([fileData]);
-  formData.append('file', blob, fileName);
-
-  const response = await fetch(`${VIRUSTOTAL_BASE_URL}/files`, {
-    method: 'POST',
-    headers: {
-      'x-apikey': VIRUSTOTAL_API_KEY!,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`VirusTotal upload failed: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  console.log('✅ [VIRUSTOTAL] File uploaded, analysis ID:', data.data.id);
-  return data.data.id;
-}
-
-/**
- * Get analysis result by ID
- */
-async function getAnalysis(analysisId: string): Promise<VirusTotalAnalysisResponse> {
-  const response = await fetch(`${VIRUSTOTAL_BASE_URL}/analyses/${analysisId}`, {
-    headers: {
-      'x-apikey': VIRUSTOTAL_API_KEY!,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`VirusTotal analysis fetch failed: ${response.statusText}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Poll for analysis result until completed
- */
-async function pollAnalysisResult(analysisId: string): Promise<VirusTotalAnalysisResponse> {
-  console.log('⏳ [VIRUSTOTAL] Polling for analysis result...');
-
-  for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
-    const analysis = await getAnalysis(analysisId);
-    const status = analysis.data.attributes.status;
-
-    console.log(`🔄 [VIRUSTOTAL] Status: ${status} (${attempt}/${MAX_POLL_ATTEMPTS})`);
-
-    if (status === 'completed') {
-      console.log('✅ [VIRUSTOTAL] Analysis completed');
-      return analysis;
-    }
-
-    if (attempt < MAX_POLL_ATTEMPTS) {
-      await sleep(POLL_INTERVAL);
-    }
-  }
-
-  throw new Error('Analysis timeout - took too long to complete');
-}
-
 // =====================================================
 // DATABASE FUNCTIONS
 // =====================================================
@@ -312,22 +224,20 @@ async function checkExistingScan(
 async function saveScanResult(
   supabase: any,
   userId: string,
-  filePath: string,
   fileName: string,
   fileSize: number,
   sha256: string,
-  mimeType: string,
   scanResult: any
 ): Promise<void> {
   console.log('💾 [DATABASE] Saving scan result...');
 
   const { error } = await supabase.from('file_scans').insert({
     user_id: userId,
-    file_path: filePath,
+    file_path: '',
     file_name: fileName,
     file_size: fileSize,
     file_hash_sha256: sha256,
-    file_mime_type: mimeType,
+    file_mime_type: null,
     scan_status: scanResult.status,
     threat_name: scanResult.threatName,
     threat_category: scanResult.threatCategory,
@@ -394,21 +304,19 @@ serve(async (req) => {
 
     console.log('✅ [AUTH] User authenticated:', user.id);
 
-    // Parse form data
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const filePath = formData.get('filePath') as string;
-    const fileName = formData.get('fileName') as string;
+    // 🆕 CORREÇÃO: Parse JSON body ao invés de FormData
+    const body: ScanRequest = await req.json();
+    const { file_name, file_size, file_hash } = body;
 
-    if (!file) {
+    if (!file_name || !file_size || !file_hash) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No file provided' }),
+        JSON.stringify({ success: false, error: 'Missing required fields: file_name, file_size, file_hash' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
+    if (file_size > MAX_FILE_SIZE) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -418,17 +326,11 @@ serve(async (req) => {
       );
     }
 
-    console.log('📁 [FILE] Processing:', fileName, `(${file.size} bytes)`);
-
-    // Read file data
-    const fileData = new Uint8Array(await file.arrayBuffer());
-
-    // Calculate SHA256 hash
-    const sha256 = await calculateSHA256(fileData);
-    console.log('🔐 [HASH] SHA256:', sha256);
+    console.log('📁 [FILE] Processing:', file_name, `(${file_size} bytes)`);
+    console.log('🔐 [HASH] SHA256:', file_hash);
 
     // Check if already scanned
-    const existingScan = await checkExistingScan(supabase, sha256, user.id);
+    const existingScan = await checkExistingScan(supabase, file_hash, user.id);
     if (existingScan) {
       console.log('✅ [CACHE] Found existing scan result');
       return new Response(
@@ -449,8 +351,8 @@ serve(async (req) => {
       );
     }
 
-    // Check VirusTotal database first
-    const existingReport = await getFileReport(sha256);
+    // Check VirusTotal database
+    const existingReport = await getFileReport(file_hash);
     let scanResult: any;
 
     if (existingReport) {
@@ -475,28 +377,17 @@ serve(async (req) => {
         rawResponse: existingReport,
       };
     } else {
-      // Upload and scan
-      const analysisId = await uploadFile(fileData, fileName || 'file');
-      const analysis = await pollAnalysisResult(analysisId);
-
-      const stats = analysis.data.attributes.stats;
-      const results = analysis.data.attributes.results || {};
-      const maliciousCount = stats.malicious + stats.suspicious;
-      const totalEngines = Object.keys(results).length;
-      const isInfected = maliciousCount > 0;
-
+      // File not in VirusTotal database - mark as pending
       scanResult = {
-        scanId: analysis.data.id,
-        status: isInfected ? 'infected' : 'clean',
-        threatName: isInfected ? extractThreatName(results) : undefined,
-        threatCategory: isInfected ? 'malware' : undefined,
-        threatSeverity: isInfected
-          ? determineThreatSeverity(maliciousCount, totalEngines)
-          : undefined,
-        enginesDetected: maliciousCount,
-        enginesTotal: totalEngines,
-        permalink: analysis.data.links.self,
-        rawResponse: analysis,
+        scanId: file_hash,
+        status: 'pending',
+        threatName: undefined,
+        threatCategory: undefined,
+        threatSeverity: undefined,
+        enginesDetected: 0,
+        enginesTotal: 0,
+        permalink: `https://www.virustotal.com/gui/file/${file_hash}`,
+        rawResponse: null,
       };
     }
 
@@ -504,11 +395,9 @@ serve(async (req) => {
     await saveScanResult(
       supabase,
       user.id,
-      filePath || '',
-      fileName || file.name,
-      file.size,
-      sha256,
-      file.type,
+      file_name,
+      file_size,
+      file_hash,
       scanResult
     );
 

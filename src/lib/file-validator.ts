@@ -14,8 +14,9 @@
  * - Mensagens de erro específicas para debugging
  * 
  * @author VeroID Security Team
- * @version 2.0.0
- * @date 2024-01-14
+ * @version 2.1.0
+ * @date 2024-01-15
+ * @updated 2026-01-15 - Relaxed .txt validation (user feedback)
  */
 
 // =====================================================
@@ -471,14 +472,12 @@ const MAGIC_NUMBERS: Record<string, number[][]> = {
   ],
   
   // =====================================================
-  // TEXTO
+  // TEXTO - DESABILITADO (Opção C)
   // =====================================================
   
-  // TXT - Plain Text (UTF-8 BOM)
-  '.txt': [
-    [0xEF, 0xBB, 0xBF], // EF BB BF - UTF-8 BOM
-    // Nota: arquivos .txt sem BOM não têm Magic Number único
-  ],
+  // TXT - Plain Text (SEM validação de Magic Numbers)
+  // Arquivos .txt não têm assinatura única e podem ter diversos encodings
+  // '.txt': [] - REMOVIDO
   
   // JSON - JavaScript Object Notation
   '.json': [
@@ -689,7 +688,7 @@ function checkMagicNumber(bytes: number[], extension: string): boolean {
  * 4. ✅ Verifica se extensão NÃO está na lista negra
  * 5. ✅ Verifica se MIME type corresponde à extensão (modo strict)
  * 6. ✅ Verifica se categoria é permitida
- * 7. 🆕 Verifica Magic Numbers (assinatura de arquivo)
+ * 7. 🆕 Verifica Magic Numbers (assinatura de arquivo) - EXCETO .txt
  * 
  * @param file - Objeto File do navegador
  * @param config - Configuração de validação (opcional)
@@ -881,8 +880,9 @@ export async function validateFile(
   
   // =====================================================
   // 🆕 VALIDAÇÃO 8: Magic Numbers (assinatura de arquivo)
+  // EXCETO .txt (Opção C - Orientar usuário)
   // =====================================================
-  if (finalConfig.strictMode && finalConfig.validateMagicNumbers) {
+  if (finalConfig.strictMode && finalConfig.validateMagicNumbers && extension !== '.txt') {
     try {
       console.log('🔍 [MAGIC NUMBER] Iniciando validação de assinatura...');
       
@@ -922,13 +922,21 @@ export async function validateFile(
   }
   
   // =====================================================
+  // 🆕 ORIENTAÇÃO ESPECIAL PARA ARQUIVOS .TXT
+  // =====================================================
+  if (extension === '.txt') {
+    console.log('ℹ️ [FILE VALIDATOR] Arquivo .txt detectado - validação de Magic Numbers desabilitada');
+    console.log('💡 [DICA] Para criar arquivos .txt puros, use Notepad (Windows) ou TextEdit (Mac) ao invés do Microsoft Word');
+  }
+  
+  // =====================================================
   // ✅ ARQUIVO VÁLIDO
   // =====================================================
   console.log('✅ [FILE VALIDATOR] Arquivo validado com sucesso:', {
     fileName,
     category: categoryByExtension,
     size: formatFileSize(fileSize),
-    magicNumberValidated: finalConfig.validateMagicNumbers
+    magicNumberValidated: finalConfig.validateMagicNumbers && extension !== '.txt'
   });
   
   return {
