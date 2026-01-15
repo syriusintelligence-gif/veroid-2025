@@ -13,6 +13,7 @@ import {
   checkCpfCnpjExists,
   checkEmailExists,
 } from '@/lib/supabase-auth';
+import { supabase } from '@/lib/supabase-client';
 import { isValidPassword } from '@/lib/password-validator';
 import { sanitizeCadastroData } from '@/lib/input-sanitizer';
 import { 
@@ -38,6 +39,24 @@ async function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+/**
+ * 🔐 SEGURANÇA: Calcula hash SHA256 de um arquivo
+ * Usado para identificação única e verificação de integridade
+ * Integração com VirusTotal para scan de malware
+ * 
+ * @param file - Arquivo a ser processado
+ * @returns Promise com hash SHA256 em formato hexadecimal (64 caracteres)
+ * 
+ * @example
+ * const hash = await calculateSHA256(file);
+ * console.log(hash); // "e7705526e3332c5ddda4257b55acb19d1f2ea28672488b51a09c78ca46d71e5c"
+ */
+async function calculateSHA256(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
@@ -89,7 +108,18 @@ export default function Cadastro() {
   const [documentoType, setDocumentoType] = useState<'image' | 'pdf'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
   
-  // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
+  // 🔐 SEGURANÇA: Estados para controle de scan VirusTotal
+  const [documentoHash, setDocumentoHash] = useState<string>('');
+  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'complete' | 'error'>('idle');
+  const [scanResult, setScanResult] = useState<{
+    malicious: number;
+    suspicious: number;
+    undetected: number;
+    harmless: number;
+    timeout: number;
+  } | null>(null);
+  
+  // Validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
   
   // Webcam
@@ -130,6 +160,7 @@ export default function Cadastro() {
   /**
    * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
    * 🆕 ETAPA 4: Função agora é ASSÍNCRONA e usa await validateFile()
+   * 🔐 ITEM 3: Integração com VirusTotal para scan de malware
    */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,6 +170,9 @@ export default function Cadastro() {
     setError('');
     setDocumentoFile(null);
     setDocumentoUrl('');
+    setDocumentoHash('');
+    setScanStatus('idle');
+    setScanResult(null);
     
     if (!file) {
       return;
@@ -154,12 +188,11 @@ export default function Cadastro() {
     // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
     // =====================================================
     
-    // 🆕 ETAPA 4: Adiciona await para validação assíncrona
     const validationResult = await validateFile(file, {
       maxSizeBytes: 10 * 1024 * 1024, // 10MB
       allowedCategories: ['image', 'document'], // Apenas imagens e PDFs
       strictMode: true, // Ativa validação de MIME type
-      validateMagicNumbers: true // 🆕 Ativa validação de Magic Numbers
+      validateMagicNumbers: true // Ativa validação de Magic Numbers
     });
     
     if (!validationResult.valid) {
@@ -174,7 +207,60 @@ export default function Cadastro() {
     
     console.log('✅ [DOCUMENTO UPLOAD] Arquivo validado com sucesso:', validationResult.details);
     
+    // =====================================================
+    // 🔐 SEGURANÇA: Scan VirusTotal (Item 3)
+    // =====================================================
+    
+    try {
+      // Calcula hash SHA256 do arquivo
+      console.log('🔐 [VIRUSTOTAL] Calculando hash SHA256...');
+      const hash = await calculateSHA256(file);
+      setDocumentoHash(hash);
+      console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
+      
+      // Inicia scan VirusTotal
+      setScanStatus('scanning');
+      console.log('🔍 [VIRUSTOTAL] Iniciando scan...');
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn('⚠️ [VIRUSTOTAL] Usuário não autenticado, pulando scan');
+        setScanStatus('idle');
+      } else {
+        // Chama Edge Function para scan
+        const { data: scanData, error: scanError } = await supabase.functions.invoke('scan-uploaded-file', {
+          body: { 
+            fileHash: hash,
+            fileName: file.name 
+          }
+        });
+        
+        if (scanError) {
+          console.error('❌ [VIRUSTOTAL] Erro no scan:', scanError);
+          setScanStatus('error');
+        } else if (scanData) {
+          console.log('✅ [VIRUSTOTAL] Scan concluído:', scanData);
+          setScanStatus('complete');
+          setScanResult(scanData.stats || null);
+          
+          // Verifica se há ameaças detectadas
+          if (scanData.stats && (scanData.stats.malicious > 0 || scanData.stats.suspicious > 0)) {
+            setFileValidationError(`⚠️ Arquivo potencialmente perigoso detectado! Malicioso: ${scanData.stats.malicious}, Suspeito: ${scanData.stats.suspicious}`);
+            setError('Arquivo rejeitado por motivos de segurança.');
+            e.target.value = '';
+            return;
+          }
+        }
+      }
+    } catch (scanErr) {
+      console.error('❌ [VIRUSTOTAL] Erro ao processar scan:', scanErr);
+      setScanStatus('error');
+    }
+    
+    // =====================================================
     // Arquivo válido, prosseguir com upload
+    // =====================================================
+    
     setDocumentoFile(file);
     
     // Determina o tipo do arquivo
@@ -573,6 +659,25 @@ export default function Cadastro() {
                 </Alert>
               )}
               
+              {/* 🔐 SEGURANÇA: Status do scan VirusTotal - apenas no step 2 */}
+              {step === 2 && scanStatus === 'scanning' && (
+                <Alert className="border-blue-500 bg-blue-50 mb-4">
+                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  <AlertDescription className="text-blue-800">
+                    🔍 Verificando arquivo com VirusTotal...
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {step === 2 && scanStatus === 'complete' && scanResult && (
+                <Alert className="border-green-500 bg-green-50 mb-4">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    ✅ Arquivo verificado: {scanResult.harmless} engines OK, {scanResult.malicious} malicioso, {scanResult.suspicious} suspeito
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {error && !isBlocked && !fileValidationError && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertDescription>{error}</AlertDescription>
@@ -689,7 +794,7 @@ export default function Cadastro() {
                             🔒 Formatos aceitos: {getExtensionDescription('image')}, PDF
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Validação de segurança ativa
+                            Validação de segurança + VirusTotal ativa
                           </p>
                           <Input
                             id="documento"
@@ -717,6 +822,11 @@ export default function Cadastro() {
                                 <p className="text-xs text-green-600 mt-1">
                                   ✓ Arquivo validado com sucesso
                                 </p>
+                                {documentoHash && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    SHA256: {documentoHash.substring(0, 16)}...
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -731,6 +841,11 @@ export default function Cadastro() {
                               <Image className="h-3 w-3" />
                               Imagem Validada
                             </div>
+                            {documentoHash && (
+                              <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                                SHA256: {documentoHash.substring(0, 12)}...
+                              </div>
+                            )}
                           </div>
                         )}
                         <Button
@@ -741,6 +856,9 @@ export default function Cadastro() {
                             setDocumentoUrl('');
                             setDocumentoFile(null);
                             setFileValidationError('');
+                            setDocumentoHash('');
+                            setScanStatus('idle');
+                            setScanResult(null);
                           }}
                         >
                           Trocar Documento
