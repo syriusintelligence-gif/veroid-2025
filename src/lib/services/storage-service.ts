@@ -18,8 +18,11 @@
  * - temp-uploads: Arquivos temporários (max 10MB, deletados após 24h)
  * - signed-documents: Documentos assinados (max 50MB, permanentes)
  * 
+ * NOTA: A operação MOVE foi substituída por COPY + DELETE devido a
+ * limitações do Supabase Storage com políticas RLS entre buckets.
+ * 
  * @author VeroID Security Team
- * @version 1.0.0
+ * @version 1.1.0
  * @date 2026-01-20
  */
 
@@ -398,6 +401,9 @@ export async function uploadToTempBucket(
 /**
  * Move arquivo do bucket temporário para bucket permanente
  * 
+ * IMPORTANTE: Esta função usa COPY + DELETE em vez de MOVE nativo
+ * devido a limitações do Supabase Storage com políticas RLS entre buckets.
+ * 
  * @param tempPath - Path do arquivo no bucket temporário
  * @param userId - ID do usuário (para validação)
  * @param options - Opções de movimentação
@@ -422,7 +428,7 @@ export async function moveToSignedDocuments(
   const maxRetries = options.maxRetries ?? CONFIG.MAX_RETRIES;
   const retryDelay = options.retryDelay ?? CONFIG.RETRY_DELAY;
   
-  console.log('🔄 [Storage] Iniciando movimentação para bucket permanente:', {
+  console.log('🔄 [Storage] Iniciando movimentação para bucket permanente (COPY + DELETE):', {
     tempPath,
     userId,
     fromBucket: CONFIG.TEMP_BUCKET,
@@ -487,7 +493,7 @@ export async function moveToSignedDocuments(
   }
   
   // =====================================================
-  // MOVIMENTAÇÃO COM RETRY
+  // MOVIMENTAÇÃO COM RETRY (COPY + DELETE)
   // =====================================================
   
   let lastError: Error | null = null;
@@ -496,19 +502,59 @@ export async function moveToSignedDocuments(
     try {
       console.log(`🔄 [Storage] Tentativa ${attempt}/${maxRetries}...`);
       
-      // Mover arquivo entre buckets
-      const { data, error } = await supabase.storage
+      // PASSO 1: Download do arquivo temporário
+      console.log('📥 [Storage] Baixando arquivo do bucket temporário...');
+      const { data: downloadData, error: downloadError } = await supabase.storage
         .from(CONFIG.TEMP_BUCKET)
-        .move(tempPath, `${CONFIG.SIGNED_BUCKET}/${signedPath}`);
+        .download(tempPath);
       
-      if (error) {
-        throw error;
+      if (downloadError) {
+        throw new Error(`Erro ao baixar arquivo: ${downloadError.message}`);
+      }
+      
+      if (!downloadData) {
+        throw new Error('Arquivo não encontrado no bucket temporário');
+      }
+      
+      console.log('✅ [Storage] Arquivo baixado com sucesso:', {
+        size: formatFileSize(downloadData.size)
+      });
+      
+      // PASSO 2: Upload para bucket permanente
+      console.log('📤 [Storage] Enviando arquivo para bucket permanente...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(CONFIG.SIGNED_BUCKET)
+        .upload(signedPath, downloadData, {
+          cacheControl: CONFIG.CACHE_CONTROL,
+          contentType: downloadData.type,
+          upsert: false
+        });
+      
+      if (uploadError) {
+        throw new Error(`Erro ao fazer upload: ${uploadError.message}`);
+      }
+      
+      console.log('✅ [Storage] Arquivo enviado para bucket permanente:', {
+        path: uploadData.path
+      });
+      
+      // PASSO 3: Deletar arquivo temporário
+      console.log('🗑️ [Storage] Deletando arquivo temporário...');
+      const { error: deleteError } = await supabase.storage
+        .from(CONFIG.TEMP_BUCKET)
+        .remove([tempPath]);
+      
+      if (deleteError) {
+        console.warn('⚠️ [Storage] Erro ao deletar arquivo temporário (não crítico):', deleteError);
+        // Não falha a operação se a deleção falhar
+      } else {
+        console.log('✅ [Storage] Arquivo temporário deletado');
       }
       
       // Sucesso!
       const executionTime = Date.now() - startTime;
       
-      console.log('✅ [Storage] Movimentação concluída com sucesso:', {
+      console.log('✅ [Storage] Movimentação concluída com sucesso (COPY + DELETE):', {
         from: tempPath,
         to: signedPath,
         executionTime: `${executionTime}ms`,
