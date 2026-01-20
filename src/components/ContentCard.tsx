@@ -7,6 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
 import { useState, useRef, useEffect } from 'react';
 import ShareButtons from '@/components/ShareButtons';
+import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4
 
 interface ContentCardProps {
   content: SignedContent;
@@ -259,6 +260,29 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
                 </Badge>
               ))}
             </div>
+          </div>
+        )}
+        
+        {/* 🆕 FASE 4: Seção de Download de Documento Original */}
+        {content.filePath && content.fileName && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
+            <p className="text-sm font-semibold text-green-900 mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Documento Original Anexado
+            </p>
+            <DownloadButton
+              filePath={content.filePath}
+              fileName={content.fileName}
+              mimeType={content.mimeType}
+              fileSize={content.fileSize}
+              bucket={content.storageBucket || 'signed-documents'}
+              variant="default"
+              size="default"
+              showFileInfo={true}
+            />
+            <p className="text-xs text-green-700 mt-3">
+              ✅ Este documento foi verificado e armazenado de forma segura
+            </p>
           </div>
         )}
         
