@@ -5,8 +5,8 @@
  * à Edge Function, mantendo 100% de compatibilidade com o código existente.
  * 
  * @module SupabaseCryptoEnhanced
- * @version 1.0.2
- * @phase FASE 3 - Integração Frontend
+ * @version 1.1.0
+ * @phase FASE 3 - Integração Frontend (Storage Metadata)
  */
 
 import { supabase } from '../supabase';
@@ -39,6 +39,29 @@ type SignedContentRow = Database['public']['Tables']['signed_contents']['Row'];
 type SignedContentInsert = Database['public']['Tables']['signed_contents']['Insert'];
 
 /**
+ * 🆕 Interface para metadados de arquivo
+ * 
+ * Representa informações sobre o arquivo original anexado ao conteúdo assinado.
+ * Todos os campos são obrigatórios quando um arquivo é anexado.
+ */
+export interface FileMetadata {
+  /** Path completo do arquivo no Storage (ex: "user_id/signed_timestamp_file.pdf") */
+  file_path: string;
+  
+  /** Nome original do arquivo (ex: "documento.pdf") */
+  file_name: string;
+  
+  /** Tamanho do arquivo em bytes (ex: 1234567) */
+  file_size: number;
+  
+  /** MIME type do arquivo (ex: "application/pdf") */
+  mime_type: string;
+  
+  /** Nome do bucket onde o arquivo está armazenado (ex: "signed-documents") */
+  storage_bucket: string;
+}
+
+/**
  * Interface para resultado de assinatura
  */
 interface SignContentResult {
@@ -68,6 +91,11 @@ interface SignContentResult {
  *    - Retorna o mesmo formato de dados
  *    - Zero breaking changes
  * 
+ * 4. **🆕 Suporte a Arquivos (FASE 3):**
+ *    - Aceita metadados de arquivo opcional
+ *    - Salva informações do arquivo no banco
+ *    - Mantém compatibilidade retroativa (fileMetadata é opcional)
+ * 
  * @param content - Conteúdo a ser assinado
  * @param privateKey - Chave privada (usada apenas no fallback)
  * @param publicKey - Chave pública
@@ -75,6 +103,7 @@ interface SignContentResult {
  * @param userId - ID do usuário
  * @param thumbnail - Thumbnail opcional
  * @param platforms - Plataformas sociais
+ * @param fileMetadata - 🆕 Metadados do arquivo anexado (opcional)
  * @returns Resultado da assinatura
  */
 export async function signContentEnhanced(
@@ -84,7 +113,8 @@ export async function signContentEnhanced(
   creatorName: string,
   userId: string,
   thumbnail?: string,
-  platforms?: string[]
+  platforms?: string[],
+  fileMetadata?: FileMetadata // 🆕 Novo parâmetro opcional
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -98,7 +128,71 @@ export async function signContentEnhanced(
       contentLength: content.length,
       hasThumbnail: !!thumbnail,
       platforms: platforms?.join(', '),
+      hasFile: !!fileMetadata, // 🆕 Log de arquivo
     });
+  }
+
+  // 🆕 Validar metadados de arquivo se fornecidos
+  if (fileMetadata) {
+    console.log('📦 [STORAGE] Metadados de arquivo:', {
+      file_path: fileMetadata.file_path,
+      file_name: fileMetadata.file_name,
+      file_size: fileMetadata.file_size,
+      mime_type: fileMetadata.mime_type,
+      storage_bucket: fileMetadata.storage_bucket,
+    });
+
+    // Validações básicas
+    if (!fileMetadata.file_path || fileMetadata.file_path.trim() === '') {
+      console.error('❌ [STORAGE] file_path está vazio');
+      return {
+        success: false,
+        error: 'file_path é obrigatório quando fileMetadata é fornecido',
+        method: 'client_side',
+      };
+    }
+
+    if (!fileMetadata.file_name || fileMetadata.file_name.trim() === '') {
+      console.error('❌ [STORAGE] file_name está vazio');
+      return {
+        success: false,
+        error: 'file_name é obrigatório quando fileMetadata é fornecido',
+        method: 'client_side',
+      };
+    }
+
+    if (fileMetadata.file_size <= 0) {
+      console.error('❌ [STORAGE] file_size inválido:', fileMetadata.file_size);
+      return {
+        success: false,
+        error: 'file_size deve ser maior que zero',
+        method: 'client_side',
+      };
+    }
+
+    // Validar estrutura do path: deve ser "user_id/filename"
+    const pathParts = fileMetadata.file_path.split('/');
+    if (pathParts.length !== 2) {
+      console.error('❌ [STORAGE] Estrutura de path inválida:', fileMetadata.file_path);
+      return {
+        success: false,
+        error: 'file_path deve ter formato: user_id/filename',
+        method: 'client_side',
+      };
+    }
+
+    // Validar se user_id no path corresponde ao userId fornecido
+    if (pathParts[0] !== userId) {
+      console.error('❌ [STORAGE] user_id no path não corresponde:', {
+        pathUserId: pathParts[0],
+        expectedUserId: userId,
+      });
+      return {
+        success: false,
+        error: 'user_id no file_path não corresponde ao userId fornecido',
+        method: 'client_side',
+      };
+    }
   }
 
   // 🔐 MÉTODO 1: Edge Function (se ativada)
@@ -113,6 +207,7 @@ export async function signContentEnhanced(
           userId: userId.substring(0, 8) + '...',
           hasThumbnail: !!thumbnail,
           platforms: platforms?.length || 0,
+          hasFile: !!fileMetadata, // 🆕
         });
       }
 
@@ -187,7 +282,7 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
-    // Salva no banco
+    // 🆕 Preparar objeto de inserção com metadados de arquivo
     const signedContent: SignedContentInsert = {
       user_id: userId,
       content,
@@ -199,6 +294,12 @@ export async function signContentEnhanced(
       thumbnail: thumbnail || null,
       platforms: platforms || null,
       verification_count: 0,
+      // 🆕 FASE 3: Adicionar metadados de arquivo
+      file_path: fileMetadata?.file_path || null,
+      file_name: fileMetadata?.file_name || null,
+      file_size: fileMetadata?.file_size || null,
+      mime_type: fileMetadata?.mime_type || null,
+      storage_bucket: fileMetadata?.storage_bucket || null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -288,6 +389,12 @@ function dbSignedContentToAppSignedContent(
     platforms: dbContent.platforms || undefined,
     verificationCount: dbContent.verification_count,
     creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
+    // 🆕 FASE 3: Adicionar metadados de arquivo ao tipo retornado
+    filePath: dbContent.file_path || undefined,
+    fileName: dbContent.file_name || undefined,
+    fileSize: dbContent.file_size || undefined,
+    mimeType: dbContent.mime_type || undefined,
+    storageBucket: dbContent.storage_bucket || undefined,
   };
 }
 
