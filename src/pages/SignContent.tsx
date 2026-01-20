@@ -42,6 +42,17 @@ import { sanitizeFileName } from '@/lib/input-sanitizer';
 // ========================================
 // FIM: SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2
 // ========================================
+// ========================================
+// 🆕 FASE 2: INTEGRAÇÃO COM SUPABASE STORAGE
+// ========================================
+import { 
+  uploadToTempBucket, 
+  moveToSignedDocuments,
+  deleteFile
+} from '@/lib/services/storage-service';
+// ========================================
+// FIM: INTEGRAÇÃO COM SUPABASE STORAGE
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -95,6 +106,15 @@ export default function SignContent() {
     remaining, 
     message: rateLimitMessage 
   } = useRateLimit('SIGN_CONTENT');
+  
+  // ========================================
+  // 🆕 FASE 2: ESTADOS PARA STORAGE
+  // ========================================
+  const [tempFilePath, setTempFilePath] = useState<string | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  // ========================================
+  // FIM: ESTADOS PARA STORAGE
+  // ========================================
   
   useEffect(() => {
     loadUserData();
@@ -187,6 +207,7 @@ export default function SignContent() {
    * 🔒 SEGURANÇA: Handler de upload com validação rigorosa
    * 🆕 ETAPA 3: Função agora é ASSÍNCRONA e usa await validateFile()
    * 🔐 VIRUSTOTAL: Scan silencioso em background (sem UI)
+   * 🆕 FASE 2: Upload para Supabase Storage após validação
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,6 +217,7 @@ export default function SignContent() {
     setUploadedFile(null);
     setFilePreview(null);
     setVideoThumbnail(null);
+    setTempFilePath(null); // 🆕 Limpa path temporário
     
     if (!file) {
       return;
@@ -247,6 +269,45 @@ export default function SignContent() {
     
     // Arquivo válido, prosseguir com upload
     setUploadedFile(file);
+    
+    // ========================================
+    // 🆕 FASE 2: UPLOAD PARA SUPABASE STORAGE
+    // ========================================
+    if (currentUser) {
+      setIsUploadingFile(true);
+      try {
+        console.log('📤 [STORAGE] Iniciando upload para temp-uploads...');
+        
+        const uploadResult = await uploadToTempBucket(file, currentUser.id);
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Erro ao fazer upload');
+        }
+        
+        console.log('✅ [STORAGE] Upload concluído:', {
+          path: uploadResult.path,
+          executionTime: uploadResult.executionTime + 'ms'
+        });
+        
+        // Salva path temporário
+        setTempFilePath(uploadResult.path!);
+        
+      } catch (error) {
+        console.error('❌ [STORAGE] Erro no upload:', error);
+        setFileValidationError(`Erro ao fazer upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        
+        // Limpa estados em caso de erro
+        setUploadedFile(null);
+        setTempFilePath(null);
+        e.target.value = '';
+        return;
+      } finally {
+        setIsUploadingFile(false);
+      }
+    }
+    // ========================================
+    // FIM: UPLOAD PARA SUPABASE STORAGE
+    // ========================================
     
     // ========================================
     // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - SILENCIOSA (SEM UI)
@@ -337,6 +398,7 @@ export default function SignContent() {
     setFilePreview(null);
     setFileValidationError('');
     setVideoThumbnail(null);
+    setTempFilePath(null); // 🆕 Limpa path temporário
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -409,7 +471,37 @@ export default function SignContent() {
     console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsSigning(true);
+    
+    // ========================================
+    // 🆕 FASE 2: VARIÁVEL PARA TRACKING DE FILE PATH
+    // ========================================
+    let finalFilePath: string | null = null;
+    // ========================================
+    
     try {
+      // ========================================
+      // 🆕 FASE 2: MOVER ARQUIVO PARA BUCKET PERMANENTE
+      // ========================================
+      if (tempFilePath && uploadedFile) {
+        console.log('🔄 [STORAGE] Movendo arquivo para signed-documents...');
+        
+        const moveResult = await moveToSignedDocuments(tempFilePath, currentUser.id);
+        
+        if (!moveResult.success) {
+          throw new Error(moveResult.error || 'Erro ao mover arquivo para storage permanente');
+        }
+        
+        console.log('✅ [STORAGE] Arquivo movido:', {
+          path: moveResult.path,
+          executionTime: moveResult.executionTime + 'ms'
+        });
+        
+        finalFilePath = moveResult.path!;
+      }
+      // ========================================
+      // FIM: MOVER ARQUIVO
+      // ========================================
+      
       // ========================================
       // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 3/4)
       // ========================================
@@ -451,6 +543,22 @@ ${content}
         }
       }
       
+      // ========================================
+      // 🆕 FASE 2: PREPARAR METADADOS DE ARQUIVO
+      // ========================================
+      const fileMetadata = finalFilePath && uploadedFile ? {
+        file_path: finalFilePath,
+        file_name: uploadedFile.name,
+        file_size: uploadedFile.size,
+        mime_type: uploadedFile.type,
+        storage_bucket: 'signed-documents'
+      } : undefined;
+      
+      console.log('📦 [STORAGE] Metadados de arquivo:', fileMetadata);
+      // ========================================
+      // FIM: PREPARAR METADADOS
+      // ========================================
+      
       const result = await signContent(
         fullContent,
         keyPair.privateKey,
@@ -458,10 +566,20 @@ ${content}
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
         finalThumbnail || undefined,
-        selectedPlatforms
+        selectedPlatforms,
+        fileMetadata // 🆕 Passa metadados de arquivo
       );
       
       if (!result.success) {
+        // ========================================
+        // 🆕 FASE 2: DELETAR ARQUIVO SE ASSINATURA FALHAR
+        // ========================================
+        if (finalFilePath) {
+          console.log('🗑️ [STORAGE] Deletando arquivo devido a erro na assinatura...');
+          await deleteFile('signed-documents', finalFilePath);
+        }
+        // ========================================
+        
         alert(result.error || 'Erro ao assinar conteúdo. Tente novamente.');
         return;
       }
@@ -470,6 +588,20 @@ ${content}
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
+      
+      // ========================================
+      // 🆕 FASE 2: DELETAR ARQUIVO SE HOUVER ERRO
+      // ========================================
+      if (finalFilePath) {
+        console.log('🗑️ [STORAGE] Deletando arquivo devido a erro...');
+        try {
+          await deleteFile('signed-documents', finalFilePath);
+        } catch (deleteError) {
+          console.error('❌ [STORAGE] Erro ao deletar arquivo:', deleteError);
+        }
+      }
+      // ========================================
+      
       alert('Erro ao assinar conteúdo. Tente novamente.');
     } finally {
       setIsSigning(false);
@@ -486,6 +618,7 @@ ${content}
     setSignedContent(null);
     setFileValidationError('');
     setVideoThumbnail(null);
+    setTempFilePath(null); // 🆕 Limpa path temporário
   };
   
   if (isLoading) {
@@ -593,6 +726,16 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🆕 FASE 2: Alerta de upload em progresso */}
+              {isUploadingFile && (
+                <Alert className="border-blue-500 bg-blue-50">
+                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Fazendo upload do arquivo...</strong> Aguarde enquanto o arquivo é enviado para o servidor.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* 🎬 VIDEO PROCESSING: Alerta de processamento */}
               {isProcessingVideo && (
                 <Alert className="border-blue-500 bg-blue-50">
@@ -611,7 +754,7 @@ ${content}
                   placeholder="Ex: Minha nova campanha de produto"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  disabled={isBlocked || isProcessingVideo}
+                  disabled={isBlocked || isProcessingVideo || isUploadingFile}
                 />
               </div>
               
@@ -635,8 +778,9 @@ ${content}
                         setFilePreview(null);
                         setFileValidationError('');
                         setVideoThumbnail(null);
+                        setTempFilePath(null);
                       }}
-                      disabled={isBlocked || isProcessingVideo}
+                      disabled={isBlocked || isProcessingVideo || isUploadingFile}
                     >
                       {type.icon}
                       <span className="text-sm">{type.label}</span>
@@ -662,10 +806,10 @@ ${content}
                         type="file"
                         className="hidden"
                         onChange={handleFileUpload}
-                        disabled={isBlocked || isProcessingVideo}
+                        disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         accept={getAcceptString(getFileCategoryFromContentType(contentType))}
                       />
-                      <label htmlFor="file-upload" className={isBlocked || isProcessingVideo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                      <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
                         <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-sm text-muted-foreground mb-2">
                           Clique para fazer upload ou arraste o arquivo aqui
@@ -714,6 +858,13 @@ ${content}
                             {formatFileSize(uploadedFile.size)}
                           </p>
                           
+                          {/* 🆕 FASE 2: Status de upload */}
+                          {tempFilePath && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Arquivo enviado para o servidor
+                            </p>
+                          )}
+                          
                           {/* Status de processamento de vídeo */}
                           {contentType === 'video' && videoThumbnail && (
                             <div className="mt-2 space-y-1">
@@ -745,7 +896,7 @@ ${content}
                           size="icon"
                           onClick={handleRemoveFile}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          disabled={isBlocked || isProcessingVideo}
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         >
                           <X className="h-5 w-5" />
                         </Button>
@@ -762,18 +913,18 @@ ${content}
                   {socialPlatforms.map((platform) => (
                     <div
                       key={platform.value}
-                      className={`border rounded-lg p-3 ${isBlocked || isProcessingVideo ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all ${
+                      className={`border rounded-lg p-3 ${isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} transition-all ${
                         selectedPlatforms.includes(platform.value)
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-muted hover:border-muted-foreground/50'
                       }`}
-                      onClick={() => !(isBlocked || isProcessingVideo) && togglePlatform(platform.value)}
+                      onClick={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
-                          onCheckedChange={() => !(isBlocked || isProcessingVideo) && togglePlatform(platform.value)}
-                          disabled={isBlocked || isProcessingVideo}
+                          onCheckedChange={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         />
                         <span className="text-2xl">{platform.logo}</span>
                         <span className="text-sm font-medium">{platform.label}</span>
@@ -798,7 +949,7 @@ ${content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={8}
                   className="resize-none"
-                  disabled={isBlocked || isProcessingVideo}
+                  disabled={isBlocked || isProcessingVideo || isUploadingFile}
                 />
                 <p className="text-xs text-muted-foreground">
                   {content.length} caracteres
@@ -811,6 +962,7 @@ ${content}
                   <li>✅ Thumbnail comprimida do conteúdo (salva no Supabase)</li>
                   {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
                   {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
+                  <li>✅ Arquivo original salvo no Supabase Storage (disponível para download)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -823,7 +975,7 @@ ${content}
               
               <Button
                 onClick={handleSign}
-                disabled={isSigning || isBlocked || isProcessingVideo || !title.trim() || selectedPlatforms.length === 0}
+                disabled={isSigning || isBlocked || isProcessingVideo || isUploadingFile || !title.trim() || selectedPlatforms.length === 0}
                 className="w-full"
                 size="lg"
               >
@@ -831,6 +983,11 @@ ${content}
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Assinando...
+                  </>
+                ) : isUploadingFile ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Fazendo upload...
                   </>
                 ) : isProcessingVideo ? (
                   <>
