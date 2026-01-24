@@ -55,6 +55,15 @@ export enum AuditAction {
   
   // Segurança e Sessão
   SECURITY_EVENT = 'SECURITY_EVENT',
+  
+  // 🆕 Storage e Uploads (Fase 1 - Implementação de Logging)
+  FILE_UPLOADED = 'FILE_UPLOADED',
+  FILE_MOVED = 'FILE_MOVED',
+  FILE_DELETED = 'FILE_DELETED',
+  FILE_DOWNLOADED = 'FILE_DOWNLOADED',
+  FILE_VALIDATION_FAILED = 'FILE_VALIDATION_FAILED',
+  FILE_SCAN_COMPLETED = 'FILE_SCAN_COMPLETED',
+  FILE_SCAN_FAILED = 'FILE_SCAN_FAILED',
 }
 
 // Interface para detalhes do log
@@ -179,7 +188,8 @@ export async function logAuditEvent(
       AuditAction.TWO_FA_FAILED,
       AuditAction.USER_DELETED,
       AuditAction.KEY_PAIR_GENERATED,
-      AuditAction.ADMIN_ACTION
+      AuditAction.ADMIN_ACTION,
+      AuditAction.FILE_SCAN_FAILED // 🆕 Scan de vírus falhou é crítico
     ];
     
     if (criticalActions.includes(action)) {
