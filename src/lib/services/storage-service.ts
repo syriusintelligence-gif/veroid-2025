@@ -22,12 +22,13 @@
  * limitações do Supabase Storage com políticas RLS entre buckets.
  * 
  * @author VeroID Security Team
- * @version 1.1.0
- * @date 2026-01-20
+ * @version 1.2.0 - Adicionado logging de auditoria (Fase 2)
+ * @date 2026-01-24
  */
 
 import { supabase } from '@/lib/supabase';
 import { sanitizeFileName } from '@/lib/input-sanitizer';
+import { logAuditEvent, AuditAction } from '@/lib/audit-logger';
 
 // =====================================================
 // TIPOS E INTERFACES
@@ -368,6 +369,21 @@ export async function uploadToTempBucket(
         attempt
       });
       
+      // 🆕 FASE 2: Registrar log de auditoria
+      logAuditEvent(AuditAction.FILE_UPLOADED, {
+        success: true,
+        bucket: CONFIG.TEMP_BUCKET,
+        filePath: data.path,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        executionTime,
+        attempt
+      }, userId).catch(err => {
+        // Não falha a operação se o log falhar
+        console.warn('⚠️ [Storage] Erro ao registrar log de upload (não crítico):', err);
+      });
+      
       return {
         success: true,
         path: data.path,
@@ -390,6 +406,20 @@ export async function uploadToTempBucket(
   // Todas as tentativas falharam
   const executionTime = Date.now() - startTime;
   console.error('❌ [Storage] Todas as tentativas falharam:', lastError);
+  
+  // 🆕 FASE 2: Registrar log de falha
+  logAuditEvent(AuditAction.FILE_UPLOADED, {
+    success: false,
+    bucket: CONFIG.TEMP_BUCKET,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type,
+    error: lastError?.message || 'Erro desconhecido no upload',
+    executionTime,
+    attempts: maxRetries
+  }, userId).catch(err => {
+    console.warn('⚠️ [Storage] Erro ao registrar log de falha (não crítico):', err);
+  });
   
   return {
     success: false,
@@ -497,6 +527,7 @@ export async function moveToSignedDocuments(
   // =====================================================
   
   let lastError: Error | null = null;
+  let fileSize = 0;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -515,6 +546,8 @@ export async function moveToSignedDocuments(
       if (!downloadData) {
         throw new Error('Arquivo não encontrado no bucket temporário');
       }
+      
+      fileSize = downloadData.size;
       
       console.log('✅ [Storage] Arquivo baixado com sucesso:', {
         size: formatFileSize(downloadData.size)
@@ -561,6 +594,20 @@ export async function moveToSignedDocuments(
         attempt
       });
       
+      // 🆕 FASE 2: Registrar log de auditoria
+      logAuditEvent(AuditAction.FILE_MOVED, {
+        success: true,
+        fromBucket: CONFIG.TEMP_BUCKET,
+        toBucket: CONFIG.SIGNED_BUCKET,
+        fromPath: tempPath,
+        toPath: signedPath,
+        fileSize,
+        executionTime,
+        attempt
+      }, userId).catch(err => {
+        console.warn('⚠️ [Storage] Erro ao registrar log de movimentação (não crítico):', err);
+      });
+      
       return {
         success: true,
         path: signedPath,
@@ -583,6 +630,19 @@ export async function moveToSignedDocuments(
   // Todas as tentativas falharam
   const executionTime = Date.now() - startTime;
   console.error('❌ [Storage] Todas as tentativas falharam:', lastError);
+  
+  // 🆕 FASE 2: Registrar log de falha
+  logAuditEvent(AuditAction.FILE_MOVED, {
+    success: false,
+    fromBucket: CONFIG.TEMP_BUCKET,
+    toBucket: CONFIG.SIGNED_BUCKET,
+    fromPath: tempPath,
+    error: lastError?.message || 'Erro desconhecido na movimentação',
+    executionTime,
+    attempts: maxRetries
+  }, userId).catch(err => {
+    console.warn('⚠️ [Storage] Erro ao registrar log de falha (não crítico):', err);
+  });
   
   return {
     success: false,
@@ -677,6 +737,18 @@ export async function getSignedDownloadUrl(
       executionTime: `${executionTime}ms`
     });
     
+    // 🆕 FASE 2: Registrar log de auditoria
+    logAuditEvent(AuditAction.FILE_DOWNLOADED, {
+      success: true,
+      bucket,
+      filePath,
+      expiresIn,
+      expiresAt: expiresAt.toISOString(),
+      executionTime
+    }, currentUser.id).catch(err => {
+      console.warn('⚠️ [Storage] Erro ao registrar log de download (não crítico):', err);
+    });
+    
     return {
       success: true,
       signedUrl: data.signedUrl,
@@ -687,6 +759,17 @@ export async function getSignedDownloadUrl(
   } catch (error) {
     const executionTime = Date.now() - startTime;
     console.error('❌ [Storage] Erro ao gerar URL assinada:', error);
+    
+    // 🆕 FASE 2: Registrar log de falha
+    logAuditEvent(AuditAction.FILE_DOWNLOADED, {
+      success: false,
+      bucket,
+      filePath,
+      error: (error as Error).message || 'Erro desconhecido ao gerar URL',
+      executionTime
+    }, currentUser.id).catch(err => {
+      console.warn('⚠️ [Storage] Erro ao registrar log de falha (não crítico):', err);
+    });
     
     return {
       success: false,
@@ -773,6 +856,16 @@ export async function deleteFile(
       executionTime: `${executionTime}ms`
     });
     
+    // 🆕 FASE 2: Registrar log de auditoria
+    logAuditEvent(AuditAction.FILE_DELETED, {
+      success: true,
+      bucket,
+      filePath,
+      executionTime
+    }, currentUser.id).catch(err => {
+      console.warn('⚠️ [Storage] Erro ao registrar log de deleção (não crítico):', err);
+    });
+    
     return {
       success: true,
       executionTime
@@ -781,6 +874,17 @@ export async function deleteFile(
   } catch (error) {
     const executionTime = Date.now() - startTime;
     console.error('❌ [Storage] Erro ao deletar arquivo:', error);
+    
+    // 🆕 FASE 2: Registrar log de falha
+    logAuditEvent(AuditAction.FILE_DELETED, {
+      success: false,
+      bucket,
+      filePath,
+      error: (error as Error).message || 'Erro desconhecido ao deletar arquivo',
+      executionTime
+    }, currentUser.id).catch(err => {
+      console.warn('⚠️ [Storage] Erro ao registrar log de falha (não crítico):', err);
+    });
     
     return {
       success: false,
