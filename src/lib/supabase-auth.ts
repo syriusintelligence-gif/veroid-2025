@@ -658,7 +658,13 @@ export async function resetPassword(
 }
 
 /**
- * Cria conta de administrador (apenas se não existir)
+ * 🔒 SEGURANÇA: Cria conta de administrador (apenas se não existir)
+ * 
+ * ⚠️ IMPORTANTE: Esta função foi modificada para usar variável de ambiente
+ * ao invés de senha hardcoded. Configure ADMIN_DEFAULT_PASSWORD no .env
+ * 
+ * @deprecated Esta função deve ser usada apenas para setup inicial.
+ * Recomenda-se criar conta de admin manualmente via Supabase Dashboard.
  */
 export async function createAdminAccount(): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
@@ -679,6 +685,27 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
       };
     }
     
+    // 🔒 SEGURANÇA: Obtém senha de variável de ambiente
+    const adminPassword = import.meta.env.VITE_ADMIN_DEFAULT_PASSWORD;
+    
+    if (!adminPassword || adminPassword === 'YOUR_SECURE_PASSWORD_HERE') {
+      console.error('❌ ADMIN_DEFAULT_PASSWORD não configurado no .env');
+      return {
+        success: false,
+        error: 'Senha de administrador não configurada. Configure ADMIN_DEFAULT_PASSWORD no arquivo .env',
+      };
+    }
+    
+    // Valida senha
+    if (!isValidPassword(adminPassword)) {
+      return {
+        success: false,
+        error: 'A senha configurada não atende aos requisitos de segurança (mínimo 6 caracteres, 1 maiúscula, 1 caractere especial)',
+      };
+    }
+    
+    console.log('🔐 Criando nova conta de administrador...');
+    
     // Cria nova conta de admin
     return await registerUser(
       {
@@ -690,7 +717,7 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
         documentoUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
         selfieUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
       },
-      'Admin@123'
+      adminPassword
     );
   } catch (error) {
     console.error('❌ Erro ao criar conta de admin:', error);
