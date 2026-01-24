@@ -53,6 +53,13 @@ import {
 // ========================================
 // FIM: INTEGRAÇÃO COM SUPABASE STORAGE
 // ========================================
+// ========================================
+// 🆕 FASE 3: AUDIT LOGGING
+// ========================================
+import { logAuditEvent, AuditAction } from '@/lib/audit-logger';
+// ========================================
+// FIM: AUDIT LOGGING
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -208,6 +215,7 @@ export default function SignContent() {
    * 🆕 ETAPA 3: Função agora é ASSÍNCRONA e usa await validateFile()
    * 🔐 VIRUSTOTAL: Scan silencioso em background (sem UI)
    * 🆕 FASE 2: Upload para Supabase Storage após validação
+   * 🆕 FASE 3: Logging de validação e scan
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,6 +268,23 @@ export default function SignContent() {
       console.error('❌ [FILE UPLOAD] Validação falhou:', validationResult.message);
       setFileValidationError(validationResult.message);
       
+      // 🆕 FASE 3: Registrar log de validação falhou
+      if (currentUser) {
+        logAuditEvent(AuditAction.FILE_VALIDATION_FAILED, {
+          success: false,
+          fileName: file.name,
+          sanitizedFileName,
+          fileSize: file.size,
+          fileType: file.type,
+          contentType,
+          allowedCategories: allowedCategories.join(', '),
+          validationError: validationResult.message,
+          validationDetails: validationResult.details
+        }, currentUser.id).catch(err => {
+          console.warn('⚠️ [AUDIT] Erro ao registrar log de validação (não crítico):', err);
+        });
+      }
+      
       // Limpa o input de arquivo
       e.target.value = '';
       return;
@@ -311,6 +336,7 @@ export default function SignContent() {
     
     // ========================================
     // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - SILENCIOSA (SEM UI)
+    // 🆕 FASE 3: Logging de scan
     // ========================================
     // Calcula hash do arquivo e inicia scan VirusTotal em background
     try {
@@ -343,12 +369,55 @@ export default function SignContent() {
         if (response.ok) {
           const resultData = await response.json();
           console.log('✅ [VIRUSTOTAL] Scan silencioso concluído:', resultData);
+          
+          // 🆕 FASE 3: Registrar log de scan bem-sucedido
+          if (currentUser) {
+            logAuditEvent(AuditAction.FILE_SCAN_COMPLETED, {
+              success: true,
+              fileName: sanitizedFileName,
+              fileSize: file.size,
+              fileHash: hash,
+              scanResult: resultData,
+              scanProvider: 'VirusTotal'
+            }, currentUser.id).catch(err => {
+              console.warn('⚠️ [AUDIT] Erro ao registrar log de scan (não crítico):', err);
+            });
+          }
         } else {
           console.warn('⚠️ [VIRUSTOTAL] Erro no scan silencioso (não bloqueia upload)');
+          
+          // 🆕 FASE 3: Registrar log de scan falhou
+          if (currentUser) {
+            const errorText = await response.text().catch(() => 'Erro desconhecido');
+            
+            logAuditEvent(AuditAction.FILE_SCAN_FAILED, {
+              success: false,
+              fileName: sanitizedFileName,
+              fileSize: file.size,
+              fileHash: hash,
+              error: `HTTP ${response.status}: ${errorText}`,
+              scanProvider: 'VirusTotal'
+            }, currentUser.id).catch(err => {
+              console.warn('⚠️ [AUDIT] Erro ao registrar log de falha de scan (não crítico):', err);
+            });
+          }
         }
       }
     } catch (error) {
       console.warn('⚠️ [VIRUSTOTAL] Erro ao processar scan silencioso (não bloqueia upload):', error);
+      
+      // 🆕 FASE 3: Registrar log de erro no scan
+      if (currentUser) {
+        logAuditEvent(AuditAction.FILE_SCAN_FAILED, {
+          success: false,
+          fileName: sanitizedFileName,
+          fileSize: file.size,
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
+          scanProvider: 'VirusTotal'
+        }, currentUser.id).catch(err => {
+          console.warn('⚠️ [AUDIT] Erro ao registrar log de erro de scan (não crítico):', err);
+        });
+      }
     }
     // ========================================
     // FIM: INTEGRAÇÃO VIRUSTOTAL - SILENCIOSA
