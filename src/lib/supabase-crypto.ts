@@ -25,22 +25,6 @@ export interface SignedContent {
   platforms?: string[];
   createdAt: string;
   verificationCount?: number;
-  thumbnail?: string;
-  creatorName?: string;
-  creatorSocialLinks?: {
-    website?: string;
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-    linkedin?: string;
-    youtube?: string;
-    tiktok?: string;
-  };
-  filePath?: string;
-  fileName?: string;
-  mimeType?: string;
-  fileSize?: number;
-  storageBucket?: string;
 }
 
 // 🆕 Chave de criptografia (em produção, use variável de ambiente)
@@ -361,32 +345,16 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
       platforms: item.platforms || [],
       createdAt: item.created_at,
       verificationCount: item.verification_count || 0,
-      thumbnail: item.thumbnail,
-      creatorName: item.creator_name,
-      creatorSocialLinks: item.creator_social_links,
-      filePath: item.file_path,
-      fileName: item.file_name,
-      mimeType: item.mime_type,
-    return {
-      id: data.id,
-      userId: data.user_id,
-      content: data.content,
-      contentHash: data.content_hash,
-      signature: data.signature,
-      verificationCode: data.verification_code,
-      publicKey: data.public_key,
-      platforms: data.platforms || [],
-      createdAt: data.created_at,
-      verificationCount: data.verification_count || 0,
-      thumbnail: data.thumbnail,
-      creatorName: data.creator_name,
-      creatorSocialLinks: data.creator_social_links,
-      filePath: data.file_path,
-      fileName: data.file_name,
-      mimeType: data.mime_type,
-      fileSize: data.file_size,
-      storageBucket: data.storage_bucket,
-    };
+    }));
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdos assinados:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca conteúdo assinado por código de verificação
+ */
 export async function getSignedContentByVerificationCode(code: string): Promise<SignedContent | null> {
   try {
     const { data, error } = await supabase
@@ -410,6 +378,14 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
       platforms: data.platforms || [],
       createdAt: data.created_at,
       verificationCount: data.verification_count || 0,
+      thumbnail: data.thumbnail,
+      creatorName: data.creator_name,
+      creatorSocialLinks: data.creator_social_links,
+      filePath: data.file_path,
+      fileName: data.file_name,
+      mimeType: data.mime_type,
+      fileSize: data.file_size,
+      storageBucket: data.storage_bucket,
     };
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdo por código:', error);
@@ -420,26 +396,18 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
 /**
  * Incrementa contador de verificações
  */
-    return (data || []).map(item => ({
-      id: item.id,
-      userId: item.user_id,
-      content: item.content,
-      contentHash: item.content_hash,
-      signature: item.signature,
-      verificationCode: item.verification_code,
-      publicKey: item.public_key,
-      platforms: item.platforms || [],
-      createdAt: item.created_at,
-      verificationCount: item.verification_count || 0,
-      thumbnail: item.thumbnail,
-      creatorName: item.creator_name,
-      creatorSocialLinks: item.creator_social_links,
-      filePath: item.file_path,
-      fileName: item.file_name,
-      mimeType: item.mime_type,
-      fileSize: item.file_size,
-      storageBucket: item.storage_bucket,
-    }));
+export async function incrementVerificationCount(contentId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('increment_verification_count', {
+      content_id: contentId,
+    });
+    
+    if (error) {
+      console.error('❌ Erro ao incrementar contador:', error);
+      return false;
+    }
+    
+    return true;
   } catch (error) {
     console.error('❌ Erro ao incrementar contador:', error);
     return false;
@@ -461,26 +429,26 @@ export async function getAllSignedContents(): Promise<SignedContent[]> {
     }
     
     return (data || []).map(item => ({
-    return {
-      id: data.id,
-      userId: data.user_id,
-      content: data.content,
-      contentHash: data.content_hash,
-      signature: data.signature,
-      verificationCode: data.verification_code,
-      publicKey: data.public_key,
-      platforms: data.platforms || [],
-      createdAt: data.created_at,
-      verificationCount: data.verification_count || 0,
-      thumbnail: data.thumbnail,
-      creatorName: data.creator_name,
-      creatorSocialLinks: data.creator_social_links,
-      filePath: data.file_path,
-      fileName: data.file_name,
-      mimeType: data.mime_type,
-      fileSize: data.file_size,
-      storageBucket: data.storage_bucket,
-    };
+      id: item.id,
+      userId: item.user_id,
+      content: item.content,
+      contentHash: item.content_hash,
+      signature: item.signature,
+      verificationCode: item.verification_code,
+      publicKey: item.public_key,
+      platforms: item.platforms || [],
+      createdAt: item.created_at,
+      verificationCount: item.verification_count || 0,
+      thumbnail: item.thumbnail,
+      creatorName: item.creator_name,
+      creatorSocialLinks: item.creator_social_links,
+      filePath: item.file_path,
+      fileName: item.file_name,
+      mimeType: item.mime_type,
+      fileSize: item.file_size,
+      storageBucket: item.storage_bucket,
+    }));
+  } catch (error) {
     console.error('❌ Erro ao buscar todos os conteúdos:', error);
     return [];
   }
@@ -512,6 +480,14 @@ export async function getSignedContentById(contentId: string): Promise<SignedCon
       platforms: data.platforms || [],
       createdAt: data.created_at,
       verificationCount: data.verification_count || 0,
+      thumbnail: data.thumbnail,
+      creatorName: data.creator_name,
+      creatorSocialLinks: data.creator_social_links,
+      filePath: data.file_path,
+      fileName: data.file_name,
+      mimeType: data.mime_type,
+      fileSize: data.file_size,
+      storageBucket: data.storage_bucket,
     };
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdo por ID:', error);
