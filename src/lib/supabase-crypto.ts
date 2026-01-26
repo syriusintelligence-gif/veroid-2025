@@ -345,6 +345,14 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
       platforms: item.platforms || [],
       createdAt: item.created_at,
       verificationCount: item.verification_count || 0,
+      thumbnail: item.thumbnail,
+      creatorName: item.creator_name,
+      creatorSocialLinks: item.creator_social_links,
+      filePath: item.file_path,
+      fileName: item.file_name,
+      mimeType: item.mime_type,
+      fileSize: item.file_size,
+      storageBucket: item.storage_bucket,
     }));
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdos assinados:', error);
