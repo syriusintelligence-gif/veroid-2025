@@ -2,7 +2,7 @@
  * Funções de criptografia e gerenciamento de chaves
  * Inclui backup automático no Supabase
  * 🆕 ATUALIZADO: Limpa chaves locais no logout
- * 🔧 CORRIGIDO: generateKeyPair agora gera chaves com prefixo VID-PRIV-
+ * 🔧 CORRIGIDO: generateKeyPair agora usa RSA-2048 e gera chaves com prefixo VID-PRIV-
  */
 
 import { saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
@@ -12,7 +12,7 @@ const STORAGE_PREFIX = 'veroId_keyPair_';
 const BACKUP_PREFIX = 'veroId_backup_';
 
 /**
- * 🆕 CORRIGIDO: Gera um par de chaves com validação robusta e prefixo VID-PRIV-
+ * 🆕 CORRIGIDO: Gera um par de chaves RSA-2048 com validação robusta e prefixo VID-PRIV-
  */
 export async function generateKeyPair(userId: string): Promise<KeyPair> {
   console.log('[generateKeyPair] ========== INÍCIO ==========');
@@ -24,10 +24,13 @@ export async function generateKeyPair(userId: string): Promise<KeyPair> {
     throw new Error('userId é obrigatório para gerar chaves');
   }
 
+  // 🔧 CORREÇÃO: Usar RSA-2048 ao invés de ECDSA P-256
   const keyPair = await window.crypto.subtle.generateKey(
     {
-      name: 'ECDSA',
-      namedCurve: 'P-256'
+      name: 'RSASSA-PKCS1-v1_5',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256',
     },
     true,
     ['sign', 'verify']
