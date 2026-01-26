@@ -18,76 +18,21 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban, Loader2 } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, isCurrentUserAdmin, getUsers, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
-import { getCSRFToken } from '@/lib/csrf-protection';
-import { useToast } from '@/hooks/use-toast';
+import { getUsers, getCurrentUser, User, isCurrentUserAdmin, deleteUser } from '@/lib/supabase-auth';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Estados para edição
-  const [editNomeCompleto, setEditNomeCompleto] = useState('');
-  const [editNomePublico, setEditNomePublico] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editTelefone, setEditTelefone] = useState('');
-  
-  // 🔒 CSRF Protection
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
-  const [csrfReady, setCsrfReady] = useState(false);
-
-  // Inicializa token CSRF
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadToken() {
-      try {
-        const token = await getCSRFToken();
-        if (mounted) {
-          setCsrfToken(token);
-          setCsrfReady(true);
-          console.log('🔐 [AdminUsers] CSRF Token carregado:', token.substring(0, 20) + '...');
-        }
-      } catch (error) {
-        console.error('❌ [AdminUsers] Erro ao carregar token CSRF:', error);
-        if (mounted) {
-          setCsrfReady(true); // Marca como pronto mesmo com erro
-        }
-      }
-    }
-
-    loadToken();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
   
   useEffect(() => {
     checkAuthAndLoadData();
@@ -142,174 +87,16 @@ export default function AdminUsers() {
     setIsDialogOpen(true);
   };
   
-  const handleOpenEditDialog = (user: User) => {
-    setSelectedUser(user);
-    setEditNomeCompleto(user.nomeCompleto);
-    setEditNomePublico(user.nomePublico);
-    setEditEmail(user.email);
-    setEditTelefone(user.telefone);
-    setIsEditDialogOpen(true);
-  };
-  
-  // 🔒 Handler para salvar edição (COM CSRF)
-  const handleSaveEdit = async () => {
-    if (!selectedUser) return;
-    
-    // Validação CSRF
-    if (!csrfToken) {
-      toast({
-        title: 'Erro de Segurança',
-        description: 'Token de segurança não disponível. Recarregue a página.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      console.log('🔒 [AdminUsers] Atualizando usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
-      const result = await updateUser(selectedUser.id, {
-        nomeCompleto: editNomeCompleto,
-        nomePublico: editNomePublico,
-        email: editEmail,
-        telefone: editTelefone,
-      });
-      
+  const handleDeleteUser = async (userId: string) => {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
+      const result = await deleteUser(userId);
       if (result.success) {
-        toast({
-          title: "✅ Usuário atualizado",
-          description: "Os dados do usuário foram atualizados com sucesso.",
-        });
-        
-        // Recarrega a lista de usuários
         await loadUsers();
-        setIsEditDialogOpen(false);
+        setIsDialogOpen(false);
+        alert('Usuário excluído com sucesso!');
       } else {
-        toast({
-          title: "❌ Erro ao atualizar",
-          description: result.error || "Não foi possível atualizar o usuário.",
-          variant: "destructive",
-        });
+        alert(result.error || 'Erro ao excluir usuário');
       }
-    } catch (error) {
-      toast({
-        title: "❌ Erro",
-        description: "Ocorreu um erro ao atualizar o usuário.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleOpenBlockDialog = (user: User) => {
-    setSelectedUser(user);
-    setIsBlockDialogOpen(true);
-  };
-  
-  // 🔒 Handler para bloquear/desbloquear (COM CSRF)
-  const handleToggleBlock = async () => {
-    if (!selectedUser) return;
-    
-    // Validação CSRF
-    if (!csrfToken) {
-      toast({
-        title: 'Erro de Segurança',
-        description: 'Token de segurança não disponível. Recarregue a página.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      console.log('🔒 [AdminUsers] Alternando bloqueio com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
-      const newBlockedStatus = !selectedUser.blocked;
-      const result = await toggleBlockUser(selectedUser.id, newBlockedStatus);
-      
-      if (result.success) {
-        toast({
-          title: newBlockedStatus ? "🚫 Usuário bloqueado" : "✅ Usuário desbloqueado",
-          description: newBlockedStatus 
-            ? "O usuário foi bloqueado e não poderá mais acessar o sistema."
-            : "O usuário foi desbloqueado e pode acessar o sistema novamente.",
-        });
-        
-        // Recarrega a lista de usuários
-        await loadUsers();
-        setIsBlockDialogOpen(false);
-      } else {
-        toast({
-          title: "❌ Erro",
-          description: result.error || "Não foi possível alterar o status do usuário.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "❌ Erro",
-        description: "Ocorreu um erro ao alterar o status do usuário.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleOpenDeleteDialog = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
-  };
-  
-  // 🔒 Handler para excluir usuário (COM CSRF)
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    
-    // Validação CSRF
-    if (!csrfToken) {
-      toast({
-        title: 'Erro de Segurança',
-        description: 'Token de segurança não disponível. Recarregue a página.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      console.log('🔒 [AdminUsers] Excluindo usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
-      const result = await deleteUser(selectedUser.id);
-      
-      if (result.success) {
-        toast({
-          title: "🗑️ Usuário excluído",
-          description: "O usuário foi excluído permanentemente do sistema.",
-        });
-        
-        // Recarrega a lista de usuários
-        await loadUsers();
-        setIsDeleteDialogOpen(false);
-      } else {
-        toast({
-          title: "❌ Erro ao excluir",
-          description: result.error || "Não foi possível excluir o usuário.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "❌ Erro",
-        description: "Ocorreu um erro ao excluir o usuário.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -365,16 +152,6 @@ export default function AdminUsers() {
             Você está logado como: <strong>{currentUser.email}</strong>
           </AlertDescription>
         </Alert>
-
-        {/* CSRF Loading Alert */}
-        {!csrfReady && (
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-            <AlertDescription className="text-blue-800">
-              Carregando proteção de segurança...
-            </AlertDescription>
-          </Alert>
-        )}
         
         {/* Título */}
         <div className="mb-8">
@@ -413,14 +190,14 @@ export default function AdminUsers() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administradores</CardTitle>
-              <Shield className="h-4 w-4 text-red-600" />
+              <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {users.filter(u => u.isAdmin).length}
+              <div className="text-2xl font-bold text-yellow-600">
+                {users.filter(u => !u.verified).length}
               </div>
-              <p className="text-xs text-muted-foreground">Usuários admin</p>
+              <p className="text-xs text-muted-foreground">Aguardando verificação</p>
             </CardContent>
           </Card>
           
@@ -522,18 +299,11 @@ export default function AdminUsers() {
                               {user.nomePublico && user.nomePublico !== user.nomeCompleto && (
                                 <p className="text-xs text-muted-foreground">@{user.nomePublico}</p>
                               )}
-                              <div className="flex gap-1 mt-1">
-                                {user.isAdmin && (
-                                  <Badge className="bg-red-100 text-red-800 text-xs">
-                                    Admin
-                                  </Badge>
-                                )}
-                                {user.blocked && (
-                                  <Badge className="bg-gray-100 text-gray-800 text-xs">
-                                    Bloqueado
-                                  </Badge>
-                                )}
-                              </div>
+                              {user.isAdmin && (
+                                <Badge className="bg-red-100 text-red-800 text-xs mt-1">
+                                  Admin
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </TableCell>
@@ -557,44 +327,13 @@ export default function AdminUsers() {
                           {formatDate(user.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDetails(user)}
-                              title="Ver detalhes"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(user)}
-                              title="Editar usuário"
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenBlockDialog(user)}
-                              title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenDeleteDialog(user)}
-                              title="Excluir usuário"
-                              className="text-red-600 hover:text-red-700"
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(user)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -605,177 +344,145 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
         
-        {/* Dialog de Detalhes */}
+        {/* Dialog de Detalhes do Usuário */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalhes do Usuário</DialogTitle>
               <DialogDescription>
-                Informações completas do usuário selecionado
+                Informações completas do cadastro
               </DialogDescription>
             </DialogHeader>
+            
             {selectedUser && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20 border-4 border-blue-600">
-                    <AvatarImage src={selectedUser.selfieUrl} alt={selectedUser.nomeCompleto} />
-                    <AvatarFallback className="bg-blue-600 text-white text-2xl">
-                      {getInitials(selectedUser.nomeCompleto)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="text-xl font-bold">{selectedUser.nomeCompleto}</h3>
-                    <p className="text-muted-foreground">@{selectedUser.nomePublico}</p>
-                    <div className="flex gap-2 mt-2">
-                      {selectedUser.isAdmin && (
-                        <Badge className="bg-red-100 text-red-800">Admin</Badge>
-                      )}
-                      {selectedUser.verified && (
-                        <Badge className="bg-green-100 text-green-800">Verificado</Badge>
-                      )}
-                      {selectedUser.blocked && (
-                        <Badge className="bg-gray-100 text-gray-800">Bloqueado</Badge>
-                      )}
+              <div className="space-y-6">
+                {/* Informações Pessoais */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Informações Pessoais</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20 border-2 border-blue-600">
+                        <AvatarImage src={selectedUser.selfieUrl} alt={selectedUser.nomeCompleto} />
+                        <AvatarFallback className="bg-blue-600 text-white text-2xl">
+                          {getInitials(selectedUser.nomeCompleto)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-xl font-bold">{selectedUser.nomeCompleto}</p>
+                        {selectedUser.nomePublico && selectedUser.nomePublico !== selectedUser.nomeCompleto && (
+                          <p className="text-muted-foreground">@{selectedUser.nomePublico}</p>
+                        )}
+                        <div className="flex gap-2 mt-1">
+                          {selectedUser.verified ? (
+                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Verificado
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Pendente
+                            </Badge>
+                          )}
+                          {selectedUser.isAdmin && (
+                            <Badge className="bg-red-100 text-red-800">
+                              <Lock className="h-3 w-3 mr-1" />
+                              Administrador
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-muted-foreground">Email</Label>
+                        <p className="font-medium">{selectedUser.email}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">CPF/CNPJ</Label>
+                        <p className="font-medium font-mono">{selectedUser.cpfCnpj}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Telefone</Label>
+                        <p className="font-medium">{selectedUser.telefone}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">ID do Usuário</Label>
+                        <p className="font-medium font-mono text-xs">{selectedUser.id}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Data de Cadastro</Label>
+                        <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Email</Label>
-                    <p className="font-medium">{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">CPF/CNPJ</Label>
-                    <p className="font-medium font-mono">{selectedUser.cpfCnpj}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Telefone</Label>
-                    <p className="font-medium">{selectedUser.telefone}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Data de Cadastro</Label>
-                    <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
-                  </div>
+                {/* Documentos */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Documentos de Verificação</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 block">Documento de Identificação</Label>
+                        {selectedUser.documentoUrl.startsWith('data:application/pdf') ? (
+                          <div className="border rounded-lg p-8 bg-muted/50 text-center">
+                            <FileText className="h-16 w-16 text-blue-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium">Documento PDF</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => window.open(selectedUser.documentoUrl, '_blank')}
+                            >
+                              Abrir PDF
+                            </Button>
+                          </div>
+                        ) : (
+                          <img
+                            src={selectedUser.documentoUrl}
+                            alt="Documento"
+                            className="w-full rounded-lg border"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <Label className="mb-2 block">Selfie de Verificação</Label>
+                        <img
+                          src={selectedUser.selfieUrl}
+                          alt="Selfie"
+                          className="w-full rounded-lg border"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Ações */}
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Fechar
+                  </Button>
+                  {!selectedUser.isAdmin && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDeleteUser(selectedUser.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Usuário
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Fechar
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
-        
-        {/* Dialog de Edição (COM CSRF) */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
-              <DialogDescription>
-                Altere as informações do usuário selecionado
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="editNomeCompleto">Nome Completo</Label>
-                <Input
-                  id="editNomeCompleto"
-                  value={editNomeCompleto}
-                  onChange={(e) => setEditNomeCompleto(e.target.value)}
-                  disabled={!csrfReady || !csrfToken}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editNomePublico">Nome Público</Label>
-                <Input
-                  id="editNomePublico"
-                  value={editNomePublico}
-                  onChange={(e) => setEditNomePublico(e.target.value)}
-                  disabled={!csrfReady || !csrfToken}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editEmail">Email</Label>
-                <Input
-                  id="editEmail"
-                  type="email"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  disabled={!csrfReady || !csrfToken}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editTelefone">Telefone</Label>
-                <Input
-                  id="editTelefone"
-                  value={editTelefone}
-                  onChange={(e) => setEditTelefone(e.target.value)}
-                  disabled={!csrfReady || !csrfToken}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isLoading}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={isLoading || !csrfToken}>
-                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Dialog de Bloqueio (COM CSRF) */}
-        <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {selectedUser?.blocked ? 'Desbloquear Usuário' : 'Bloquear Usuário'}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {selectedUser?.blocked
-                  ? `Tem certeza que deseja desbloquear ${selectedUser?.nomeCompleto}? O usuário poderá acessar o sistema novamente.`
-                  : `Tem certeza que deseja bloquear ${selectedUser?.nomeCompleto}? O usuário não poderá mais acessar o sistema.`
-                }
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleToggleBlock} disabled={isLoading || !csrfToken}>
-                {isLoading ? 'Processando...' : (selectedUser?.blocked ? 'Desbloquear' : 'Bloquear')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        
-        {/* Dialog de Exclusão (COM CSRF) */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir Usuário Permanentemente</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir permanentemente {selectedUser?.nomeCompleto}? 
-                Esta ação não pode ser desfeita e todos os dados do usuário serão removidos do sistema.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDeleteUser} 
-                disabled={isLoading || !csrfToken}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {isLoading ? 'Excluindo...' : 'Excluir Permanentemente'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
-
-      {/* Hidden CSRF Token */}
-      <input type="hidden" name="csrf_token" value={csrfToken || ''} />
     </div>
   );
 }
