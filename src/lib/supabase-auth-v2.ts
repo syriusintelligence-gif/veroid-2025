@@ -5,8 +5,6 @@
 
 import { supabase } from './supabase';
 import type { Database } from './supabase';
-import { setUserContext, clearUserContext } from './sentry';
-import { logAuditEvent, AuditAction } from './audit-logger';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type UserInsert = Database['public']['Tables']['users']['Insert'];
@@ -23,7 +21,6 @@ export interface User {
   createdAt: string;
   verified: boolean;
   isAdmin: boolean;
-  blocked?: boolean;
 }
 
 interface DebugInfo {
@@ -68,7 +65,6 @@ function dbUserToAppUser(dbUser: UserRow): User {
     createdAt: dbUser.created_at,
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
-    blocked: dbUser.blocked || false,
   };
 }
 
@@ -84,7 +80,6 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     selfie_url: appUser.selfieUrl,
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
-    blocked: appUser.blocked || false,
   };
 }
 
@@ -251,7 +246,7 @@ export async function registerUser(
           nome_completo: user.nomeCompleto,
           nome_publico: user.nomePublico || user.nomeCompleto,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/login`,
       }
     });
     
@@ -301,23 +296,6 @@ export async function registerUser(
     
     console.log('✅ Usuário registrado com sucesso!');
     console.log('📊 Dados:', { email: userData.email, isAdmin: userData.is_admin });
-    
-    // Define contexto do usuário no Sentry
-    setUserContext({
-      id: userData.id,
-      username: userData.nome_publico,
-    });
-    
-    // 📊 Log de auditoria
-    await logAuditEvent(AuditAction.USER_CREATED, {
-      success: true,
-      email: userData.email,
-      isAdmin: userData.is_admin,
-      metadata: {
-        nomeCompleto: userData.nome_completo,
-        verified: userData.verified,
-      }
-    }, userData.id);
     
     return {
       success: true,
@@ -387,14 +365,6 @@ export async function loginUser(
         userId: userInTable?.id,
       };
       
-      // 📊 Log de auditoria - Login falhou
-      await logAuditEvent(AuditAction.LOGIN_FAILED, {
-        success: false,
-        error: authError.message,
-        email: email.toLowerCase(),
-        userExists: !!userInTable,
-      });
-      
       if (userInTable) {
         return { 
           success: false, 
@@ -442,21 +412,6 @@ export async function loginUser(
       if (syncedUser) {
         console.log('✅ Dados sincronizados com sucesso!');
         debugInfo.step = 'sync_success';
-        
-        // Define contexto do usuário no Sentry
-        setUserContext({
-          id: syncedUser.id,
-          username: syncedUser.nomePublico,
-        });
-        
-        // 📊 Log de auditoria - Login bem-sucedido
-        await logAuditEvent(AuditAction.LOGIN, {
-          success: true,
-          email: syncedUser.email,
-          isAdmin: syncedUser.isAdmin,
-          synced: true,
-        }, syncedUser.id);
-        
         return { success: true, user: syncedUser, debugInfo };
       }
       
@@ -474,19 +429,6 @@ export async function loginUser(
       verified: userData.verified,
     };
     
-    // Define contexto do usuário no Sentry
-    setUserContext({
-      id: userData.id,
-      username: userData.nome_publico,
-    });
-    
-    // 📊 Log de auditoria - Login bem-sucedido
-    await logAuditEvent(AuditAction.LOGIN, {
-      success: true,
-      email: userData.email,
-      isAdmin: userData.is_admin,
-    }, userData.id);
-    
     return {
       success: true,
       user: dbUserToAppUser(userData),
@@ -494,14 +436,6 @@ export async function loginUser(
     };
   } catch (error) {
     console.error('❌ Erro crítico ao fazer login:', error);
-    
-    // 📊 Log de auditoria - Erro crítico
-    await logAuditEvent(AuditAction.LOGIN_FAILED, {
-      success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-      email: email.toLowerCase(),
-    });
-    
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -516,23 +450,8 @@ export async function loginUser(
 export async function logout(): Promise<void> {
   try {
     console.log('👋 Fazendo logout...');
-    
-    // Obtém usuário antes do logout para log
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
-    
-    // Limpa contexto do usuário no Sentry
-    clearUserContext();
-    
     await supabase.auth.signOut();
     console.log('✅ Logout realizado com sucesso');
-    
-    // 📊 Log de auditoria
-    if (userId) {
-      await logAuditEvent(AuditAction.LOGOUT, {
-        success: true,
-      }, userId);
-    }
   } catch (error) {
     console.error('❌ Erro ao fazer logout:', error);
   }
@@ -560,15 +479,7 @@ export async function getCurrentUser(): Promise<User | null> {
       return null;
     }
     
-    const user = dbUserToAppUser(userData);
-    
-    // Define contexto do usuário no Sentry
-    setUserContext({
-      id: user.id,
-      username: user.nomePublico,
-    });
-    
-    return user;
+    return dbUserToAppUser(userData);
   } catch (error) {
     console.error('❌ Erro ao obter usuário atual:', error);
     return null;
@@ -582,49 +493,28 @@ export async function requestPasswordReset(
   email: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔑 [PASSWORD RESET] Iniciando solicitação de recuperação...');
-    console.log('📧 Email:', email);
-    console.log('🌐 Origin:', window.location.origin);
+    console.log('🔑 Solicitando recuperação de senha para:', email);
     
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    console.log('🔗 Redirect URL gerada:', redirectUrl);
-    
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
-      redirectTo: redirectUrl,
+    const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+      redirectTo: `${window.location.origin}/reset-password`,
     });
-    
-    console.log('📊 Resposta do Supabase:', { data, error });
     
     if (error) {
       console.error('❌ Erro ao solicitar reset de senha:', error);
-      console.error('❌ Detalhes do erro:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      });
-      
       return { 
         success: false, 
-        message: `Erro ao solicitar recuperação de senha: ${error.message}` 
+        message: 'Erro ao solicitar recuperação de senha' 
       };
     }
     
-    console.log('✅ Email de recuperação enviado com sucesso');
-    console.log('📧 Verifique o email:', email);
-    console.log('🔗 O link redirecionará para:', redirectUrl);
-    
-    // 📊 Log de auditoria
-    await logAuditEvent(AuditAction.PASSWORD_RESET_REQUEST, {
-      success: true,
-      email: email.toLowerCase(),
-    });
+    console.log('✅ Email de recuperação enviado');
     
     return {
       success: true,
       message: 'Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.',
     };
   } catch (error) {
-    console.error('❌ Erro crítico ao solicitar reset de senha:', error);
+    console.error('❌ Erro ao solicitar reset de senha:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Erro desconhecido' 
@@ -639,8 +529,6 @@ export async function resetPassword(
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔐 [RESET PASSWORD] Iniciando reset de senha...');
-    
     if (!isValidPassword(newPassword)) {
       return {
         success: false,
@@ -648,35 +536,16 @@ export async function resetPassword(
       };
     }
     
-    console.log('✅ Senha válida, atualizando...');
-    
-    const { data, error } = await supabase.auth.updateUser({
+    const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
     
-    console.log('📊 Resposta do updateUser:', { data, error });
-    
     if (error) {
       console.error('❌ Erro ao resetar senha:', error);
-      console.error('❌ Detalhes do erro:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      });
-      
       return { 
         success: false, 
-        message: `Erro ao alterar senha: ${error.message}` 
+        message: 'Erro ao alterar senha' 
       };
-    }
-    
-    console.log('✅ Senha alterada com sucesso');
-    
-    // 📊 Log de auditoria
-    if (data.user) {
-      await logAuditEvent(AuditAction.PASSWORD_RESET_COMPLETE, {
-        success: true,
-      }, data.user.id);
     }
     
     return {
@@ -684,7 +553,7 @@ export async function resetPassword(
       message: 'Senha alterada com sucesso',
     };
   } catch (error) {
-    console.error('❌ Erro crítico ao resetar senha:', error);
+    console.error('❌ Erro ao resetar senha:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Erro desconhecido' 
@@ -719,181 +588,5 @@ export async function getUsers(): Promise<User[]> {
   } catch (error) {
     console.error('❌ Erro ao buscar usuários:', error);
     return [];
-  }
-}
-
-/**
- * Atualiza dados de um usuário (apenas para admin)
- */
-export async function updateUser(
-  userId: string,
-  updates: {
-    nomeCompleto?: string;
-    nomePublico?: string;
-    email?: string;
-    telefone?: string;
-  }
-): Promise<{ success: boolean; user?: User; error?: string }> {
-  try {
-    console.log('✏️ [UPDATE USER] Atualizando usuário:', userId);
-    console.log('📊 Dados a atualizar:', updates);
-    
-    // Verifica se o usuário atual é admin
-    const isAdmin = await isCurrentUserAdmin();
-    if (!isAdmin) {
-      return { success: false, error: 'Apenas administradores podem editar usuários' };
-    }
-    
-    // Prepara os dados para atualização
-    const updateData: Record<string, string> = {};
-    if (updates.nomeCompleto) updateData.nome_completo = updates.nomeCompleto;
-    if (updates.nomePublico) updateData.nome_publico = updates.nomePublico;
-    if (updates.email) updateData.email = updates.email.toLowerCase();
-    if (updates.telefone) updateData.telefone = updates.telefone;
-    
-    // Atualiza o usuário na tabela
-    const { data, error } = await supabase
-      .from('users')
-      .update(updateData)
-      .eq('id', userId)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('❌ Erro ao atualizar usuário:', error);
-      return { success: false, error: 'Erro ao atualizar usuário' };
-    }
-    
-    console.log('✅ Usuário atualizado com sucesso');
-    
-    // 📊 Log de auditoria
-    const currentUser = await getCurrentUser();
-    if (currentUser) {
-      await logAuditEvent(AuditAction.USER_UPDATED, {
-        success: true,
-        targetUserId: userId,
-        updates: updates,
-      }, currentUser.id);
-    }
-    
-    return {
-      success: true,
-      user: dbUserToAppUser(data),
-    };
-  } catch (error) {
-    console.error('❌ Erro ao atualizar usuário:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-    };
-  }
-}
-
-/**
- * Bloqueia ou desbloqueia um usuário (apenas para admin)
- */
-export async function toggleBlockUser(
-  userId: string,
-  blocked: boolean
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log(`🚫 [${blocked ? 'BLOCK' : 'UNBLOCK'} USER] Usuário:`, userId);
-    
-    // Verifica se o usuário atual é admin
-    const isAdmin = await isCurrentUserAdmin();
-    if (!isAdmin) {
-      return { success: false, error: 'Apenas administradores podem bloquear usuários' };
-    }
-    
-    // Atualiza o status de bloqueio
-    const { error } = await supabase
-      .from('users')
-      .update({ blocked })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('❌ Erro ao atualizar status de bloqueio:', error);
-      return { success: false, error: 'Erro ao atualizar status de bloqueio' };
-    }
-    
-    console.log(`✅ Usuário ${blocked ? 'bloqueado' : 'desbloqueado'} com sucesso`);
-    
-    // 📊 Log de auditoria
-    const currentUser = await getCurrentUser();
-    if (currentUser) {
-      await logAuditEvent(AuditAction.ADMIN_ACTION, {
-        success: true,
-        action: blocked ? 'block_user' : 'unblock_user',
-        targetUserId: userId,
-      }, currentUser.id);
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao bloquear/desbloquear usuário:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-    };
-  }
-}
-
-/**
- * Exclui permanentemente um usuário (apenas para admin)
- */
-export async function deleteUser(
-  userId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log('🗑️ [DELETE USER] Excluindo usuário:', userId);
-    
-    // Verifica se o usuário atual é admin
-    const isAdmin = await isCurrentUserAdmin();
-    if (!isAdmin) {
-      return { success: false, error: 'Apenas administradores podem excluir usuários' };
-    }
-    
-    // Verifica se não está tentando excluir a si mesmo
-    const currentUser = await getCurrentUser();
-    if (currentUser?.id === userId) {
-      return { success: false, error: 'Você não pode excluir sua própria conta' };
-    }
-    
-    // Exclui o usuário da tabela users
-    const { error: deleteError } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
-    
-    if (deleteError) {
-      console.error('❌ Erro ao excluir usuário da tabela:', deleteError);
-      return { success: false, error: 'Erro ao excluir usuário' };
-    }
-    
-    // Tenta excluir do Auth (requer permissões de admin)
-    try {
-      await supabase.auth.admin.deleteUser(userId);
-      console.log('✅ Usuário excluído do Auth');
-    } catch (authError) {
-      console.warn('⚠️ Não foi possível excluir do Auth (pode requerer permissões adicionais):', authError);
-    }
-    
-    console.log('✅ Usuário excluído com sucesso');
-    
-    // 📊 Log de auditoria
-    if (currentUser) {
-      await logAuditEvent(AuditAction.USER_DELETED, {
-        success: true,
-        targetUserId: userId,
-      }, currentUser.id);
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao excluir usuário:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-    };
   }
 }
