@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera } from 'lucide-react';
 import { getCurrentUser, User as UserType } from '@/lib/supabase-auth';
 
-import { getCurrentUser, User as UserType } from '@/lib/supabase-auth';
+export default function Profile() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
 
