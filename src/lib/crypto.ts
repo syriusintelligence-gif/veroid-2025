@@ -259,8 +259,15 @@ export async function verifySignature(
 /**
  * Gera código de verificação único
  */
+/**
+ * Gera código de verificação único de 8 caracteres hexadecimais
+ */
 export function generateVerificationCode(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `VID-${timestamp}-${random}`.toUpperCase();
+  // Gera 4 bytes aleatórios e converte para hexadecimal (8 caracteres)
+  const array = new Uint8Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
 }
