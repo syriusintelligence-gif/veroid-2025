@@ -190,6 +190,15 @@ export function getCreatorName(): string {
 }
 
 /**
+ * Limpa todas as chaves armazenadas (para logout completo)
+ */
+export function clearAllKeys(): void {
+  localStorage.removeItem('veroId_keyPair');
+  localStorage.removeItem('veroId_creatorName');
+  localStorage.removeItem('veroId_signedContents');
+}
+
+/**
  * Armazena conteúdos assinados
  */
 export function saveSignedContent(signedContent: SignedContent): void {
