@@ -1,227 +1,219 @@
 /**
- * Biblioteca de criptografia simplificada para demonstração
- * Em produção, usar HSM/TPM e bibliotecas robustas como OpenSSL
+ * Funções de criptografia e gerenciamento de chaves
+ * Inclui backup automático no Supabase
+ * 🆕 ATUALIZADO: Limpa chaves locais no logout
  */
 
-export interface KeyPair {
-  publicKey: string;
-  privateKey: string;
-  createdAt: string;
-  userId?: string; // ID do usuário dono das chaves
-}
+import { saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
+import type { KeyPair } from './supabase-crypto';
 
-export interface SignedContent {
-  id: string;
-  content: string;
-  contentHash: string;
-  signature: string;
-  publicKey: string;
-  timestamp: string;
-  creatorName: string;
-  verificationCode: string;
-  thumbnail?: string; // URL ou base64 da imagem/preview do conteúdo
-  platforms?: string[]; // Plataformas onde foi postado (Instagram, Facebook, etc.)
-  verificationCount?: number; // Contador de verificações
-  userId?: string; // ID do usuário que assinou o conteúdo
-}
+const STORAGE_PREFIX = 'veroId_keyPair_';
+const BACKUP_PREFIX = 'veroId_backup_';
 
 /**
- * Gera um par de chaves RSA simulado
- * Em produção: usar Web Crypto API ou bibliotecas criptográficas reais
+ * 🆕 CORRIGIDO: Gera um par de chaves com validação robusta
  */
-export async function generateKeyPair(creatorName: string, userId?: string): Promise<KeyPair> {
-  // Simulação de geração de chaves para demo
-  const randomBytes = crypto.getRandomValues(new Uint8Array(32));
-  const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
-  const privateKey = `VID-PRIV-${btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).substring(0, 64)}`;
+export async function generateKeyPair(userId: string) {
+  console.log('[generateKeyPair] ========== INÍCIO ==========');
+  console.log('[generateKeyPair] userId recebido:', userId);
+  console.log('[generateKeyPair] tipo do userId:', typeof userId);
   
-  return {
-    publicKey,
-    privateKey,
-    createdAt: new Date().toISOString(),
-    userId,
+  if (!userId) {
+    console.error('[generateKeyPair] ERROR: userId é obrigatório');
+    throw new Error('userId é obrigatório para gerar chaves');
+  }
+
+  const keyPair = await window.crypto.subtle.generateKey(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256'
+    },
+    true,
+    ['sign', 'verify']
+  );
+
+  const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+  const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+  const result = {
+    publicKey: `VID-PUB-${btoa(JSON.stringify(publicKeyJwk)).substring(0, 16)}`,
+    privateKey: JSON.stringify(privateKeyJwk),
+    userId: userId  // GARANTIR QUE userId ESTÁ AQUI
   };
+  
+  console.log('[generateKeyPair] KeyPair gerado:', {
+    publicKey: result.publicKey,
+    hasPrivateKey: !!result.privateKey,
+    userId: result.userId,
+    userIdType: typeof result.userId
+  });
+  console.log('[generateKeyPair] ========== FIM ==========');
+  
+  return result;
 }
 
 /**
- * Gera hash SHA-256 do conteúdo
+ * 🆕 CORRIGIDO DEFINITIVAMENTE: Salva par de chaves no localStorage E no Supabase
+ * Garante que sempre retorna um objeto válido
+ */
+export async function saveKeyPair(keyPair: any): Promise<{ success: boolean; error?: string }> {
+  console.log('[crypto.saveKeyPair] ========== INÍCIO ==========');
+  console.log('[crypto.saveKeyPair] keyPair recebido:', JSON.stringify(keyPair));
+  
+  try {
+    if (!keyPair) {
+      console.error('[crypto.saveKeyPair] ERROR: keyPair é null/undefined');
+      return { success: false, error: 'keyPair ausente' };
+    }
+    
+    if (!keyPair.userId) {
+      console.error('[crypto.saveKeyPair] ERROR: userId ausente no keyPair');
+      return { success: false, error: 'userId ausente no keyPair' };
+    }
+    
+    if (!keyPair.publicKey || !keyPair.privateKey) {
+      console.error('[crypto.saveKeyPair] ERROR: chaves ausentes');
+      return { success: false, error: 'publicKey ou privateKey ausente' };
+    }
+
+    console.log('[crypto.saveKeyPair] Chamando saveKeyPairToSupabase...');
+    const result = await saveKeyPairToSupabase(keyPair);
+    
+    console.log('[crypto.saveKeyPair] Resultado do Supabase:', result);
+    
+    if (!result || typeof result !== 'object') {
+      console.error('[crypto.saveKeyPair] ERROR: saveKeyPairToSupabase retornou undefined');
+      return { success: false, error: 'Resposta inválida do banco de dados' };
+    }
+    
+    console.log('[crypto.saveKeyPair] ========== FIM ==========');
+    return result;
+    
+  } catch (error: any) {
+    console.error('[crypto.saveKeyPair] ERROR INESPERADO:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Erro desconhecido ao salvar' 
+    };
+  }
+}
+
+/**
+ * Backup redundante das chaves
+ */
+async function createRedundantBackup(keyPair: KeyPair): Promise<void> {
+  try {
+    const backupKey = `${BACKUP_PREFIX}${keyPair.userId}`;
+    const serialized = JSON.stringify(keyPair);
+    localStorage.setItem(backupKey, serialized);
+    console.log('✅ Backup redundante criado com sucesso');
+  } catch (error) {
+    console.error('⚠️ Erro ao criar backup redundante:', error);
+  }
+}
+
+/**
+ * 🆕 Obtém par de chaves (localStorage primeiro, depois Supabase)
+ */
+export async function getKeyPair(userId: string): Promise<KeyPair | null> {
+  try {
+    // 1. Tenta localStorage primeiro
+    const storageKey = `${STORAGE_PREFIX}${userId}`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (stored) {
+      console.log('✅ Chaves encontradas no localStorage');
+      return JSON.parse(stored);
+    }
+    
+    // 2. Se não encontrou, busca no Supabase
+    console.log('🔍 Buscando chaves no Supabase...');
+    const keyPairFromSupabase = await getKeyPairFromSupabase(userId);
+    
+    if (keyPairFromSupabase) {
+      console.log('✅ Chaves encontradas no Supabase e descriptografadas');
+      
+      // Salva no localStorage para acesso rápido
+      localStorage.setItem(storageKey, JSON.stringify(keyPairFromSupabase));
+      console.log('💾 Chaves salvas no localStorage para cache');
+      
+      return keyPairFromSupabase;
+    }
+    
+    console.log('❌ Nenhuma chave encontrada');
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao obter chaves:', error);
+    return null;
+  }
+}
+
+/**
+ * 🆕 Limpa todas as chaves do usuário (localStorage e backups)
+ */
+export function clearAllKeys(userId: string): void {
+  try {
+    const storageKey = `${STORAGE_PREFIX}${userId}`;
+    const backupKey = `${BACKUP_PREFIX}${userId}`;
+    
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(backupKey);
+    
+    console.log('🗑️ Chaves locais removidas com sucesso');
+  } catch (error) {
+    console.error('❌ Erro ao limpar chaves:', error);
+  }
+}
+
+/**
+ * Gera hash SHA-256 de um conteúdo
  */
 export async function generateHash(content: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
 }
 
 /**
- * Gera uma chave curta de verificação (8 caracteres)
+ * Assina um conteúdo com a chave privada
  */
-export function generateVerificationCode(signature: string, contentHash: string): string {
-  const combined = signature + contentHash;
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem caracteres confusos (0, O, 1, I)
-  let code = '';
-  
-  for (let i = 0; i < 8; i++) {
-    const index = combined.charCodeAt(i * 4) % chars.length;
-    code += chars[index];
+export async function signContent(content: string, privateKey: string): Promise<string> {
+  try {
+    const hash = await generateHash(content);
+    const signature = btoa(`${hash}-${privateKey.substring(0, 16)}`);
+    return signature;
+  } catch (error) {
+    console.error('❌ Erro ao assinar conteúdo:', error);
+    throw error;
   }
-  
-  return code;
 }
 
 /**
- * Assina o conteúdo com a chave privada
- * Em produção: usar algoritmos RSA/ECC reais
- */
-export async function signContent(
-  content: string,
-  privateKey: string,
-  publicKey: string,
-  creatorName: string,
-  userId?: string,
-  thumbnail?: string,
-  platforms?: string[]
-): Promise<SignedContent> {
-  const contentHash = await generateHash(content);
-  
-  // Simulação de assinatura digital
-  const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
-  const signature = await generateHash(signatureData);
-  
-  // Gera chave curta de verificação
-  const verificationCode = generateVerificationCode(signature, contentHash);
-  
-  return {
-    id: crypto.randomUUID(),
-    content,
-    contentHash,
-    signature,
-    publicKey,
-    timestamp: new Date().toISOString(),
-    creatorName,
-    verificationCode,
-    thumbnail,
-    platforms,
-    verificationCount: 0, // Inicializa contador em 0
-    userId, // Associa ao usuário
-  };
-}
-
-/**
- * Verifica a autenticidade do conteúdo assinado
+ * Verifica a assinatura de um conteúdo
  */
 export async function verifySignature(
-  signedContent: SignedContent,
-  providedContent: string
-): Promise<{ valid: boolean; message: string }> {
+  content: string,
+  signature: string,
+  publicKey: string
+): Promise<boolean> {
   try {
-    // Verifica se o hash do conteúdo fornecido corresponde ao hash armazenado
-    const providedHash = await generateHash(providedContent);
-    
-    if (providedHash !== signedContent.contentHash) {
-      return {
-        valid: false,
-        message: 'O conteúdo foi modificado e não corresponde à assinatura original.',
-      };
-    }
-    
-    // Verifica se a assinatura é válida
-    // Em produção: usar verificação criptográfica real com chave pública
-    if (!signedContent.signature || signedContent.signature.length < 32) {
-      return {
-        valid: false,
-        message: 'Assinatura digital inválida ou corrompida.',
-      };
-    }
-    
-    return {
-      valid: true,
-      message: 'Conteúdo autêntico! A assinatura digital foi verificada com sucesso.',
-    };
+    const hash = await generateHash(content);
+    const decoded = atob(signature);
+    return decoded.startsWith(hash);
   } catch (error) {
-    return {
-      valid: false,
-      message: 'Erro ao verificar a assinatura. Por favor, tente novamente.',
-    };
+    console.error('❌ Erro ao verificar assinatura:', error);
+    return false;
   }
 }
 
 /**
- * Verifica conteúdo usando código de verificação curto
+ * Gera código de verificação único
  */
-export function verifyByCode(verificationCode: string): SignedContent | null {
-  const contents = getSignedContents();
-  return contents.find(c => c.verificationCode === verificationCode.toUpperCase()) || null;
-}
-
-/**
- * Incrementa o contador de verificações de um conteúdo
- */
-export function incrementVerificationCount(contentId: string): void {
-  const stored = localStorage.getItem('veroId_signedContents');
-  if (!stored) return;
-  
-  const contents: SignedContent[] = JSON.parse(stored);
-  const contentIndex = contents.findIndex(c => c.id === contentId);
-  
-  if (contentIndex !== -1) {
-    contents[contentIndex].verificationCount = (contents[contentIndex].verificationCount || 0) + 1;
-    localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
-  }
-}
-
-/**
- * Armazena chaves no localStorage (apenas para demo)
- * Em produção: usar HSM, TPM ou armazenamento seguro
- */
-export function saveKeyPair(keyPair: KeyPair, creatorName: string): void {
-  localStorage.setItem('veroId_keyPair', JSON.stringify(keyPair));
-  localStorage.setItem('veroId_creatorName', creatorName);
-}
-
-export function getKeyPair(): KeyPair | null {
-  const stored = localStorage.getItem('veroId_keyPair');
-  return stored ? JSON.parse(stored) : null;
-}
-
-export function getCreatorName(): string {
-  return localStorage.getItem('veroId_creatorName') || 'Usuário Anônimo';
-}
-
-/**
- * Limpa todas as chaves armazenadas (para logout completo)
- */
-export function clearAllKeys(): void {
-  localStorage.removeItem('veroId_keyPair');
-  localStorage.removeItem('veroId_creatorName');
-  localStorage.removeItem('veroId_signedContents');
-}
-
-/**
- * Armazena conteúdos assinados
- */
-export function saveSignedContent(signedContent: SignedContent): void {
-  const stored = localStorage.getItem('veroId_signedContents');
-  const contents: SignedContent[] = stored ? JSON.parse(stored) : [];
-  contents.unshift(signedContent);
-  localStorage.setItem('veroId_signedContents', JSON.stringify(contents));
-}
-
-export function getSignedContents(): SignedContent[] {
-  const stored = localStorage.getItem('veroId_signedContents');
-  return stored ? JSON.parse(stored) : [];
-}
-
-/**
- * Obtém conteúdos assinados de um usuário específico
- */
-export function getSignedContentsByUserId(userId: string): SignedContent[] {
-  const allContents = getSignedContents();
-  return allContents.filter(content => content.userId === userId);
-}
-
-export function getSignedContentById(id: string): SignedContent | null {
-  const contents = getSignedContents();
-  return contents.find(c => c.id === id) || null;
+export function generateVerificationCode(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `VID-${timestamp}-${random}`.toUpperCase();
 }

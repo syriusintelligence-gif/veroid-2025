@@ -1,19 +1,11 @@
 /**
- * Integração de criptografia com Supabase
- * Gerencia chaves e conteúdos assinados no banco de dados
- * 🆕 ATUALIZADO: Agora criptografa chaves privadas com AES-256-GCM
+ * Funções de criptografia e integração com Supabase
+ * 🆕 ATUALIZADO: Criptografia AES-256-GCM para chaves privadas
  */
 
 import { supabase } from './supabase';
-import type { Database, SocialLinks } from './supabase';
-import { generateHash, generateVerificationCode } from './crypto';
-import { encryptPrivateKey, decryptPrivateKey } from './encryption';
 
-type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
-type KeyPairInsert = Database['public']['Tables']['key_pairs']['Insert'];
-type SignedContentRow = Database['public']['Tables']['signed_contents']['Row'];
-type SignedContentInsert = Database['public']['Tables']['signed_contents']['Insert'];
-
+// Tipos
 export interface KeyPair {
   id: string;
   userId: string;
@@ -28,104 +20,221 @@ export interface SignedContent {
   content: string;
   contentHash: string;
   signature: string;
-  publicKey: string;
-  createdAt: string;
-  creatorName: string;
   verificationCode: string;
-  thumbnail?: string;
+  publicKey: string;
   platforms?: string[];
-  verificationCount: number;
-  creatorSocialLinks?: SocialLinks;
+  createdAt: string;
+  verificationCount?: number;
 }
 
-// Converte do formato do banco para o formato da aplicação
-function dbKeyPairToAppKeyPair(dbKeyPair: KeyPairRow): KeyPair {
-  return {
-    id: dbKeyPair.id,
-    userId: dbKeyPair.user_id,
-    publicKey: dbKeyPair.public_key,
-    privateKey: dbKeyPair.private_key, // ⚠️ Ainda em texto plano (modo legado)
-    createdAt: dbKeyPair.created_at,
-  };
-}
+// 🆕 Chave de criptografia (em produção, use variável de ambiente)
+const ENCRYPTION_KEY = 'veroId-encryption-key-2024-secure-aes256';
 
-// 🆕 MODIFICADO: Agora aceita creatorSocialLinks como parâmetro opcional
-function dbSignedContentToAppSignedContent(
-  dbContent: SignedContentRow, 
-  creatorSocialLinks?: SocialLinks
-): SignedContent {
-  return {
-    id: dbContent.id,
-    userId: dbContent.user_id,
-    content: dbContent.content,
-    contentHash: dbContent.content_hash,
-    signature: dbContent.signature,
-    publicKey: dbContent.public_key,
-    createdAt: dbContent.created_at,
-    creatorName: dbContent.creator_name,
-    verificationCode: dbContent.verification_code,
-    thumbnail: dbContent.thumbnail || undefined,
-    platforms: dbContent.platforms || undefined,
-    verificationCount: dbContent.verification_count,
-    creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
-  };
+/**
+ * 🆕 Deriva uma chave AES-256 a partir de uma senha
+ */
+async function deriveKey(password: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode('veroId-salt-2024'),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
 }
 
 /**
- * Gera um par de chaves RSA simulado
+ * 🆕 Criptografa a chave privada usando AES-256-GCM
  */
-export async function generateKeyPair(userId: string): Promise<KeyPair> {
-  const randomBytes = crypto.getRandomValues(new Uint8Array(32));
-  const publicKey = `VID-PUB-${btoa(String.fromCharCode(...randomBytes)).substring(0, 64)}`;
-  const privateKey = `VID-PRIV-${btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).substring(0, 64)}`;
+async function encryptPrivateKey(privateKey: string): Promise<string> {
+  console.log('🔐 [encryptPrivateKey] Iniciando criptografia...');
   
-  return {
-    id: crypto.randomUUID(),
-    userId,
-    publicKey,
-    privateKey,
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const key = await deriveKey(ENCRYPTION_KEY);
+    const encoder = new TextEncoder();
+    const data = encoder.encode(privateKey);
+    
+    // IV (Initialization Vector) aleatório
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    const encryptedData = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+    
+    // Combina IV + dados criptografados
+    const combined = new Uint8Array(iv.length + encryptedData.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encryptedData), iv.length);
+    
+    // Converte para base64
+    const encrypted = btoa(String.fromCharCode(...combined));
+    
+    console.log('✅ [encryptPrivateKey] Chave privada criptografada com sucesso');
+    return encrypted;
+  } catch (error) {
+    console.error('❌ [encryptPrivateKey] Erro ao criptografar:', error);
+    throw error;
+  }
 }
 
 /**
- * 🆕 Salva par de chaves no Supabase COM CRIPTOGRAFIA
+ * 🆕 Descriptografa a chave privada
  */
-export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
+async function decryptPrivateKey(encryptedPrivateKey: string): Promise<string> {
+  console.log('🔓 [decryptPrivateKey] Iniciando descriptografia...');
+  
   try {
-    console.log('🔐 Criptografando chave privada antes de salvar...');
+    const key = await deriveKey(ENCRYPTION_KEY);
     
-    // Criptografa a chave privada
-    const encryptedPrivateKey = await encryptPrivateKey(keyPair.privateKey);
+    // Decodifica de base64
+    const combined = Uint8Array.from(atob(encryptedPrivateKey), c => c.charCodeAt(0));
     
-    console.log('✅ Chave privada criptografada com sucesso');
-    console.log('📊 Tamanho:', {
-      original: keyPair.privateKey.length,
-      encrypted: encryptedPrivateKey.length,
-    });
+    // Separa IV e dados criptografados
+    const iv = combined.slice(0, 12);
+    const encryptedData = combined.slice(12);
     
-    const { error } = await supabase
-      .from('key_pairs')
-      .insert({
-        id: keyPair.id,
-        user_id: keyPair.userId,
-        public_key: keyPair.publicKey,
-        encrypted_private_key: encryptedPrivateKey, // 🆕 Salva criptografada
-        encryption_algorithm: 'AES-256-GCM',
-        key_version: 1,
-        // private_key: null, // 🆕 Não salva mais em texto plano
-      });
+    const decryptedData = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedData
+    );
     
-    if (error) {
-      console.error('❌ Erro ao salvar chaves:', error);
-      return { success: false, error: 'Erro ao salvar chaves' };
+    const decoder = new TextDecoder();
+    const privateKey = decoder.decode(decryptedData);
+    
+    console.log('✅ [decryptPrivateKey] Chave privada descriptografada com sucesso');
+    return privateKey;
+  } catch (error) {
+    console.error('❌ [decryptPrivateKey] Erro ao descriptografar:', error);
+    throw error;
+  }
+}
+
+/**
+ * 🆕 Salva par de chaves no Supabase (chave privada criptografada)
+ */
+export async function saveKeyPairToSupabase(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
+  console.log('☁️ [saveKeyPairToSupabase] ========== INÍCIO ==========');
+  console.log('📊 [saveKeyPairToSupabase] keyPair recebido:', JSON.stringify({
+    id: keyPair?.id,
+    userId: keyPair?.userId,
+    hasPublicKey: !!keyPair?.publicKey,
+    hasPrivateKey: !!keyPair?.privateKey,
+  }, null, 2));
+  
+  try {
+    // 🆕 VALIDAÇÃO CRÍTICA 1: Verifica se keyPair existe
+    if (!keyPair) {
+      console.error('❌ [saveKeyPairToSupabase] ERROR: keyPair é null ou undefined');
+      return { success: false, error: 'keyPair ausente' };
     }
     
-    console.log('✅ Chaves salvas no Supabase (criptografadas)');
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao salvar chaves:', error);
-    return { success: false, error: 'Erro desconhecido' };
+    // 🆕 VALIDAÇÃO CRÍTICA 2: Verifica se keyPair é um objeto
+    if (typeof keyPair !== 'object') {
+      console.error('❌ [saveKeyPairToSupabase] ERROR: keyPair não é um objeto, tipo:', typeof keyPair);
+      return { success: false, error: 'keyPair deve ser um objeto' };
+    }
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 3: Verifica userId
+    if (!keyPair.userId) {
+      console.error('❌ [saveKeyPairToSupabase] ERROR: userId está ausente no keyPair');
+      console.error('📊 [saveKeyPairToSupabase] keyPair completo:', JSON.stringify(keyPair, null, 2));
+      return { success: false, error: 'userId ausente no keyPair' };
+    }
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 4: Verifica publicKey
+    if (!keyPair.publicKey) {
+      console.error('❌ [saveKeyPairToSupabase] ERROR: publicKey está ausente');
+      return { success: false, error: 'publicKey ausente' };
+    }
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 5: Verifica privateKey
+    if (!keyPair.privateKey) {
+      console.error('❌ [saveKeyPairToSupabase] ERROR: privateKey está ausente');
+      return { success: false, error: 'privateKey ausente' };
+    }
+    
+    console.log('✅ [saveKeyPairToSupabase] Todas as validações passaram');
+    console.log('🔐 [saveKeyPairToSupabase] Criptografando chave privada...');
+    
+    // Criptografa a chave privada
+    let encryptedPrivateKey: string;
+    try {
+      encryptedPrivateKey = await encryptPrivateKey(keyPair.privateKey);
+      console.log('✅ [saveKeyPairToSupabase] Chave privada criptografada com sucesso');
+    } catch (encryptError) {
+      console.error('❌ [saveKeyPairToSupabase] Erro ao criptografar chave privada:', encryptError);
+      return { 
+        success: false, 
+        error: `Erro ao criptografar: ${encryptError instanceof Error ? encryptError.message : 'Erro desconhecido'}` 
+      };
+    }
+    
+    console.log('💾 [saveKeyPairToSupabase] Salvando no banco de dados...');
+    console.log('📊 [saveKeyPairToSupabase] Dados a inserir:', {
+      user_id: keyPair.userId,
+      public_key: keyPair.publicKey.substring(0, 20) + '...',
+      encrypted_private_key: encryptedPrivateKey.substring(0, 20) + '...',
+    });
+    
+    // Salva no Supabase
+    const { data, error } = await supabase
+      .from('key_pairs')
+      .upsert({
+        user_id: keyPair.userId,
+        public_key: keyPair.publicKey,
+        encrypted_private_key: encryptedPrivateKey,
+        encryption_algorithm: 'AES-256-GCM',
+        key_version: 1,
+      })
+      .select();
+    
+    if (error) {
+      console.error('❌ [saveKeyPairToSupabase] ERRO do Supabase:', JSON.stringify(error, null, 2));
+      return { 
+        success: false, 
+        error: `Database error: ${error.message} (code: ${error.code})` 
+      };
+    }
+    
+    console.log('✅ [saveKeyPairToSupabase] Dados inseridos no Supabase com sucesso');
+    console.log('📄 [saveKeyPairToSupabase] Dados retornados:', data);
+    console.log('🎉 [saveKeyPairToSupabase] ========== SUCESSO ==========');
+    
+    // 🆕 GARANTIR RETORNO EXPLÍCITO
+    const successResult = { success: true };
+    console.log('📊 [saveKeyPairToSupabase] Retornando:', JSON.stringify(successResult));
+    return successResult;
+    
+  } catch (unexpectedError) {
+    console.error('❌ [saveKeyPairToSupabase] ERRO INESPERADO NÃO TRATADO:', unexpectedError);
+    console.error('📊 [saveKeyPairToSupabase] Tipo do erro:', typeof unexpectedError);
+    console.error('📊 [saveKeyPairToSupabase] Stack trace:', unexpectedError instanceof Error ? unexpectedError.stack : 'N/A');
+    console.error('📊 [saveKeyPairToSupabase] Erro completo:', JSON.stringify(unexpectedError, null, 2));
+    
+    // 🆕 GARANTIR RETORNO EXPLÍCITO EM CASO DE ERRO
+    const errorResult = { 
+      success: false, 
+      error: `Unexpected error: ${unexpectedError instanceof Error ? unexpectedError.message : String(unexpectedError)}` 
+    };
+    console.log('📊 [saveKeyPairToSupabase] Retornando erro:', JSON.stringify(errorResult));
+    return errorResult;
   }
 }
 
@@ -153,133 +262,64 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
       try {
         const decryptedPrivateKey = await decryptPrivateKey(data.encrypted_private_key);
         
-        console.log('✅ Chave privada descriptografada com sucesso');
-        
         return {
-          id: data.id,
+          id: data.id || crypto.randomUUID(),
           userId: data.user_id,
           publicKey: data.public_key,
-          privateKey: decryptedPrivateKey, // 🆕 Retorna descriptografada
+          privateKey: decryptedPrivateKey,
           createdAt: data.created_at,
         };
       } catch (decryptError) {
         console.error('❌ Erro ao descriptografar chave privada:', decryptError);
-        
-        // Fallback: tenta usar chave em texto plano (modo legado)
-        if (data.private_key) {
-          console.warn('⚠️ Usando chave em texto plano (modo legado)');
-          return dbKeyPairToAppKeyPair(data);
-        }
-        
         return null;
       }
     }
     
-    // Modo legado: chave em texto plano
-    if (data.private_key) {
-      console.warn('⚠️ Chave encontrada em texto plano (modo legado)');
-      return dbKeyPairToAppKeyPair(data);
-    }
-    
-    console.error('❌ Nenhuma chave privada encontrada (nem criptografada nem texto plano)');
-    return null;
+    // Fallback para chaves antigas não criptografadas (se houver)
+    return {
+      id: data.id || crypto.randomUUID(),
+      userId: data.user_id,
+      publicKey: data.public_key,
+      privateKey: data.private_key || '',
+      createdAt: data.created_at,
+    };
   } catch (error) {
-    console.error('❌ Erro ao buscar chaves:', error);
+    console.error('❌ Erro ao buscar chaves do Supabase:', error);
     return null;
   }
 }
 
 /**
- * Assina conteúdo e salva no Supabase
+ * Salva conteúdo assinado no Supabase
  */
-export async function signContent(
-  content: string,
-  privateKey: string,
-  publicKey: string,
-  creatorName: string,
-  userId: string,
-  thumbnail?: string,
-  platforms?: string[]
-): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
+export async function saveSignedContent(signedContent: Omit<SignedContent, 'id' | 'createdAt'>): Promise<boolean> {
   try {
-    console.log('🔐 [1/7] Iniciando processo de assinatura...');
-    console.log('📊 Dados recebidos:', {
-      contentLength: content.length,
-      hasPrivateKey: !!privateKey,
-      hasPublicKey: !!publicKey,
-      creatorName,
-      userId,
-      hasThumbnail: !!thumbnail,
-      thumbnailSize: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
-      platforms: platforms?.join(', '),
-    });
-    
-    console.log('🔐 [2/7] Gerando hash do conteúdo...');
-    const contentHash = await generateHash(content);
-    console.log('✅ Hash gerado:', contentHash.substring(0, 16) + '...');
-    
-    console.log('🔐 [3/7] Gerando assinatura digital...');
-    const signatureData = `${contentHash}:${privateKey}:${Date.now()}`;
-    const signature = await generateHash(signatureData);
-    console.log('✅ Assinatura gerada:', signature.substring(0, 16) + '...');
-    
-    console.log('🔐 [4/7] Gerando código de verificação...');
-    const verificationCode = generateVerificationCode(signature, contentHash);
-    console.log('✅ Código de verificação:', verificationCode);
-    
-    console.log('🔐 [5/7] Preparando dados para inserção no Supabase...');
-    const signedContent: SignedContentInsert = {
-      user_id: userId,
-      content,
-      content_hash: contentHash,
-      signature,
-      public_key: publicKey,
-      creator_name: creatorName,
-      verification_code: verificationCode,
-      thumbnail: thumbnail || null,
-      platforms: platforms || null,
-      verification_count: 0,
-    };
-    
-    console.log('📊 Tamanho dos dados:', {
-      content: `${(content.length / 1024).toFixed(2)}KB`,
-      thumbnail: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
-      totalEstimate: `${((content.length + (thumbnail?.length || 0)) / 1024).toFixed(2)}KB`,
-    });
-    
-    console.log('🔐 [6/7] Salvando no Supabase...');
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('signed_contents')
-      .insert(signedContent)
-      .select()
-      .single();
+      .insert({
+        user_id: signedContent.userId,
+        content: signedContent.content,
+        content_hash: signedContent.contentHash,
+        signature: signedContent.signature,
+        verification_code: signedContent.verificationCode,
+        public_key: signedContent.publicKey,
+        platforms: signedContent.platforms || [],
+      });
     
     if (error) {
-      console.error('❌ [ERRO SUPABASE] Detalhes completos:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
-      return { success: false, error: `Erro ao salvar: ${error.message}` };
+      console.error('❌ Erro ao salvar conteúdo assinado:', error);
+      return false;
     }
     
-    console.log('✅ [7/7] Conteúdo salvo com sucesso no Supabase!');
-    console.log('📄 ID do conteúdo:', data.id);
-    
-    return {
-      success: true,
-      signedContent: dbSignedContentToAppSignedContent(data),
-    };
+    return true;
   } catch (error) {
-    console.error('❌ [ERRO CRÍTICO] Erro ao assinar conteúdo:', error);
-    console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'N/A');
-    return { success: false, error: `Erro crítico: ${error instanceof Error ? error.message : 'Erro desconhecido'}` };
+    console.error('❌ Erro ao salvar conteúdo assinado:', error);
+    return false;
   }
 }
 
 /**
- * Obtém todos os conteúdos assinados de um usuário
+ * Busca conteúdos assinados por um usuário
  */
 export async function getSignedContentsByUserId(userId: string): Promise<SignedContent[]> {
   try {
@@ -290,19 +330,83 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('❌ Erro ao buscar conteúdos:', error);
+      console.error('❌ Erro ao buscar conteúdos assinados:', error);
       return [];
     }
     
-    return data.map(item => dbSignedContentToAppSignedContent(item));
+    return (data || []).map(item => ({
+      id: item.id,
+      userId: item.user_id,
+      content: item.content,
+      contentHash: item.content_hash,
+      signature: item.signature,
+      verificationCode: item.verification_code,
+      publicKey: item.public_key,
+      platforms: item.platforms || [],
+      createdAt: item.created_at,
+      verificationCount: item.verification_count || 0,
+    }));
   } catch (error) {
-    console.error('❌ Erro ao buscar conteúdos:', error);
+    console.error('❌ Erro ao buscar conteúdos assinados:', error);
     return [];
   }
 }
 
 /**
- * Obtém todos os conteúdos assinados (público)
+ * Busca conteúdo assinado por código de verificação
+ */
+export async function getSignedContentByVerificationCode(code: string): Promise<SignedContent | null> {
+  try {
+    const { data, error } = await supabase
+      .from('signed_contents')
+      .select('*')
+      .eq('verification_code', code)
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    return {
+      id: data.id,
+      userId: data.user_id,
+      content: data.content,
+      contentHash: data.content_hash,
+      signature: data.signature,
+      verificationCode: data.verification_code,
+      publicKey: data.public_key,
+      platforms: data.platforms || [],
+      createdAt: data.created_at,
+      verificationCount: data.verification_count || 0,
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdo por código:', error);
+    return null;
+  }
+}
+
+/**
+ * Incrementa contador de verificações
+ */
+export async function incrementVerificationCount(contentId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('increment_verification_count', {
+      content_id: contentId,
+    });
+    
+    if (error) {
+      console.error('❌ Erro ao incrementar contador:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao incrementar contador:', error);
+    return false;
+  }
+}
+/**
+ * Busca todos os conteúdos assinados (para admin)
  */
 export async function getAllSignedContents(): Promise<SignedContent[]> {
   try {
@@ -312,172 +416,57 @@ export async function getAllSignedContents(): Promise<SignedContent[]> {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('❌ Erro ao buscar conteúdos:', error);
+      console.error('❌ Erro ao buscar todos os conteúdos:', error);
       return [];
     }
     
-    return data.map(item => dbSignedContentToAppSignedContent(item));
+    return (data || []).map(item => ({
+      id: item.id,
+      userId: item.user_id,
+      content: item.content,
+      contentHash: item.content_hash,
+      signature: item.signature,
+      verificationCode: item.verification_code,
+      publicKey: item.public_key,
+      platforms: item.platforms || [],
+      createdAt: item.created_at,
+      verificationCount: item.verification_count || 0,
+    }));
   } catch (error) {
-    console.error('❌ Erro ao buscar conteúdos:', error);
+    console.error('❌ Erro ao buscar todos os conteúdos:', error);
     return [];
   }
 }
 
 /**
- * 🆕 CORRIGIDO: Busca conteúdo por ID e inclui links sociais do criador
+ * Busca conteúdo assinado por ID
  */
-export async function getSignedContentById(id: string): Promise<SignedContent | null> {
+export async function getSignedContentById(contentId: string): Promise<SignedContent | null> {
   try {
-    console.log('🔍 [getSignedContentById] Buscando conteúdo:', id);
-    
     const { data, error } = await supabase
       .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
-      .eq('id', id)
+      .select('*')
+      .eq('id', contentId)
       .single();
     
     if (error || !data) {
-      console.log('❌ [getSignedContentById] Conteúdo não encontrado');
       return null;
     }
     
-    console.log('✅ [getSignedContentById] Conteúdo encontrado');
-    console.log('🔍 [DEBUG] data.users:', data.users);
-    
-    // Extrai links sociais do criador
-    let creatorSocialLinks: SocialLinks | undefined = undefined;
-    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
-      creatorSocialLinks = data.users.social_links as SocialLinks;
-      console.log('✅ [getSignedContentById] Links sociais encontrados:', creatorSocialLinks);
-    } else {
-      console.log('⚠️ [getSignedContentById] Nenhum link social encontrado');
-    }
-    
-    // 🆕 CORRIGIDO: Passa creatorSocialLinks para a função de conversão
-    const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
-    
-    console.log('📊 [getSignedContentById] Conteúdo final:', {
-      id: content.id,
-      creatorName: content.creatorName,
-      hasCreatorSocialLinks: !!content.creatorSocialLinks,
-      socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
-    });
-    
-    return content;
-  } catch (error) {
-    console.error('❌ Erro ao buscar conteúdo:', error);
-    return null;
-  }
-}
-
-/**
- * 🆕 CORRIGIDO: Busca conteúdo por código de verificação e inclui links sociais do criador
- */
-export async function getSignedContentByVerificationCode(code: string): Promise<SignedContent | null> {
-  try {
-    console.log('🔍 [getSignedContentByVerificationCode] Buscando por código:', code);
-    
-    const { data, error } = await supabase
-      .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
-      .eq('verification_code', code.toUpperCase())
-      .single();
-    
-    if (error || !data) {
-      console.log('❌ [getSignedContentByVerificationCode] Conteúdo não encontrado');
-      return null;
-    }
-    
-    console.log('✅ [getSignedContentByVerificationCode] Conteúdo encontrado');
-    console.log('🔍 [DEBUG] data.users:', data.users);
-    
-    // Extrai links sociais do criador
-    let creatorSocialLinks: SocialLinks | undefined = undefined;
-    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
-      creatorSocialLinks = data.users.social_links as SocialLinks;
-      console.log('✅ [getSignedContentByVerificationCode] Links sociais encontrados:', creatorSocialLinks);
-    } else {
-      console.log('⚠️ [getSignedContentByVerificationCode] Nenhum link social encontrado');
-    }
-    
-    // 🆕 CORRIGIDO: Passa creatorSocialLinks para a função de conversão
-    const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
-    
-    console.log('📊 [getSignedContentByVerificationCode] Conteúdo final:', {
-      id: content.id,
-      creatorName: content.creatorName,
-      hasCreatorSocialLinks: !!content.creatorSocialLinks,
-      socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
-    });
-    
-    return content;
-  } catch (error) {
-    console.error('❌ Erro ao buscar conteúdo:', error);
-    return null;
-  }
-}
-
-/**
- * Incrementa contador de verificações
- */
-export async function incrementVerificationCount(contentId: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { error } = await supabase.rpc('increment_verification_count', {
-      content_id: contentId,
-    });
-    
-    if (error) {
-      console.error('❌ Erro ao incrementar contador:', error);
-      return { success: false, error: 'Erro ao incrementar contador' };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao incrementar contador:', error);
-    return { success: false, error: 'Erro desconhecido' };
-  }
-}
-
-/**
- * Verifica a autenticidade do conteúdo assinado
- */
-export async function verifySignature(
-  signedContent: SignedContent,
-  providedContent: string
-): Promise<{ valid: boolean; message: string }> {
-  try {
-    // Verifica se o hash do conteúdo fornecido corresponde ao hash armazenado
-    const providedHash = await generateHash(providedContent);
-    
-    if (providedHash !== signedContent.contentHash) {
-      return {
-        valid: false,
-        message: 'O conteúdo foi modificado e não corresponde à assinatura original.',
-      };
-    }
-    
-    // Verifica se a assinatura é válida
-    if (!signedContent.signature || signedContent.signature.length < 32) {
-      return {
-        valid: false,
-        message: 'Assinatura digital inválida ou corrompida.',
-      };
-    }
-    
     return {
-      valid: true,
-      message: 'Conteúdo autêntico! A assinatura digital foi verificada com sucesso.',
+      id: data.id,
+      userId: data.user_id,
+      content: data.content,
+      contentHash: data.content_hash,
+      signature: data.signature,
+      verificationCode: data.verification_code,
+      publicKey: data.public_key,
+      platforms: data.platforms || [],
+      createdAt: data.created_at,
+      verificationCount: data.verification_count || 0,
     };
   } catch (error) {
-    return {
-      valid: false,
-      message: 'Erro ao verificar a assinatura. Por favor, tente novamente.',
-    };
+    console.error('❌ Erro ao buscar conteúdo por ID:', error);
+    return null;
   }
 }

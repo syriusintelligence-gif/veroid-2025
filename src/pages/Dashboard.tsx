@@ -100,45 +100,121 @@ export default function Dashboard() {
   };
   
   const handleGenerateKeys = async () => {
-    if (!currentUser) return;
-    
     console.log('🚀 === INICIANDO GERAÇÃO DE CHAVES ===');
-    console.log('👤 Usuário atual:', { id: currentUser.id, email: currentUser.email });
+    console.log('👤 Usuário atual (currentUser):', currentUser);
+    console.log('👤 currentUser?.id:', currentUser?.id);
+    console.log('👤 Tipo de currentUser?.id:', typeof currentUser?.id);
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 1: Verifica se currentUser existe
+    if (!currentUser) {
+      console.error('❌ ERRO CRÍTICO: currentUser é null ou undefined');
+      alert('Erro: Nenhum usuário autenticado. Por favor, faça login novamente.');
+      return;
+    }
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 2: Verifica se currentUser.id existe
+    if (!currentUser.id) {
+      console.error('❌ ERRO CRÍTICO: currentUser.id é null ou undefined');
+      console.error('📊 currentUser completo:', JSON.stringify(currentUser, null, 2));
+      alert('Erro: ID do usuário não encontrado. Por favor, faça login novamente.');
+      return;
+    }
+    
+    console.log('✅ Validação de currentUser passou');
+    console.log('📊 currentUser.id:', currentUser.id);
+    console.log('📊 Tipo de currentUser.id:', typeof currentUser.id);
     
     setIsGeneratingKeys(true);
+    
     try {
       console.log('🔑 Chamando generateKeyPair com userId:', currentUser.id);
-      const newKeyPair = await generateKeyPair(currentUser.id);
-      console.log('✅ KeyPair gerado com sucesso:', { 
-        publicKey: newKeyPair.publicKey.substring(0, 20) + '...',
-        userId: newKeyPair.userId 
-      });
       
-      console.log('💾 Chamando saveKeyPair (irá criptografar antes de salvar)...');
-      const saveResult = await saveKeyPair(newKeyPair);
-      console.log('📊 Resultado do saveKeyPair:', saveResult);
+      // 🆕 CRÍTICO: Passar currentUser.id explicitamente
+      const keyPair = await generateKeyPair(currentUser.id);
       
-      if (saveResult.success) {
-        console.log('✅ Chaves salvas com sucesso (criptografadas no Supabase)! Atualizando estado...');
-        setKeyPair(newKeyPair);
+      console.log('✅ KeyPair gerado');
+      console.log('📊 keyPair completo:', JSON.stringify(keyPair, null, 2));
+      console.log('📊 keyPair.userId:', keyPair?.userId);
+      console.log('📊 Tipo de keyPair.userId:', typeof keyPair?.userId);
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 3: Verifica se keyPair foi gerado corretamente
+      if (!keyPair) {
+        console.error('❌ ERRO: generateKeyPair retornou null ou undefined');
+        console.error('❌ keyPair recebido:', keyPair);
+        alert('Erro: Falha ao gerar chaves (retorno nulo)');
+        return;
+      }
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 4: Verifica se userId está presente no keyPair
+      if (!keyPair.userId) {
+        console.error('❌ ERRO: KeyPair gerado sem userId!');
+        console.error('📊 KeyPair gerado:', JSON.stringify(keyPair, null, 2));
+        alert('Erro: KeyPair gerado sem userId. Por favor, tente novamente.');
+        return;
+      }
+      
+      console.log('✅ Validação de KeyPair passou');
+      console.log('💾 Chamando saveKeyPair...');
+      
+      const result = await saveKeyPair(keyPair);
+      
+      console.log('📊 Resultado do saveKeyPair:', JSON.stringify(result, null, 2));
+      console.log('📊 Tipo do resultado:', typeof result);
+      console.log('📊 result?.success:', result?.success);
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 5: Verifica se result é válido
+      if (!result) {
+        console.error('❌ ERRO: saveKeyPair retornou null ou undefined');
+        console.error('❌ result recebido:', result);
+        alert('Erro: Falha ao salvar chaves (retorno nulo). Por favor, tente novamente.');
+        return;
+      }
+      
+      if (typeof result !== 'object') {
+        console.error('❌ ERRO: saveKeyPair retornou tipo inválido:', typeof result);
+        console.error('❌ result recebido:', result);
+        alert('Erro: Falha ao salvar chaves (tipo de retorno inválido). Por favor, tente novamente.');
+        return;
+      }
+      
+      if (typeof result.success === 'undefined') {
+        console.error('❌ ERRO: saveKeyPair retornou objeto sem propriedade success');
+        console.error('📊 Objeto retornado:', JSON.stringify(result, null, 2));
+        alert('Erro: Resposta inválida ao salvar chaves. Por favor, tente novamente.');
+        return;
+      }
+      
+      if (result.success) {
+        console.log('✅ Chaves salvas com sucesso!');
+        setKeyPair(keyPair);
         
         // Verifica se as chaves foram realmente salvas
         console.log('🔍 Verificando se as chaves foram realmente salvas...');
         const verifyKeyPair = await getKeyPair(currentUser.id);
+        
         if (verifyKeyPair) {
           console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão salvas e criptografadas!');
+          alert('✅ Chaves criptográficas geradas e salvas com sucesso!');
+          
+          // Recarrega a página para atualizar todos os dados
+          console.log('🔄 Recarregando página para atualizar dados...');
+          window.location.reload();
         } else {
           console.error('❌❌❌ ERRO! Chaves não foram encontradas após salvar!');
+          alert('⚠️ Chaves geradas mas não foram encontradas após salvar. Por favor, tente gerar novamente.');
         }
-        
-        console.log('🎉 Processo de geração de chaves concluído com sucesso!');
       } else {
-        console.error('❌ Falha ao salvar chaves:', saveResult.error);
-        alert('Erro ao salvar chaves: ' + saveResult.error);
+        console.error('❌ Falha ao salvar chaves:', result.error);
+        alert(`Erro ao salvar chaves: ${result.error || 'Erro desconhecido'}. Por favor, tente novamente.`);
       }
     } catch (error) {
-      console.error('❌ Erro ao gerar chaves:', error);
-      alert('Erro ao gerar chaves. Tente novamente.');
+      console.error('❌ ERRO INESPERADO na geração de chaves:', error);
+      console.error('📊 Tipo do erro:', typeof error);
+      console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      console.error('📊 error.message:', error instanceof Error ? error.message : String(error));
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Erro ao gerar chaves: ${errorMessage}. Por favor, tente novamente.`);
     } finally {
       setIsGeneratingKeys(false);
       console.log('🏁 === FIM DO PROCESSO DE GERAÇÃO ===');
