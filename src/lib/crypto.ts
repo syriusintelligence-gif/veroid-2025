@@ -2,6 +2,7 @@
  * Funções de criptografia e gerenciamento de chaves
  * Inclui backup automático no Supabase
  * 🆕 ATUALIZADO: Limpa chaves locais no logout
+ * 🔧 CORRIGIDO: generateKeyPair agora gera chaves com prefixo VID-PRIV-
  */
 
 import { saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
@@ -11,9 +12,9 @@ const STORAGE_PREFIX = 'veroId_keyPair_';
 const BACKUP_PREFIX = 'veroId_backup_';
 
 /**
- * 🆕 CORRIGIDO: Gera um par de chaves com validação robusta
+ * 🆕 CORRIGIDO: Gera um par de chaves com validação robusta e prefixo VID-PRIV-
  */
-export async function generateKeyPair(userId: string) {
+export async function generateKeyPair(userId: string): Promise<KeyPair> {
   console.log('[generateKeyPair] ========== INÍCIO ==========');
   console.log('[generateKeyPair] userId recebido:', userId);
   console.log('[generateKeyPair] tipo do userId:', typeof userId);
@@ -35,15 +36,23 @@ export async function generateKeyPair(userId: string) {
   const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
   const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
-  const result = {
-    publicKey: `VID-PUB-${btoa(JSON.stringify(publicKeyJwk)).substring(0, 16)}`,
-    privateKey: JSON.stringify(privateKeyJwk),
-    userId: userId  // GARANTIR QUE userId ESTÁ AQUI
+  // Serializar chaves para string com prefixos corretos
+  const publicKeyString = `VID-PUB-${btoa(JSON.stringify(publicKeyJwk)).substring(0, 16)}`;
+  const privateKeyString = `VID-PRIV-${btoa(JSON.stringify(privateKeyJwk)).substring(0, 16)}`;
+
+  // Criar objeto de resultado
+  const result: KeyPair = {
+    id: crypto.randomUUID(),
+    userId: userId,
+    publicKey: publicKeyString,
+    privateKey: privateKeyString,
+    createdAt: new Date().toISOString()
   };
   
   console.log('[generateKeyPair] KeyPair gerado:', {
+    id: result.id,
     publicKey: result.publicKey,
-    hasPrivateKey: !!result.privateKey,
+    privateKey: result.privateKey.substring(0, 20) + '...',
     userId: result.userId,
     userIdType: typeof result.userId
   });
@@ -56,7 +65,7 @@ export async function generateKeyPair(userId: string) {
  * 🆕 CORRIGIDO DEFINITIVAMENTE: Salva par de chaves no localStorage E no Supabase
  * Garante que sempre retorna um objeto válido
  */
-export async function saveKeyPair(keyPair: any): Promise<{ success: boolean; error?: string }> {
+export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean; error?: string }> {
   console.log('[crypto.saveKeyPair] ========== INÍCIO ==========');
   console.log('[crypto.saveKeyPair] keyPair recebido:', JSON.stringify(keyPair));
   
@@ -76,6 +85,17 @@ export async function saveKeyPair(keyPair: any): Promise<{ success: boolean; err
       return { success: false, error: 'publicKey ou privateKey ausente' };
     }
 
+    // Validar formato das chaves
+    if (!keyPair.publicKey.startsWith('VID-PUB-')) {
+      console.error('[crypto.saveKeyPair] ERROR: publicKey sem prefixo VID-PUB-');
+      return { success: false, error: 'Formato de chave pública inválido' };
+    }
+
+    if (!keyPair.privateKey.startsWith('VID-PRIV-')) {
+      console.error('[crypto.saveKeyPair] ERROR: privateKey sem prefixo VID-PRIV-');
+      return { success: false, error: 'Formato de chave privada inválido' };
+    }
+
     console.log('[crypto.saveKeyPair] Chamando saveKeyPairToSupabase...');
     const result = await saveKeyPairToSupabase(keyPair);
     
@@ -86,14 +106,21 @@ export async function saveKeyPair(keyPair: any): Promise<{ success: boolean; err
       return { success: false, error: 'Resposta inválida do banco de dados' };
     }
     
+    // Salvar no localStorage para acesso rápido
+    if (result.success) {
+      const storageKey = `${STORAGE_PREFIX}${keyPair.userId}`;
+      localStorage.setItem(storageKey, JSON.stringify(keyPair));
+      console.log('💾 Chaves salvas no localStorage');
+    }
+    
     console.log('[crypto.saveKeyPair] ========== FIM ==========');
     return result;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[crypto.saveKeyPair] ERROR INESPERADO:', error);
     return { 
       success: false, 
-      error: error.message || 'Erro desconhecido ao salvar' 
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao salvar' 
     };
   }
 }
@@ -123,7 +150,15 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
     
     if (stored) {
       console.log('✅ Chaves encontradas no localStorage');
-      return JSON.parse(stored);
+      const keyPair = JSON.parse(stored);
+      
+      // Validar formato das chaves
+      if (keyPair.publicKey?.startsWith('VID-PUB-') && keyPair.privateKey?.startsWith('VID-PRIV-')) {
+        return keyPair;
+      } else {
+        console.warn('⚠️ Chaves no localStorage com formato inválido, buscando no Supabase...');
+        localStorage.removeItem(storageKey);
+      }
     }
     
     // 2. Se não encontrou, busca no Supabase
@@ -133,11 +168,20 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
     if (keyPairFromSupabase) {
       console.log('✅ Chaves encontradas no Supabase e descriptografadas');
       
-      // Salva no localStorage para acesso rápido
-      localStorage.setItem(storageKey, JSON.stringify(keyPairFromSupabase));
-      console.log('💾 Chaves salvas no localStorage para cache');
-      
-      return keyPairFromSupabase;
+      // Validar formato das chaves do Supabase
+      if (keyPairFromSupabase.publicKey?.startsWith('VID-PUB-') && 
+          keyPairFromSupabase.privateKey?.startsWith('VID-PRIV-')) {
+        // Salva no localStorage para acesso rápido
+        localStorage.setItem(storageKey, JSON.stringify(keyPairFromSupabase));
+        console.log('💾 Chaves salvas no localStorage para cache');
+        return keyPairFromSupabase;
+      } else {
+        console.error('❌ Chaves do Supabase com formato inválido:', {
+          publicKey: keyPairFromSupabase.publicKey?.substring(0, 20),
+          privateKey: keyPairFromSupabase.privateKey?.substring(0, 20)
+        });
+        return null;
+      }
     }
     
     console.log('❌ Nenhuma chave encontrada');
