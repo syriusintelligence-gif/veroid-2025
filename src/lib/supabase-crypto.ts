@@ -25,6 +25,23 @@ export interface SignedContent {
   platforms?: string[];
   createdAt: string;
   verificationCount?: number;
+  // 🆕 Campos adicionados para preview e metadata
+  thumbnail?: string;
+  creatorName?: string;
+  creatorSocialLinks?: {
+    website?: string;
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    linkedin?: string;
+    youtube?: string;
+    tiktok?: string;
+  };
+  filePath?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSize?: number;
+  storageBucket?: string;
 }
 
 // 🆕 Chave de criptografia (em produção, use variável de ambiente)
@@ -304,23 +321,6 @@ export async function saveSignedContent(signedContent: Omit<SignedContent, 'id' 
         verification_code: signedContent.verificationCode,
         public_key: signedContent.publicKey,
         platforms: signedContent.platforms || [],
-      });
-    
-    if (error) {
-      console.error('❌ Erro ao salvar conteúdo assinado:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Erro ao salvar conteúdo assinado:', error);
-    return false;
-  }
-}
-
-/**
- * Busca conteúdos assinados por um usuário
- */
 export async function getSignedContentsByUserId(userId: string): Promise<SignedContent[]> {
   try {
     const { data, error } = await supabase
@@ -334,6 +334,32 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
       return [];
     }
     
+    return (data || []).map(item => ({
+      id: item.id,
+      userId: item.user_id,
+      content: item.content,
+      contentHash: item.content_hash,
+      signature: item.signature,
+      verificationCode: item.verification_code,
+      publicKey: item.public_key,
+      platforms: item.platforms || [],
+      createdAt: item.created_at,
+      verificationCount: item.verification_count || 0,
+      // 🆕 Campos adicionados
+      thumbnail: item.thumbnail,
+      creatorName: item.creator_name,
+      creatorSocialLinks: item.creator_social_links,
+      filePath: item.file_path,
+      fileName: item.file_name,
+      mimeType: item.mime_type,
+      fileSize: item.file_size,
+      storageBucket: item.storage_bucket,
+    }));
+  } catch (error) {
+    console.error('❌ Erro ao buscar conteúdos assinados:', error);
+    return [];
+  }
+}
     return (data || []).map(item => ({
       id: item.id,
       userId: item.user_id,
