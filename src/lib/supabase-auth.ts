@@ -4,7 +4,7 @@
  */
 
 import { supabase } from './supabase';
-import type { Database, SocialLinks } from './supabase';
+import type { Database } from './supabase';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type UserInsert = Database['public']['Tables']['users']['Insert'];
@@ -21,8 +21,6 @@ export interface User {
   createdAt: string;
   verified: boolean;
   isAdmin: boolean;
-  blocked: boolean;
-  socialLinks?: SocialLinks;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -39,8 +37,6 @@ function dbUserToAppUser(dbUser: UserRow): User {
     createdAt: dbUser.created_at,
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
-    blocked: dbUser.blocked || false,
-    socialLinks: dbUser.social_links || undefined,
   };
 }
 
@@ -56,8 +52,6 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     selfie_url: appUser.selfieUrl,
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
-    blocked: appUser.blocked,
-    social_links: appUser.socialLinks || null,
   };
 }
 
@@ -97,66 +91,10 @@ export function isValidPassword(password: string): boolean {
 }
 
 /**
- * Verifica se CPF/CNPJ já existe no banco de dados
- * Função auxiliar para validação antecipada no Step 1
- */
-export async function checkCpfCnpjExists(cpfCnpj: string): Promise<{ exists: boolean; error?: string }> {
-  try {
-    console.log('🔍 Verificando se CPF/CNPJ já existe:', cpfCnpj);
-    
-    const { data, error } = await supabase
-      .from('users')
-      .select('cpf_cnpj')
-      .eq('cpf_cnpj', cpfCnpj);
-    
-    if (error) {
-      console.error('❌ Erro ao verificar CPF/CNPJ:', error);
-      return { exists: false, error: 'Erro ao verificar CPF/CNPJ' };
-    }
-    
-    const exists = data && data.length > 0;
-    console.log(exists ? '⚠️ CPF/CNPJ já cadastrado' : '✅ CPF/CNPJ disponível');
-    
-    return { exists };
-  } catch (error) {
-    console.error('❌ Erro ao verificar CPF/CNPJ:', error);
-    return { exists: false, error: 'Erro ao verificar CPF/CNPJ' };
-  }
-}
-
-/**
- * Verifica se email já existe no banco de dados
- * Função auxiliar para validação antecipada no Step 1
- */
-export async function checkEmailExists(email: string): Promise<{ exists: boolean; error?: string }> {
-  try {
-    console.log('🔍 Verificando se email já existe:', email);
-    
-    const { data, error } = await supabase
-      .from('users')
-      .select('email')
-      .eq('email', email.toLowerCase());
-    
-    if (error) {
-      console.error('❌ Erro ao verificar email:', error);
-      return { exists: false, error: 'Erro ao verificar email' };
-    }
-    
-    const exists = data && data.length > 0;
-    console.log(exists ? '⚠️ Email já cadastrado' : '✅ Email disponível');
-    
-    return { exists };
-  } catch (error) {
-    console.error('❌ Erro ao verificar email:', error);
-    return { exists: false, error: 'Erro ao verificar email' };
-  }
-}
-
-/**
  * Registra um novo usuário no Supabase
  */
 export async function registerUser(
-  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin' | 'blocked' | 'socialLinks'>,
+  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'>,
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
@@ -228,7 +166,6 @@ export async function registerUser(
       ...user,
       verified: true,
       isAdmin,
-      blocked: false,
     });
     
     const { data: userData, error: insertError } = await supabase
@@ -298,12 +235,6 @@ export async function loginUser(
     if (userError || !userData) {
       console.error('❌ Erro ao buscar dados do usuário:', userError);
       return { success: false, error: 'Erro ao carregar dados do usuário' };
-    }
-    
-    // Verifica se o usuário está bloqueado
-    if (userData.blocked) {
-      await supabase.auth.signOut();
-      return { success: false, error: 'Sua conta foi bloqueada. Entre em contato com o administrador.' };
     }
     
     console.log('✅ Login realizado com sucesso:', userData.email);
@@ -394,73 +325,6 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
 }
 
 /**
- * Bloqueia um usuário (apenas admin)
- */
-export async function blockUser(userId: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const isAdmin = await isCurrentUserAdmin();
-    
-    if (!isAdmin) {
-      return { success: false, error: 'Apenas administradores podem bloquear usuários' };
-    }
-    
-    const currentUser = await getCurrentUser();
-    if (currentUser?.id === userId) {
-      return { success: false, error: 'Você não pode bloquear sua própria conta' };
-    }
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ blocked: true })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('❌ Erro ao bloquear usuário:', error);
-      return { success: false, error: 'Erro ao bloquear usuário' };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao bloquear usuário:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
-    };
-  }
-}
-
-/**
- * Desbloqueia um usuário (apenas admin)
- */
-export async function unblockUser(userId: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const isAdmin = await isCurrentUserAdmin();
-    
-    if (!isAdmin) {
-      return { success: false, error: 'Apenas administradores podem desbloquear usuários' };
-    }
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ blocked: false })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('❌ Erro ao desbloquear usuário:', error);
-      return { success: false, error: 'Erro ao desbloquear usuário' };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao desbloquear usuário:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
-    };
-  }
-}
-
-/**
  * Deleta um usuário (apenas admin)
  */
 export async function deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
@@ -523,8 +387,6 @@ export async function updateUser(
     if (updates.selfieUrl) dbUpdates.selfie_url = updates.selfieUrl;
     if (updates.verified !== undefined) dbUpdates.verified = updates.verified;
     if (updates.isAdmin !== undefined) dbUpdates.is_admin = updates.isAdmin;
-    if (updates.blocked !== undefined) dbUpdates.blocked = updates.blocked;
-    if (updates.socialLinks !== undefined) dbUpdates.social_links = updates.socialLinks || null;
     
     const { data, error } = await supabase
       .from('users')
@@ -544,41 +406,6 @@ export async function updateUser(
     };
   } catch (error) {
     console.error('❌ Erro ao atualizar usuário:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
-    };
-  }
-}
-
-/**
- * Atualiza os links de redes sociais do usuário
- */
-export async function updateSocialLinks(
-  userId: string,
-  socialLinks: SocialLinks
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const currentUser = await getCurrentUser();
-    
-    // Verifica se o usuário tem permissão
-    if (currentUser?.id !== userId) {
-      return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
-    }
-    
-    const { error } = await supabase
-      .from('users')
-      .update({ social_links: socialLinks })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('❌ Erro ao atualizar links sociais:', error);
-      return { success: false, error: 'Erro ao atualizar links das redes sociais' };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Erro ao atualizar links sociais:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Erro desconhecido' 
@@ -658,13 +485,7 @@ export async function resetPassword(
 }
 
 /**
- * 🔒 SEGURANÇA: Cria conta de administrador (apenas se não existir)
- * 
- * ⚠️ IMPORTANTE: Esta função foi modificada para usar variável de ambiente
- * ao invés de senha hardcoded. Configure ADMIN_DEFAULT_PASSWORD no .env
- * 
- * @deprecated Esta função deve ser usada apenas para setup inicial.
- * Recomenda-se criar conta de admin manualmente via Supabase Dashboard.
+ * Cria conta de administrador (apenas se não existir)
  */
 export async function createAdminAccount(): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
@@ -685,27 +506,6 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
       };
     }
     
-    // 🔒 SEGURANÇA: Obtém senha de variável de ambiente
-    const adminPassword = import.meta.env.VITE_ADMIN_DEFAULT_PASSWORD;
-    
-    if (!adminPassword || adminPassword === 'YOUR_SECURE_PASSWORD_HERE') {
-      console.error('❌ ADMIN_DEFAULT_PASSWORD não configurado no .env');
-      return {
-        success: false,
-        error: 'Senha de administrador não configurada. Configure ADMIN_DEFAULT_PASSWORD no arquivo .env',
-      };
-    }
-    
-    // Valida senha
-    if (!isValidPassword(adminPassword)) {
-      return {
-        success: false,
-        error: 'A senha configurada não atende aos requisitos de segurança (mínimo 6 caracteres, 1 maiúscula, 1 caractere especial)',
-      };
-    }
-    
-    console.log('🔐 Criando nova conta de administrador...');
-    
     // Cria nova conta de admin
     return await registerUser(
       {
@@ -717,7 +517,7 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
         documentoUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
         selfieUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
       },
-      adminPassword
+      'Admin@123'
     );
   } catch (error) {
     console.error('❌ Erro ao criar conta de admin:', error);
