@@ -11,7 +11,6 @@ import {
   Shield, 
   ArrowLeft, 
   Lock, 
-  Bell, 
   Eye, 
   Trash2, 
   Download,
@@ -28,11 +27,6 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Notification settings
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [securityAlerts, setSecurityAlerts] = useState(true);
-  const [contentUpdates, setContentUpdates] = useState(true);
   
   // Privacy settings
   const [profilePublic, setProfilePublic] = useState(false);
@@ -190,61 +184,6 @@ export default function Settings() {
               <Button onClick={handlePasswordChange} className="w-full">
                 Alterar Senha
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notification Settings */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notificações
-            </CardTitle>
-            <CardDescription>Configure como você deseja receber notificações</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Notificações por Email</Label>
-                <p className="text-sm text-muted-foreground">
-                  Receba atualizações importantes por email
-                </p>
-              </div>
-              <Switch
-                checked={emailNotifications}
-                onCheckedChange={setEmailNotifications}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Alertas de Segurança</Label>
-                <p className="text-sm text-muted-foreground">
-                  Seja notificado sobre atividades suspeitas
-                </p>
-              </div>
-              <Switch
-                checked={securityAlerts}
-                onCheckedChange={setSecurityAlerts}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Atualizações de Conteúdo</Label>
-                <p className="text-sm text-muted-foreground">
-                  Notificações sobre conteúdos assinados
-                </p>
-              </div>
-              <Switch
-                checked={contentUpdates}
-                onCheckedChange={setContentUpdates}
-              />
             </div>
           </CardContent>
         </Card>
