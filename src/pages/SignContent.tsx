@@ -67,6 +67,13 @@ import { generateDocumentPreview, isDocumentFile } from '@/lib/document-preview-
 // ========================================
 // FIM: DOCUMENT PREVIEW GENERATOR
 // ========================================
+// ========================================
+// 🆕 MUSIC PREVIEW GENERATOR
+// ========================================
+import { generateMusicPreview, isMusicFile } from '@/lib/music-preview-generator';
+// ========================================
+// FIM: MUSIC PREVIEW GENERATOR
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -224,6 +231,7 @@ export default function SignContent() {
    * 🆕 FASE 2: Upload para Supabase Storage após validação
    * 🆕 FASE 3: Logging de validação e scan
    * 🆕 DOCUMENT PREVIEW: Gera preview para documentos
+   * 🆕 MUSIC PREVIEW: Gera preview para músicas
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -463,6 +471,23 @@ export default function SignContent() {
         }
       };
       reader.readAsDataURL(file);
+    }
+    // 🆕 MÚSICA: Gera preview visual com título
+    else if (isMusicFile(file.type)) {
+      console.log('🎵 [MUSIC PREVIEW] Gerando preview para música...');
+      try {
+        const musicPreview = generateMusicPreview(
+          file.name,
+          file.size,
+          file.type,
+          title || undefined // Usa título do campo se disponível
+        );
+        setFilePreview(musicPreview);
+        console.log('✅ [MUSIC PREVIEW] Preview gerado com sucesso');
+      } catch (error) {
+        console.error('❌ [MUSIC PREVIEW] Erro ao gerar preview:', error);
+        setFilePreview(null);
+      }
     }
     // 🆕 DOCUMENTO: Gera preview visual
     else if (isDocumentFile(file.type)) {
@@ -927,7 +952,7 @@ ${content}
                   ) : (
                     <div className="border rounded-lg p-4 bg-muted/50">
                       <div className="flex items-start gap-4">
-                        {/* Preview da thumbnail (imagem ou vídeo) */}
+                        {/* Preview da thumbnail (imagem, vídeo, música ou documento) */}
                         {(filePreview || videoThumbnail) ? (
                           <img
                             src={videoThumbnail || filePreview || ''}
@@ -977,6 +1002,13 @@ ${content}
                             </p>
                           )}
                           
+                          {/* 🆕 Status de música */}
+                          {contentType === 'music' && filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Preview da música gerado
+                            </p>
+                          )}
+                          
                           {/* 🆕 Status de documento */}
                           {(contentType === 'document' || contentType === 'text') && filePreview && (
                             <p className="text-xs text-green-600 mt-1">
@@ -985,7 +1017,7 @@ ${content}
                           )}
                           
                           {/* Status de outros arquivos */}
-                          {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && (
+                          {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && contentType !== 'music' && (
                             <p className="text-xs text-green-600 mt-1">
                               ✓ Arquivo validado com sucesso
                             </p>
@@ -1059,9 +1091,10 @@ ${content}
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Preview visual do conteúdo (imagem, vídeo ou documento)</li>
+                  <li>✅ Preview visual do conteúdo (imagem, vídeo, música ou documento)</li>
                   {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
                   {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
+                  {contentType === 'music' && <li>✅ Preview visual da música com título e informações do arquivo</li>}
                   {(contentType === 'document' || contentType === 'text') && <li>✅ Preview visual do documento com ícone e informações</li>}
                   <li>✅ Arquivo original salvo no Storage (disponível para download)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
