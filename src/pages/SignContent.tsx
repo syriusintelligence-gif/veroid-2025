@@ -1028,10 +1028,10 @@ ${content}
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Thumbnail comprimida do conteúdo (salva no Supabase)</li>
+                  <li>✅ Thumbnail comprimida do conteúdo e salva</li>
                   {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
                   {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
-                  <li>✅ Arquivo original salvo no Supabase Storage (disponível para download)</li>
+                  <li>✅ Arquivo original salvo no Storage (disponível para download)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
                   <li>✅ Chave pública do assinante para validação</li>
@@ -1045,7 +1045,7 @@ ${content}
               <Button
                 onClick={handleSign}
                 disabled={isSigning || isBlocked || isProcessingVideo || isUploadingFile || !title.trim() || selectedPlatforms.length === 0}
-                className="w-full"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                 size="lg"
               >
                 {isSigning ? (
