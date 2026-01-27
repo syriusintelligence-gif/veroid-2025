@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import Index from './pages/Index';
 import Login from './pages/Login';
-import Cadastro from './pages/Cadastro';
+import CadastroV2 from './pages/Cadastro-v2';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import SignContent from './pages/SignContent';
@@ -417,7 +417,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
-        <Route path="/cadastro" element={!session ? <Cadastro /> : <Navigate to="/dashboard" />} />
+        <Route path="/cadastro" element={!session ? <CadastroV2 /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />

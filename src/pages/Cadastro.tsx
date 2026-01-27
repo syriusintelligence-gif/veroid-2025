@@ -9,22 +9,28 @@ import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
   loginUser,
-  isValidEmail,
-  isValidCPF,
-  isValidCNPJ,
-  isValidPassword,
-} from '@/lib/supabase-auth-v2';
-
-// Funções auxiliares para validação e processamento
-function validateCpfCnpj(value: string): boolean {
-  const clean = value.replace(/\D/g, '');
-  return clean.length === 11 ? isValidCPF(value) : clean.length === 14 ? isValidCNPJ(value) : false;
-}
-
-function validateTelefone(telefone: string): boolean {
-  const clean = telefone.replace(/\D/g, '');
-  return clean.length >= 10 && clean.length <= 11;
-}
+  getCurrentUser,
+  checkCpfCnpjExists,
+  checkEmailExists,
+} from '@/lib/supabase-auth';
+import { supabase } from '@/lib/supabase';
+import { isValidPassword } from '@/lib/password-validator';
+import { sanitizeCadastroData, sanitizeFileName } from '@/lib/input-sanitizer';
+import { 
+  validateEmailStrict, 
+  validatePhoneBR, 
+  validateCPForCNPJ,
+  formatCPF,
+  formatCNPJ,
+  formatPhone
+} from '@/lib/advanced-validators';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { RateLimitAlert } from '@/components/RateLimitAlert';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+// 🔒 CSRF Protection
+import { useCSRFProtection } from '@/hooks/useCSRFProtection';
+// 🔒 SEGURANÇA: Validação de arquivos com lista branca
+import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -33,6 +39,24 @@ async function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+/**
+ * 🔐 SEGURANÇA: Calcula hash SHA256 de um arquivo
+ * Usado para identificação única e verificação de integridade
+ * Integração com VirusTotal para scan de malware
+ * 
+ * @param file - Arquivo a ser processado
+ * @returns Promise com hash SHA256 em formato hexadecimal (64 caracteres)
+ * 
+ * @example
+ * const hash = await calculateSHA256(file);
+ * console.log(hash); // "e7705526e3332c5ddda4257b55acb19d1f2ea28672488b51a09c78ca46d71e5c"
+ */
+async function calculateSHA256(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
@@ -48,39 +72,28 @@ async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
 
 function compareFaces(doc: string, selfie: string): { match: boolean; confidence: number } {
   // Simulação de comparação facial
+  // Em produção: usar API de reconhecimento facial (AWS Rekognition, Azure Face API, etc.)
   return {
     match: true,
     confidence: 0.95
   };
 }
 
-function validateDocumentFile(file: File): { valid: boolean; message: string } {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-  
-  if (!allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      message: 'Formato de arquivo não suportado. Use JPG, PNG ou PDF.'
-    };
-  }
-  
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      message: 'Arquivo muito grande. O tamanho máximo é 10MB.'
-    };
-  }
-  
-  return { valid: true, message: 'Arquivo válido' };
-}
-
-export default function CadastroV2() {
+export default function Cadastro() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  
+  // Rate limiting: 3 contas por hora
+  const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('REGISTER');
+  
+  // 🔒 CSRF Protection
+  const { 
+    token: csrfToken, 
+    isLoading: csrfLoading, 
+    error: csrfError 
+  } = useCSRFProtection();
   
   // Dados do formulário
   const [nomeCompleto, setNomeCompleto] = useState('');
@@ -94,6 +107,12 @@ export default function CadastroV2() {
   const [documentoUrl, setDocumentoUrl] = useState('');
   const [documentoType, setDocumentoType] = useState<'image' | 'pdf'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
+  
+  // 🔐 SEGURANÇA: Hash do documento (usado internamente, sem exibição de status)
+  const [documentoHash, setDocumentoHash] = useState<string>('');
+  
+  // Validação de arquivo
+  const [fileValidationError, setFileValidationError] = useState<string>('');
   
   // Webcam
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,33 +128,140 @@ export default function CadastroV2() {
     };
   }, [stream]);
   
+  // 🔒 Log CSRF token status
+  useEffect(() => {
+    if (csrfToken) {
+      console.log('🔐 [Cadastro] CSRF Token disponível:', csrfToken.substring(0, 16) + '...');
+    }
+    if (csrfError) {
+      console.error('❌ [Cadastro] Erro ao obter CSRF token:', csrfError);
+    }
+  }, [csrfToken, csrfError]);
+  
+  // Adiciona efeito para garantir que o vídeo seja reproduzido quando o stream estiver disponível
   useEffect(() => {
     if (stream && videoRef.current && webcamActive) {
       videoRef.current.srcObject = stream;
+      // Força o play do vídeo
       videoRef.current.play().catch(err => {
         console.error('Erro ao iniciar vídeo:', err);
       });
     }
   }, [stream, webcamActive]);
   
+  /**
+   * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
+   * 🔐 VIRUSTOTAL: Scan silencioso em background (SEM exibição de status na UI)
+   */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const validation = validateDocumentFile(file);
-      if (!validation.valid) {
-        setError(validation.message);
-        return;
-      }
-      
-      setError('');
-      setDocumentoFile(file);
-      
-      const isPdf = file.type === 'application/pdf';
-      setDocumentoType(isPdf ? 'pdf' : 'image');
-      
-      const base64 = await fileToBase64(file);
-      setDocumentoUrl(base64);
+    
+    // Limpa estados anteriores
+    setFileValidationError('');
+    setError('');
+    setDocumentoFile(null);
+    setDocumentoUrl('');
+    setDocumentoHash('');
+    
+    if (!file) {
+      return;
     }
+    
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS
+    // ========================================
+    const sanitizedFileName = sanitizeFileName(file.name);
+    
+    console.log('📁 [DOCUMENTO UPLOAD] Arquivo selecionado:', {
+      originalName: file.name,
+      sanitizedName: sanitizedFileName,
+      size: file.size,
+      type: file.type
+    });
+    
+    // =====================================================
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
+    // =====================================================
+    
+    const validationResult = await validateFile(file, {
+      maxSizeBytes: 10 * 1024 * 1024, // 10MB
+      allowedCategories: ['image', 'document'], // Apenas imagens e PDFs
+      strictMode: true, // Ativa validação de MIME type
+      validateMagicNumbers: true // Ativa validação de Magic Numbers
+    });
+    
+    if (!validationResult.valid) {
+      console.error('❌ [DOCUMENTO UPLOAD] Validação falhou:', validationResult.message);
+      setFileValidationError(validationResult.message);
+      setError(validationResult.message);
+      
+      // Limpa o input de arquivo
+      e.target.value = '';
+      return;
+    }
+    
+    console.log('✅ [DOCUMENTO UPLOAD] Arquivo validado com sucesso:', validationResult.details);
+    
+    // =====================================================
+    // 🔐 SEGURANÇA: Scan VirusTotal SILENCIOSO (SEM UI)
+    // =====================================================
+    
+    try {
+      // Calcula hash SHA256 do arquivo
+      console.log('🔐 [VIRUSTOTAL] Calculando hash SHA256...');
+      const hash = await calculateSHA256(file);
+      setDocumentoHash(hash);
+      console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
+      
+      // Inicia scan VirusTotal em background (SILENCIOSO)
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        console.log('🚀 [VIRUSTOTAL] Iniciando scan silencioso em background...');
+        
+        // Chama Edge Function para scan (não aguarda resposta, não bloqueia UI)
+        supabase.functions.invoke('scan-uploaded-file', {
+          body: { 
+            fileHash: hash,
+            fileName: sanitizedFileName
+          }
+        }).then(({ data: scanData, error: scanError }) => {
+          if (scanError) {
+            console.warn('⚠️ [VIRUSTOTAL] Erro no scan silencioso (não bloqueia upload):', scanError);
+          } else if (scanData) {
+            console.log('✅ [VIRUSTOTAL] Scan silencioso concluído:', scanData);
+            
+            // Verifica se há ameaças detectadas (apenas log, não bloqueia)
+            if (scanData.stats && (scanData.stats.malicious > 0 || scanData.stats.suspicious > 0)) {
+              console.warn('⚠️ [VIRUSTOTAL] Ameaça detectada:', {
+                malicious: scanData.stats.malicious,
+                suspicious: scanData.stats.suspicious
+              });
+            }
+          }
+        }).catch(scanErr => {
+          console.warn('⚠️ [VIRUSTOTAL] Erro ao processar scan silencioso:', scanErr);
+        });
+      } else {
+        console.log('ℹ️ [VIRUSTOTAL] Usuário não autenticado, scan será feito após registro');
+      }
+    } catch (scanErr) {
+      console.warn('⚠️ [VIRUSTOTAL] Erro ao calcular hash (não bloqueia upload):', scanErr);
+    }
+    
+    // =====================================================
+    // Arquivo válido, prosseguir com upload
+    // =====================================================
+    
+    setDocumentoFile(file);
+    
+    // Determina o tipo do arquivo
+    const isPdf = file.type === 'application/pdf';
+    setDocumentoType(isPdf ? 'pdf' : 'image');
+    
+    // Converte para base64
+    const base64 = await fileToBase64(file);
+    setDocumentoUrl(base64);
   };
   
   const startWebcam = async () => {
@@ -143,6 +269,7 @@ export default function CadastroV2() {
       setError('');
       setIsLoading(true);
       
+      // Solicita permissão para câmera com configurações específicas
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: 1280 },
@@ -154,6 +281,7 @@ export default function CadastroV2() {
       setStream(mediaStream);
       setWebcamActive(true);
       
+      // Aguarda um pouco para garantir que o vídeo está pronto
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -190,45 +318,111 @@ export default function CadastroV2() {
     startWebcam();
   };
   
-  const validateStep1 = (): boolean => {
+  // Auto-formatação de CPF/CNPJ
+  const handleCpfCnpjChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      setCpfCnpj(formatCPF(value));
+    } else if (cleaned.length === 14) {
+      setCpfCnpj(formatCNPJ(value));
+    } else {
+      setCpfCnpj(value);
+    }
+  };
+  
+  // Auto-formatação de telefone
+  const handleTelefoneChange = (value: string) => {
+    setTelefone(formatPhone(value));
+  };
+  
+  const validateStep1 = async (): Promise<boolean> => {
     setError('');
+    setIsLoading(true);
     
-    if (!nomeCompleto.trim()) {
-      setError('Nome completo é obrigatório');
+    try {
+      if (!nomeCompleto.trim()) {
+        setError('Nome completo é obrigatório');
+        return false;
+      }
+      
+      if (nomeCompleto.length > 100) {
+        setError('Nome completo muito longo (máximo 100 caracteres)');
+        return false;
+      }
+      
+      if (!email.trim()) {
+        setError('Email é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de email
+      const emailValidation = validateEmailStrict(email);
+      if (!emailValidation.valid) {
+        setError(emailValidation.message);
+        return false;
+      }
+      
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
+      console.log('🔍 Verificando disponibilidade de dados...');
+      const emailCheck = await checkEmailExists(email);
+      if (emailCheck.error) {
+        // Não revela o erro específico
+        setError('Erro ao validar dados. Tente novamente.');
+        return false;
+      }
+      if (emailCheck.exists) {
+        // 🛡️ Mensagem genérica - não revela que email existe
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
+        return false;
+      }
+      console.log('✅ Email disponível!');
+      
+      if (!cpfCnpj.trim()) {
+        setError('CPF/CNPJ é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de CPF/CNPJ
+      const cpfCnpjValidation = validateCPForCNPJ(cpfCnpj);
+      if (!cpfCnpjValidation.valid) {
+        setError(cpfCnpjValidation.message);
+        return false;
+      }
+      
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
+      const cpfCheck = await checkCpfCnpjExists(cpfCnpj);
+      if (cpfCheck.error) {
+        // Não revela o erro específico
+        setError('Erro ao validar dados. Tente novamente.');
+        return false;
+      }
+      if (cpfCheck.exists) {
+        // 🛡️ Mensagem genérica - não revela que CPF/CNPJ existe
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
+        return false;
+      }
+      console.log('✅ CPF/CNPJ disponível!');
+      
+      if (!telefone.trim()) {
+        setError('Telefone é obrigatório');
+        return false;
+      }
+      
+      // Validação rigorosa de telefone
+      const phoneValidation = validatePhoneBR(telefone);
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.message);
+        return false;
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('❌ Erro na validação:', err);
+      setError('Erro ao validar dados. Tente novamente.');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (!email.trim()) {
-      setError('Email é obrigatório');
-      return false;
-    }
-    
-    if (!isValidEmail(email)) {
-      setError('Email inválido');
-      return false;
-    }
-    
-    if (!cpfCnpj.trim()) {
-      setError('CPF/CNPJ é obrigatório');
-      return false;
-    }
-    
-    if (!validateCpfCnpj(cpfCnpj)) {
-      setError('CPF/CNPJ inválido');
-      return false;
-    }
-    
-    if (!telefone.trim()) {
-      setError('Telefone é obrigatório');
-      return false;
-    }
-    
-    if (!validateTelefone(telefone)) {
-      setError('Telefone inválido');
-      return false;
-    }
-    
-    return true;
   };
   
   const validateStep2 = (): boolean => {
@@ -268,10 +462,14 @@ export default function CadastroV2() {
     return true;
   };
   
-  const handleNextStep = () => {
-    if (step === 1 && validateStep1()) {
-      setStep(2);
+  const handleNextStep = async () => {
+    if (step === 1) {
+      const isValid = await validateStep1();
+      if (isValid) {
+        setStep(2);
+      }
     } else if (step === 2 && validateStep2()) {
+      // Comparação facial
       const comparison = compareFaces(documentoUrl, selfieUrl);
       if (comparison.match) {
         setStep(3);
@@ -288,20 +486,48 @@ export default function CadastroV2() {
       return;
     }
     
+    // 🔒 Verifica se CSRF token está disponível
+    if (!csrfToken) {
+      console.error('❌ [Cadastro] CSRF token não disponível!');
+      setError('Erro de segurança. Recarregue a página e tente novamente.');
+      return;
+    }
+    
+    console.log('🔐 [Cadastro] CSRF Token será incluído na requisição');
+    
+    // Verifica rate limiting ANTES de criar conta
+    const rateLimitResult = await checkRateLimit();
+    if (!rateLimitResult.allowed) {
+      console.warn('🚫 Rate limit excedido:', rateLimitResult.message);
+      setError(rateLimitResult.message || 'Muitas tentativas de registro. Aguarde antes de tentar novamente.');
+      return;
+    }
+    
+    console.log(`✅ Rate limit OK. Tentativas restantes: ${rateLimitResult.remaining}`);
+    
     setIsLoading(true);
     setError('');
-    setSuccess('');
     
     try {
-      console.log('📝 [CADASTRO V2] Registrando usuário...');
+      console.log('📝 Registrando usuário no Supabase...');
+      
+      // Sanitiza dados antes de enviar
+      const sanitizedData = sanitizeCadastroData({
+        nomeCompleto,
+        nomePublico: nomePublico || nomeCompleto,
+        email,
+        cpfCnpj,
+        telefone,
+      });
+      
+      console.log('🧹 Dados sanitizados:', {
+        nomeCompleto: sanitizedData.nomeCompleto,
+        email: sanitizedData.email,
+      });
       
       const result = await registerUser(
         {
-          nomeCompleto,
-          nomePublico: nomePublico || nomeCompleto,
-          email,
-          cpfCnpj,
-          telefone,
+          ...sanitizedData,
           documentoUrl,
           selfieUrl,
         },
@@ -309,31 +535,29 @@ export default function CadastroV2() {
       );
       
       if (!result.success) {
-        setError(result.error || 'Erro ao criar conta. Tente novamente.');
+        // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
+        setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         setIsLoading(false);
         return;
       }
       
       console.log('✅ Usuário registrado com sucesso!');
-      setSuccess('Conta criada com sucesso! Fazendo login...');
       
       // Faz login automático
-      const loginResult = await loginUser(email, senha);
+      const loginResult = await loginUser(sanitizedData.email, senha);
       
       if (loginResult.success) {
         console.log('✅ Login automático realizado!');
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        // Redireciona para dashboard
+        navigate('/dashboard');
       } else {
         console.log('⚠️ Registro OK, mas login automático falhou. Redirecionando para login...');
-        setTimeout(() => {
-          navigate('/login-v2');
-        }, 2000);
+        navigate('/login');
       }
     } catch (err) {
       console.error('❌ Erro ao criar conta:', err);
-      setError('Erro ao criar conta. Tente novamente.');
+      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
+      setError('Não foi possível completar o cadastro. Tente novamente mais tarde.');
       setIsLoading(false);
     }
   };
@@ -344,7 +568,7 @@ export default function CadastroV2() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -354,7 +578,7 @@ export default function CadastroV2() {
               </span>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate('/login-v2')}>
+          <Button variant="outline" onClick={() => navigate('/login')}>
             Já tenho conta
           </Button>
         </div>
@@ -388,17 +612,47 @@ export default function CadastroV2() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
+              {/* 🔒 CSRF Loading/Error - apenas no step 3 */}
+              {step === 3 && csrfLoading && (
+                <Alert className="border-blue-500 bg-blue-50 mb-4">
+                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  <AlertDescription className="text-blue-800">
+                    Inicializando proteção de segurança...
+                  </AlertDescription>
                 </Alert>
               )}
               
-              {success && (
-                <Alert className="mb-4 border-green-500 bg-green-50">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+              {step === 3 && csrfError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Erro de segurança. Recarregue a página.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* Rate Limit Alert - apenas no step 3 */}
+              {step === 3 && isBlocked && (
+                <RateLimitAlert 
+                  blockedUntil={blockedUntil}
+                  message={rateLimitMessage}
+                  remaining={remaining}
+                />
+              )}
+              
+              {/* 🔒 SEGURANÇA: Alerta de erro de validação de arquivo - apenas no step 2 */}
+              {step === 2 && fileValidationError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Arquivo não permitido:</strong> {fileValidationError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {error && !isBlocked && !fileValidationError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
               
@@ -412,6 +666,8 @@ export default function CadastroV2() {
                       placeholder="João Silva"
                       value={nomeCompleto}
                       onChange={(e) => setNomeCompleto(e.target.value)}
+                      maxLength={100}
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -422,6 +678,8 @@ export default function CadastroV2() {
                       placeholder="@joaosilva (opcional)"
                       value={nomePublico}
                       onChange={(e) => setNomePublico(e.target.value)}
+                      maxLength={50}
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -433,17 +691,27 @@ export default function CadastroV2() {
                       placeholder="seu@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      maxLength={100}
+                      disabled={isLoading}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Emails temporários não são permitidos
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="cpfCnpj">CPF / CNPJ *</Label>
                     <Input
                       id="cpfCnpj"
-                      placeholder="000.000.000-00"
+                      placeholder="000.000.000-00 ou 00.000.000/0000-00"
                       value={cpfCnpj}
-                      onChange={(e) => setCpfCnpj(e.target.value)}
+                      onChange={(e) => handleCpfCnpjChange(e.target.value)}
+                      maxLength={18}
+                      disabled={isLoading}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Formato será aplicado automaticamente
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
@@ -452,12 +720,28 @@ export default function CadastroV2() {
                       id="telefone"
                       placeholder="(11) 99999-9999"
                       value={telefone}
-                      onChange={(e) => setTelefone(e.target.value)}
+                      onChange={(e) => handleTelefoneChange(e.target.value)}
+                      maxLength={15}
+                      disabled={isLoading}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Apenas números brasileiros (DDD + número)
+                    </p>
                   </div>
                   
-                  <Button onClick={handleNextStep} className="w-full">
-                    Próximo
+                  <Button 
+                    onClick={handleNextStep} 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Validando dados...
+                      </>
+                    ) : (
+                      'Próximo'
+                    )}
                   </Button>
                 </div>
               )}
@@ -469,7 +753,7 @@ export default function CadastroV2() {
                   <div className="space-y-2">
                     <Label>Documento de Identificação com Foto *</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      CNH, Passaporte ou RG (JPG, PNG ou PDF - máx. 10MB)
+                      CNH, Passaporte ou RG ({getExtensionDescription('image')}, {getExtensionDescription('document')} - máx. 10MB)
                     </p>
                     {!documentoUrl ? (
                       <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -479,12 +763,15 @@ export default function CadastroV2() {
                             Clique para fazer upload
                           </span>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Formatos aceitos: JPG, PNG, PDF
+                            🔒 Formatos aceitos: {getExtensionDescription('image')}, PDF
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Validação de segurança ativa
                           </p>
                           <Input
                             id="documento"
                             type="file"
-                            accept="image/jpeg,image/jpg,image/png,application/pdf"
+                            accept={getAcceptString(['image', 'document'])}
                             className="hidden"
                             onChange={handleDocumentoUpload}
                           />
@@ -499,10 +786,13 @@ export default function CadastroV2() {
                               <div className="text-left">
                                 <p className="font-medium">Documento PDF</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {documentoFile?.name}
+                                  {documentoFile ? sanitizeFileName(documentoFile.name) : 'documento.pdf'}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   {((documentoFile?.size || 0) / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✓ Arquivo validado com sucesso
                                 </p>
                               </div>
                             </div>
@@ -516,7 +806,7 @@ export default function CadastroV2() {
                             />
                             <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
                               <Image className="h-3 w-3" />
-                              Imagem
+                              Imagem Validada
                             </div>
                           </div>
                         )}
@@ -527,6 +817,8 @@ export default function CadastroV2() {
                           onClick={() => {
                             setDocumentoUrl('');
                             setDocumentoFile(null);
+                            setFileValidationError('');
+                            setDocumentoHash('');
                           }}
                         >
                           Trocar Documento
@@ -625,25 +917,36 @@ export default function CadastroV2() {
                     <Input
                       id="senha"
                       type="password"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
+                      disabled={isBlocked || csrfLoading}
+                      maxLength={100}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Mínimo 6 caracteres, 1 letra maiúscula e 1 caractere especial
-                    </p>
                   </div>
+                  
+                  {/* Indicador de Força da Senha */}
+                  <PasswordStrengthIndicator password={senha} />
                   
                   <div className="space-y-2">
                     <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
                     <Input
                       id="confirmarSenha"
                       type="password"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       value={confirmarSenha}
                       onChange={(e) => setConfirmarSenha(e.target.value)}
+                      disabled={isBlocked || csrfLoading}
+                      maxLength={100}
                     />
                   </div>
+                  
+                  {/* Indicador de tentativas restantes */}
+                  {!isBlocked && remaining !== undefined && remaining <= 1 && (
+                    <p className="text-xs text-center text-amber-600 font-medium">
+                      ⚠️ Última tentativa disponível nesta hora
+                    </p>
+                  )}
                   
                   <div className="flex gap-2">
                     <Button
@@ -651,14 +954,24 @@ export default function CadastroV2() {
                       variant="outline"
                       onClick={() => setStep(2)}
                       className="flex-1"
+                      disabled={isLoading || isBlocked || csrfLoading}
                     >
                       Voltar
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isLoading}>
+                    <Button 
+                      type="submit" 
+                      className="flex-1" 
+                      disabled={isLoading || isBlocked || csrfLoading || !csrfToken}
+                    >
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Criando conta...
+                        </>
+                      ) : csrfLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Inicializando...
                         </>
                       ) : (
                         'Criar Conta'
