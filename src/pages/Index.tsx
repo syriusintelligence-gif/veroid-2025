@@ -252,7 +252,7 @@ export default function Index() {
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
+              Assine digitalmente com <strong className="text-white">criptografia avançada</strong> e autentique suas publicações — valorize o seu trabalho e fique imune a <strong className="text-white">FAKENEWS</strong> e <strong className="text-white">desinformação</strong>.
             </p>
           </motion.div>
           
