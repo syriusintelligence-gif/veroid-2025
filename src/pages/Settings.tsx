@@ -191,20 +191,6 @@ export default function Settings() {
                 Alterar Senha
               </Button>
             </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Autenticação em Dois Fatores (2FA)</Label>
-                <p className="text-sm text-muted-foreground">
-                  Adicione uma camada extra de segurança
-                </p>
-              </div>
-              <Button variant="outline" disabled>
-                Em Breve
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
