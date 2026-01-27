@@ -4,14 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Shield, 
   ArrowLeft, 
   Lock, 
-  Eye, 
   Trash2, 
   Download,
   AlertTriangle,
@@ -27,10 +24,6 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Privacy settings
-  const [profilePublic, setProfilePublic] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -188,47 +181,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Privacy Settings */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Privacidade
-            </CardTitle>
-            <CardDescription>Controle a visibilidade das suas informações</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Perfil Público</Label>
-                <p className="text-sm text-muted-foreground">
-                  Permitir que outros usuários vejam seu perfil
-                </p>
-              </div>
-              <Switch
-                checked={profilePublic}
-                onCheckedChange={setProfilePublic}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Mostrar Email</Label>
-                <p className="text-sm text-muted-foreground">
-                  Exibir seu email no perfil público
-                </p>
-              </div>
-              <Switch
-                checked={showEmail}
-                onCheckedChange={setShowEmail}
-                disabled={!profilePublic}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Data Management */}
         <Card className="mb-6">
           <CardHeader>
@@ -251,8 +203,6 @@ export default function Settings() {
                 Exportar
               </Button>
             </div>
-
-            <Separator />
 
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
