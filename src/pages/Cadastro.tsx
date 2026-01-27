@@ -839,7 +839,7 @@ export default function Cadastro() {
                         {!webcamActive ? (
                           <Button 
                             onClick={startWebcam} 
-                            className="w-full"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
                             disabled={isLoading}
                           >
                             {isLoading ? (
@@ -870,7 +870,10 @@ export default function Cadastro() {
                                 Câmera Ativa
                               </div>
                             </div>
-                            <Button onClick={captureSelfie} className="w-full">
+                            <Button 
+                              onClick={captureSelfie} 
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                            >
                               <Camera className="mr-2 h-4 w-4" />
                               Capturar Foto
                             </Button>
@@ -892,10 +895,17 @@ export default function Cadastro() {
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setStep(1)} 
+                      className="flex-1"
+                    >
                       Voltar
                     </Button>
-                    <Button onClick={handleNextStep} className="flex-1">
+                    <Button 
+                      onClick={handleNextStep} 
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                    >
                       Próximo
                     </Button>
                   </div>
