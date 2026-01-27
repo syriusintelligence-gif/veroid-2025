@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
@@ -602,6 +602,27 @@ export default function Cadastro() {
             </div>
           </div>
           
+          {/* 🎨 NOVO LAYOUT DE ALERTAS - Mais Visível e Destacado */}
+          {error && !isBlocked && !fileValidationError && (
+            <Alert variant="destructive" className="mb-6 border-2 border-red-500 bg-red-50 shadow-lg">
+              <XCircle className="h-5 w-5 text-red-600" />
+              <AlertTitle className="text-red-900 font-bold text-base">Erro de Validação</AlertTitle>
+              <AlertDescription className="text-red-800 font-medium text-sm mt-2">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {step === 2 && fileValidationError && (
+            <Alert variant="destructive" className="mb-6 border-2 border-red-500 bg-red-50 shadow-lg">
+              <XCircle className="h-5 w-5 text-red-600" />
+              <AlertTitle className="text-red-900 font-bold text-base">Arquivo Não Permitido</AlertTitle>
+              <AlertDescription className="text-red-800 font-medium text-sm mt-2">
+                {fileValidationError}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Card>
             <CardHeader>
               <CardTitle>Criar Conta</CardTitle>
@@ -623,10 +644,11 @@ export default function Cadastro() {
               )}
               
               {step === 3 && csrfError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Erro de segurança. Recarregue a página.
+                <Alert variant="destructive" className="mb-6 border-2 border-red-500 bg-red-50 shadow-lg">
+                  <XCircle className="h-5 w-5 text-red-600" />
+                  <AlertTitle className="text-red-900 font-bold text-base">Erro de Segurança</AlertTitle>
+                  <AlertDescription className="text-red-800 font-medium text-sm mt-2">
+                    Recarregue a página e tente novamente.
                   </AlertDescription>
                 </Alert>
               )}
@@ -638,22 +660,6 @@ export default function Cadastro() {
                   message={rateLimitMessage}
                   remaining={remaining}
                 />
-              )}
-              
-              {/* 🔒 SEGURANÇA: Alerta de erro de validação de arquivo - apenas no step 2 */}
-              {step === 2 && fileValidationError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Arquivo não permitido:</strong> {fileValidationError}
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {error && !isBlocked && !fileValidationError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
               )}
               
               {/* Step 1: Dados Pessoais */}
