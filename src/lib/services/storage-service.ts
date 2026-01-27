@@ -15,15 +15,15 @@
  * - Logs detalhados para auditoria
  * 
  * BUCKETS:
- * - temp-uploads: Arquivos temporários (max 10MB, deletados após 24h)
+ * - temp-uploads: Arquivos temporários (max 200MB para vídeos, deletados após 24h)
  * - signed-documents: Documentos assinados (max 50MB, permanentes)
  * 
  * NOTA: A operação MOVE foi substituída por COPY + DELETE devido a
  * limitações do Supabase Storage com políticas RLS entre buckets.
  * 
  * @author VeroID Security Team
- * @version 1.2.0 - Adicionado logging de auditoria (Fase 2)
- * @date 2026-01-24
+ * @version 1.3.0 - Aumentado limite para vídeos (200MB)
+ * @date 2026-01-27
  */
 
 import { supabase } from '@/lib/supabase';
@@ -141,7 +141,8 @@ const CONFIG = {
   SIGNED_BUCKET: 'signed-documents',
   
   // Limites
-  MAX_FILE_SIZE_TEMP: 10 * 1024 * 1024, // 10MB
+  // 🆕 ATUALIZADO: Aumentado para 200MB para suportar vídeos
+  MAX_FILE_SIZE_TEMP: 200 * 1024 * 1024, // 200MB (vídeos)
   MAX_FILE_SIZE_SIGNED: 50 * 1024 * 1024, // 50MB
 };
 
