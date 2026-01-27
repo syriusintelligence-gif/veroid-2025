@@ -252,7 +252,7 @@ export default function Index() {
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Assine digitalmente com <strong className="text-white">criptografia avançada</strong> e autentique suas publicações — valorize o seu trabalho e fique imune a <strong className="text-white">FAKENEWS</strong> e <strong className="text-white">desinformação</strong>.
+              Assine seu conteúdo com <strong className="text-white">criptografia avançada</strong>, comprove a autoria de cada publicação e blinde sua reputação contra <strong className="text-white">deepfakes</strong> e <strong className="text-white">FAKENEWS</strong>.
             </p>
           </motion.div>
           
@@ -538,7 +538,7 @@ export default function Index() {
               animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
               transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.4, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              Junte-se aos criadores de conteúdo que já estão combatendo deepfakes e fake news com tecnologia de ponta
+              Use assinatura digital para transformar cada publicação em evidência irrefutável de autoria.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
