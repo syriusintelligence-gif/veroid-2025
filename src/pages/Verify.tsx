@@ -147,7 +147,10 @@ export default function Verify() {
               </span>
             </div>
           </div>
-          <Button onClick={() => navigate('/dashboard')}>
+          <Button 
+            onClick={() => navigate('/dashboard')}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+          >
             Dashboard
           </Button>
         </div>
@@ -210,7 +213,7 @@ export default function Verify() {
             
             <Button 
               onClick={handleVerify} 
-              className="w-full" 
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" 
               size="lg"
               disabled={isVerifying || !verificationCode.trim()}
             >
