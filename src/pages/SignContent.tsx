@@ -591,7 +591,7 @@ ${content}
       // FIM: SANITIZAÇÃO - PONTO 3/4
       // ========================================
       
-      console.log('📝 Assinando conteúdo no Supabase...');
+      console.log('📝 Assinando conteúdo...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
       
       // 🎬 VIDEO: Usa thumbnail do vídeo se disponível
@@ -653,7 +653,7 @@ ${content}
         return;
       }
       
-      console.log('✅ Conteúdo assinado com sucesso no Supabase!');
+      console.log('✅ Assinatura realizada com sucesso!');
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
@@ -1079,7 +1079,7 @@ ${content}
             <Alert className="border-green-500 bg-green-50">
               <Shield className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Conteúdo assinado com sucesso no Supabase! Seu conteúdo agora possui uma assinatura digital verificável com thumbnail comprimida, plataformas e links clicáveis.
+                Sua assinatura foi realizada com sucesso! Agora o seu conteúdo possui uma assinatura digital verificável, e já pode ser compartilhado.
               </AlertDescription>
             </Alert>
             
