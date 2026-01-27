@@ -1086,10 +1086,16 @@ ${content}
             <ContentCard content={signedContent} />
             
             <div className="flex gap-4">
-              <Button onClick={handleNewSignature} variant="outline" className="flex-1">
+              <Button 
+                onClick={handleNewSignature} 
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+              >
                 Assinar Novo Conteúdo
               </Button>
-              <Button onClick={() => navigate('/dashboard')} className="flex-1">
+              <Button 
+                onClick={() => navigate('/dashboard')} 
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+              >
                 Voltar ao Dashboard
               </Button>
             </div>
