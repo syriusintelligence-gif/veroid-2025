@@ -731,7 +731,7 @@ export default function Cadastro() {
                   
                   <Button 
                     onClick={handleNextStep} 
-                    className="w-full"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
                     disabled={isLoading}
                   >
                     {isLoading ? (
