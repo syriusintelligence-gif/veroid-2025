@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Shield, 
@@ -174,7 +175,11 @@ export default function Settings() {
                 />
               </div>
 
-              <Button onClick={handlePasswordChange} className="w-full">
+              <Button 
+                onClick={handlePasswordChange} 
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <Lock className="h-4 w-4 mr-2" />
                 Alterar Senha
               </Button>
             </div>
@@ -191,18 +196,24 @@ export default function Settings() {
             <CardDescription>Exporte ou exclua seus dados</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
               <div className="space-y-0.5">
                 <Label>Exportar Dados</Label>
                 <p className="text-sm text-muted-foreground">
                   Baixe uma cópia de todos os seus dados
                 </p>
               </div>
-              <Button variant="outline" onClick={handleExportData}>
+              <Button 
+                variant="outline" 
+                onClick={handleExportData}
+                className="border-2 hover:scale-105 hover:shadow-lg transition-all duration-300"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
             </div>
+
+            <Separator />
 
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -211,14 +222,18 @@ export default function Settings() {
               </AlertDescription>
             </Alert>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50/50">
               <div className="space-y-0.5">
                 <Label className="text-red-600">Excluir Conta</Label>
                 <p className="text-sm text-muted-foreground">
                   Remover permanentemente sua conta e todos os dados
                 </p>
               </div>
-              <Button variant="destructive" onClick={handleDeleteAccount}>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteAccount}
+                className="bg-red-600 hover:bg-red-700 shadow-md hover:shadow-lg transition-all duration-200"
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Excluir
               </Button>
@@ -236,10 +251,17 @@ export default function Settings() {
 
         {/* Actions */}
         <div className="mt-6 flex gap-4">
-          <Button onClick={() => navigate('/dashboard')} variant="outline" className="flex-1">
+          <Button 
+            onClick={() => navigate('/dashboard')} 
+            variant="outline" 
+            className="flex-1 border-2 hover:scale-105 hover:shadow-lg transition-all duration-300"
+          >
             Voltar ao Dashboard
           </Button>
-          <Button onClick={() => navigate('/profile')} variant="outline" className="flex-1">
+          <Button 
+            onClick={() => navigate('/profile')} 
+            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+          >
             Ver Perfil
           </Button>
         </div>
