@@ -60,6 +60,13 @@ import { logAuditEvent, AuditAction } from '@/lib/audit-logger';
 // ========================================
 // FIM: AUDIT LOGGING
 // ========================================
+// ========================================
+// 🆕 DOCUMENT PREVIEW GENERATOR
+// ========================================
+import { generateDocumentPreview, isDocumentFile } from '@/lib/document-preview-generator';
+// ========================================
+// FIM: DOCUMENT PREVIEW GENERATOR
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -216,6 +223,7 @@ export default function SignContent() {
    * 🔐 VIRUSTOTAL: Scan silencioso em background (sem UI)
    * 🆕 FASE 2: Upload para Supabase Storage após validação
    * 🆕 FASE 3: Logging de validação e scan
+   * 🆕 DOCUMENT PREVIEW: Gera preview para documentos
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -455,6 +463,22 @@ export default function SignContent() {
         }
       };
       reader.readAsDataURL(file);
+    }
+    // 🆕 DOCUMENTO: Gera preview visual
+    else if (isDocumentFile(file.type)) {
+      console.log('📄 [DOCUMENT PREVIEW] Gerando preview para documento...');
+      try {
+        const documentPreview = generateDocumentPreview(
+          file.name,
+          file.size,
+          file.type
+        );
+        setFilePreview(documentPreview);
+        console.log('✅ [DOCUMENT PREVIEW] Preview gerado com sucesso');
+      } catch (error) {
+        console.error('❌ [DOCUMENT PREVIEW] Erro ao gerar preview:', error);
+        setFilePreview(null);
+      }
     }
     // OUTROS: Sem preview
     else {
@@ -953,8 +977,15 @@ ${content}
                             </p>
                           )}
                           
+                          {/* 🆕 Status de documento */}
+                          {(contentType === 'document' || contentType === 'text') && filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Preview do documento gerado
+                            </p>
+                          )}
+                          
                           {/* Status de outros arquivos */}
-                          {contentType !== 'video' && contentType !== 'image' && (
+                          {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && (
                             <p className="text-xs text-green-600 mt-1">
                               ✓ Arquivo validado com sucesso
                             </p>
@@ -1028,9 +1059,10 @@ ${content}
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">O que será incluído no certificado:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Thumbnail comprimida do conteúdo e salva</li>
+                  <li>✅ Preview visual do conteúdo (imagem, vídeo ou documento)</li>
                   {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
                   {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
+                  {(contentType === 'document' || contentType === 'text') && <li>✅ Preview visual do documento com ícone e informações</li>}
                   <li>✅ Arquivo original salvo no Storage (disponível para download)</li>
                   <li>✅ Plataformas selecionadas com badges visuais</li>
                   <li>✅ Links clicáveis para seus perfis nas plataformas</li>
