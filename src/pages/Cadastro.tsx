@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle, XCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle, XCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
@@ -112,6 +112,10 @@ export default function Cadastro() {
   const [documentoUrl, setDocumentoUrl] = useState('');
   const [documentoType, setDocumentoType] = useState<'image' | 'pdf'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
+  
+  // 👁️ Estados para mostrar/ocultar senha
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // 🔐 SEGURANÇA: Hash do documento (usado internamente, sem exibição de status)
   const [documentoHash, setDocumentoHash] = useState<string>('');
@@ -934,15 +938,30 @@ export default function Cadastro() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="senha">Senha *</Label>
-                    <Input
-                      id="senha"
-                      type="password"
-                      placeholder="••••••••"
-                      value={senha}
-                      onChange={(e) => setSenha(e.target.value)}
-                      disabled={isBlocked || csrfLoading}
-                      maxLength={100}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="senha"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={senha}
+                        onChange={(e) => setSenha(e.target.value)}
+                        disabled={isBlocked || csrfLoading}
+                        maxLength={100}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Indicador de Força da Senha */}
@@ -950,15 +969,30 @@ export default function Cadastro() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
-                    <Input
-                      id="confirmarSenha"
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmarSenha}
-                      onChange={(e) => setConfirmarSenha(e.target.value)}
-                      disabled={isBlocked || csrfLoading}
-                      maxLength={100}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmarSenha"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmarSenha}
+                        onChange={(e) => setConfirmarSenha(e.target.value)}
+                        disabled={isBlocked || csrfLoading}
+                        maxLength={100}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Indicador de tentativas restantes */}
@@ -980,7 +1014,7 @@ export default function Cadastro() {
                     </Button>
                     <Button 
                       type="submit" 
-                      className="flex-1" 
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium" 
                       disabled={isLoading || isBlocked || csrfLoading || !csrfToken}
                     >
                       {isLoading ? (
