@@ -29,8 +29,13 @@ import { RateLimitAlert } from '@/components/RateLimitAlert';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 // 🔒 CSRF Protection
 import { useCSRFProtection } from '@/hooks/useCSRFProtection';
-// 🔒 SEGURANÇA: Validação de arquivos com lista branca
-import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
+// 🔒 SEGURANÇA: Validação de documentos de identidade (CNH, RG, Passaporte)
+import { 
+  validateDocument, 
+  getDocumentAcceptString, 
+  getDocumentExtensionDescription,
+  getMaxDocumentSizeMB 
+} from '@/lib/document-validator';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -151,6 +156,7 @@ export default function Cadastro() {
   
   /**
    * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
+   * 🆕 VALIDAÇÃO HÍBRIDA: Aceita apenas CNH, RG e Passaporte
    * 🔐 VIRUSTOTAL: Scan silencioso em background (SEM exibição de status na UI)
    */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,15 +186,10 @@ export default function Cadastro() {
     });
     
     // =====================================================
-    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
+    // 🔒 VALIDAÇÃO HÍBRIDA: CNH, RG, Passaporte
     // =====================================================
     
-    const validationResult = await validateFile(file, {
-      maxSizeBytes: 10 * 1024 * 1024, // 10MB
-      allowedCategories: ['image', 'document'], // Apenas imagens e PDFs
-      strictMode: true, // Ativa validação de MIME type
-      validateMagicNumbers: true // Ativa validação de Magic Numbers
-    });
+    const validationResult = await validateDocument(file);
     
     if (!validationResult.valid) {
       console.error('❌ [DOCUMENTO UPLOAD] Validação falhou:', validationResult.message);
@@ -200,7 +201,7 @@ export default function Cadastro() {
       return;
     }
     
-    console.log('✅ [DOCUMENTO UPLOAD] Arquivo validado com sucesso:', validationResult.details);
+    console.log('✅ [DOCUMENTO UPLOAD] Documento validado com sucesso:', validationResult.details);
     
     // =====================================================
     // 🔐 SEGURANÇA: Scan VirusTotal SILENCIOSO (SEM UI)
@@ -616,7 +617,7 @@ export default function Cadastro() {
           {step === 2 && fileValidationError && (
             <Alert variant="destructive" className="mb-6 border-2 border-red-500 bg-red-50 shadow-lg">
               <XCircle className="h-5 w-5 text-red-600" />
-              <AlertTitle className="text-red-900 font-bold text-base">Arquivo Não Permitido</AlertTitle>
+              <AlertTitle className="text-red-900 font-bold text-base">Documento Não Aceito</AlertTitle>
               <AlertDescription className="text-red-800 font-medium text-sm mt-2">
                 {fileValidationError}
               </AlertDescription>
@@ -759,7 +760,10 @@ export default function Cadastro() {
                   <div className="space-y-2">
                     <Label>Documento de Identificação com Foto *</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      CNH, Passaporte ou RG ({getExtensionDescription('image')}, {getExtensionDescription('document')} - máx. 10MB)
+                      📄 Envie apenas: <strong>CNH, RG ou Passaporte</strong>
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
                     </p>
                     {!documentoUrl ? (
                       <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -768,16 +772,16 @@ export default function Cadastro() {
                           <span className="text-blue-600 hover:underline font-medium">
                             Clique para fazer upload
                           </span>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            🔒 Formatos aceitos: {getExtensionDescription('image')}, PDF
+                          <p className="text-xs text-muted-foreground mt-2">
+                            🔒 Validação de segurança ativa
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Validação de segurança ativa
+                          <p className="text-xs text-amber-600 mt-1 font-medium">
+                            ⚠️ Apenas CNH, RG ou Passaporte são aceitos
                           </p>
                           <Input
                             id="documento"
                             type="file"
-                            accept={getAcceptString(['image', 'document'])}
+                            accept={getDocumentAcceptString()}
                             className="hidden"
                             onChange={handleDocumentoUpload}
                           />
@@ -798,7 +802,7 @@ export default function Cadastro() {
                                   {((documentoFile?.size || 0) / 1024 / 1024).toFixed(2)} MB
                                 </p>
                                 <p className="text-xs text-green-600 mt-1">
-                                  ✓ Arquivo validado com sucesso
+                                  ✓ Documento validado com sucesso
                                 </p>
                               </div>
                             </div>
@@ -812,7 +816,7 @@ export default function Cadastro() {
                             />
                             <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
                               <Image className="h-3 w-3" />
-                              Imagem Validada
+                              Documento Validado
                             </div>
                           </div>
                         )}
