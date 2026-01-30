@@ -1,6 +1,6 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.1 - Usando Edge Function para registro seguro
+ * Versão 2.2 - Registro simplificado sem metadados
  */
 
 import { supabase } from './supabase';
@@ -242,17 +242,10 @@ export async function registerUser(
     
     console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
     
-    // Cria usuário no Supabase Auth
+    // Cria usuário no Supabase Auth (SEM METADADOS para evitar erro 500)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: user.email.toLowerCase(),
       password: senha,
-      options: {
-        data: {
-          nome_completo: user.nomeCompleto,
-          nome_publico: user.nomePublico || user.nomeCompleto,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      }
     });
     
     if (authError) {
@@ -273,7 +266,6 @@ export async function registerUser(
     console.log('💾 Chamando Edge Function para inserir dados na tabela users...');
     
     // Chama Edge Function para inserir dados usando SERVICE ROLE KEY
-    const { data: { session } } = await supabase.auth.getSession();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
