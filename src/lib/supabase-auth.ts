@@ -1,6 +1,6 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.2 - Registro simplificado sem metadados
+ * Versão 2.3 - Corrigido: telefone vazio = NULL (constraint UNIQUE)
  */
 
 import { supabase } from './supabase';
@@ -245,10 +245,18 @@ export async function registerUser(
     
     console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
     
-    // Cria usuário no Supabase Auth (SEM METADADOS para evitar erro 500)
+    // 🔒 CORREÇÃO: Telefone vazio deve ser NULL (constraint UNIQUE)
+    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : null;
+    
+    // Cria usuário no Supabase Auth com phone correto
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: user.email.toLowerCase(),
       password: senha,
+      options: {
+        data: {
+          phone: phoneValue, // NULL se vazio, evita violação de UNIQUE constraint
+        }
+      }
     });
     
     if (authError) {
@@ -284,7 +292,7 @@ export async function registerUser(
         nome_publico: user.nomePublico,
         email: user.email.toLowerCase(),
         cpf_cnpj: user.cpfCnpj,
-        telefone: user.telefone,
+        telefone: phoneValue, // 🔒 CORREÇÃO: NULL se vazio
         documento_url: user.documentoUrl,
         selfie_url: user.selfieUrl,
         verified: true,
@@ -753,11 +761,14 @@ export async function updateUser(
     }
     
     // Prepara os dados para atualização
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, string | null> = {};
     if (updates.nomeCompleto) updateData.nome_completo = updates.nomeCompleto;
     if (updates.nomePublico) updateData.nome_publico = updates.nomePublico;
     if (updates.email) updateData.email = updates.email.toLowerCase();
-    if (updates.telefone) updateData.telefone = updates.telefone;
+    if (updates.telefone !== undefined) {
+      // 🔒 CORREÇÃO: Telefone vazio = NULL
+      updateData.telefone = updates.telefone && updates.telefone.trim() !== '' ? updates.telefone : null;
+    }
     
     // Atualiza o usuário na tabela
     const { data, error } = await supabase
