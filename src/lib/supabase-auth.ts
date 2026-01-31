@@ -1,6 +1,6 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.3 - Corrigido: telefone vazio = NULL (constraint UNIQUE)
+ * Versão 2.4 - CORREÇÃO DEFINITIVA: phone no nível raiz do signUp
  */
 
 import { supabase } from './supabase';
@@ -245,22 +245,36 @@ export async function registerUser(
     
     console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
     
-    // 🔒 CORREÇÃO: Telefone vazio deve ser NULL (constraint UNIQUE)
-    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : null;
+    // 🔒 CORREÇÃO DEFINITIVA: Telefone vazio = NULL, e phone no nível raiz
+    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : undefined;
     
-    // Cria usuário no Supabase Auth com phone correto
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    console.log('📞 Valor do telefone a ser enviado:', phoneValue || 'undefined (será NULL no banco)');
+    
+    // Cria usuário no Supabase Auth - phone no nível raiz!
+    const signUpData: any = {
       email: user.email.toLowerCase(),
       password: senha,
-      options: {
-        data: {
-          phone: phoneValue, // NULL se vazio, evita violação de UNIQUE constraint
-        }
-      }
+    };
+    
+    // Só adiciona phone se tiver valor (undefined = NULL no banco)
+    if (phoneValue) {
+      signUpData.phone = phoneValue;
+    }
+    
+    console.log('🚀 Chamando supabase.auth.signUp com:', {
+      email: signUpData.email,
+      phone: signUpData.phone || 'undefined',
     });
+    
+    const { data: authData, error: authError } = await supabase.auth.signUp(signUpData);
     
     if (authError) {
       console.error('❌ Erro ao criar autenticação:', authError);
+      console.error('❌ Detalhes completos do erro:', {
+        message: authError.message,
+        status: authError.status,
+        name: authError.name,
+      });
       return { success: false, error: authError.message };
     }
     
@@ -292,7 +306,7 @@ export async function registerUser(
         nome_publico: user.nomePublico,
         email: user.email.toLowerCase(),
         cpf_cnpj: user.cpfCnpj,
-        telefone: phoneValue, // 🔒 CORREÇÃO: NULL se vazio
+        telefone: phoneValue || null, // NULL se vazio
         documento_url: user.documentoUrl,
         selfie_url: user.selfieUrl,
         verified: true,
