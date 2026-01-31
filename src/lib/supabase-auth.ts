@@ -4,7 +4,7 @@
  */
 
 import { supabase } from './supabase';
-import type { Database } from './supabase';
+import type { Database, SocialLinks } from './supabase';
 import { setUserContext, clearUserContext } from './sentry';
 import { logAuditEvent, AuditAction } from './audit-logger';
 
@@ -24,6 +24,7 @@ export interface User {
   verified: boolean;
   isAdmin: boolean;
   blocked?: boolean;
+  socialLinks?: SocialLinks;
 }
 
 interface DebugInfo {
@@ -69,6 +70,7 @@ function dbUserToAppUser(dbUser: UserRow): User {
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
     blocked: dbUser.blocked || false,
+    socialLinks: dbUser.social_links || undefined,
   };
 }
 
@@ -85,6 +87,7 @@ function appUserToDbUser(appUser: Omit<User, 'id' | 'createdAt'>): UserInsert {
     verified: appUser.verified,
     is_admin: appUser.isAdmin,
     blocked: appUser.blocked || false,
+    social_links: appUser.socialLinks || null,
   };
 }
 
@@ -946,5 +949,111 @@ export async function checkCpfCnpjExists(cpfCnpj: string): Promise<boolean> {
   } catch (error) {
     console.error('❌ Erro ao verificar CPF/CNPJ:', error);
     return false;
+  }
+}
+
+/**
+ * Atualiza os links de redes sociais do usuário
+ */
+export async function updateSocialLinks(
+  userId: string,
+  socialLinks: SocialLinks
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await getCurrentUser();
+    
+    // Verifica se o usuário tem permissão
+    if (currentUser?.id !== userId) {
+      return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
+    }
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ social_links: socialLinks })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar links sociais:', error);
+      return { success: false, error: 'Erro ao atualizar links das redes sociais' };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro ao atualizar links sociais:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
+  }
+}
+
+/**
+ * 🔒 SEGURANÇA: Cria conta de administrador (apenas se não existir)
+ * 
+ * ⚠️ IMPORTANTE: Esta função foi modificada para usar variável de ambiente
+ * ao invés de senha hardcoded. Configure ADMIN_DEFAULT_PASSWORD no .env
+ * 
+ * @deprecated Esta função deve ser usada apenas para setup inicial.
+ * Recomenda-se criar conta de admin manualmente via Supabase Dashboard.
+ */
+export async function createAdminAccount(): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    console.log('🔧 Verificando conta de administrador...');
+    
+    // Verifica se admin já existe
+    const { data: existingAdmin } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', 'marcelo@vsparticipacoes.com')
+      .single();
+    
+    if (existingAdmin) {
+      console.log('✅ Conta de administrador já existe');
+      return {
+        success: true,
+        user: dbUserToAppUser(existingAdmin),
+      };
+    }
+    
+    // 🔒 SEGURANÇA: Obtém senha de variável de ambiente
+    const adminPassword = import.meta.env.VITE_ADMIN_DEFAULT_PASSWORD;
+    
+    if (!adminPassword || adminPassword === 'YOUR_SECURE_PASSWORD_HERE') {
+      console.error('❌ ADMIN_DEFAULT_PASSWORD não configurado no .env');
+      return {
+        success: false,
+        error: 'Senha de administrador não configurada. Configure ADMIN_DEFAULT_PASSWORD no arquivo .env',
+      };
+    }
+    
+    // Valida senha
+    if (!isValidPassword(adminPassword)) {
+      return {
+        success: false,
+        error: 'A senha configurada não atende aos requisitos de segurança (mínimo 6 caracteres, 1 maiúscula, 1 caractere especial)',
+      };
+    }
+    
+    console.log('🔐 Criando nova conta de administrador...');
+    
+    // Cria nova conta de admin
+    return await registerUser(
+      {
+        nomeCompleto: 'Marcelo Administrador',
+        nomePublico: 'Marcelo',
+        email: 'marcelo@vsparticipacoes.com',
+        cpfCnpj: '00000000000000',
+        telefone: '(00) 00000-0000',
+        documentoUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
+        selfieUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48L3N2Zz4=',
+      },
+      adminPassword
+    );
+  } catch (error) {
+    console.error('❌ Erro ao criar conta de admin:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
   }
 }
