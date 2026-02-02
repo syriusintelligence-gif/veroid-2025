@@ -1,6 +1,6 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.4 - CORREÇÃO DEFINITIVA: phone no nível raiz do signUp
+ * Versão 2.5 - CORREÇÃO FINAL: Não enviar phone para Auth, apenas para tabela users
  */
 
 import { supabase } from './supabase';
@@ -245,28 +245,18 @@ export async function registerUser(
     
     console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
     
-    // 🔒 CORREÇÃO DEFINITIVA: Telefone vazio = NULL, e phone no nível raiz
-    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : undefined;
+    // 🔒 CORREÇÃO FINAL: NÃO enviar phone para Auth (apenas email + senha)
+    // O telefone será salvo apenas na tabela users via Edge Function
+    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : null;
     
-    console.log('📞 Valor do telefone a ser enviado:', phoneValue || 'undefined (será NULL no banco)');
+    console.log('📞 Telefone será salvo apenas na tabela users:', phoneValue || 'NULL');
+    console.log('🚀 Criando usuário no Auth apenas com email e senha...');
     
-    // Cria usuário no Supabase Auth - phone no nível raiz!
-    const signUpData: any = {
+    // Cria usuário no Supabase Auth - APENAS email e senha!
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: user.email.toLowerCase(),
       password: senha,
-    };
-    
-    // Só adiciona phone se tiver valor (undefined = NULL no banco)
-    if (phoneValue) {
-      signUpData.phone = phoneValue;
-    }
-    
-    console.log('🚀 Chamando supabase.auth.signUp com:', {
-      email: signUpData.email,
-      phone: signUpData.phone || 'undefined',
     });
-    
-    const { data: authData, error: authError } = await supabase.auth.signUp(signUpData);
     
     if (authError) {
       console.error('❌ Erro ao criar autenticação:', authError);
@@ -306,7 +296,7 @@ export async function registerUser(
         nome_publico: user.nomePublico,
         email: user.email.toLowerCase(),
         cpf_cnpj: user.cpfCnpj,
-        telefone: phoneValue || null, // NULL se vazio
+        telefone: phoneValue, // NULL se vazio
         documento_url: user.documentoUrl,
         selfie_url: user.selfieUrl,
         verified: true,
