@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3 } from 'lucide-react';
+import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
@@ -109,7 +109,8 @@ export default function Index() {
       >
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <motion.div 
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => navigate('/')}
             whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
             transition={{ duration: 0.2 }}
           >
@@ -153,6 +154,20 @@ export default function Index() {
                 </Button>
               </motion.div>
             )}
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/pricing')} 
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+              >
+                <CreditCard className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Planos</span>
+                <span className="sm:hidden">Planos</span>
+              </Button>
+            </motion.div>
             <motion.div 
               whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
               whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
