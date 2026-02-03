@@ -21,6 +21,7 @@ import Verify from './pages/Verify';
 import Certificate from './pages/Certificate';
 import CertificateDebug from './pages/CertificateDebug';
 import ChangePassword from './pages/ChangePassword';
+import Pricing from './pages/Pricing';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
@@ -426,6 +427,11 @@ function AppContent() {
         <Route path="/verify" element={<Verify />} />
         <Route path="/certificate" element={<Certificate />} />
         <Route path="/certificate-debug" element={<CertificateDebug />} />
+        
+        {/* 🆕 Rota de Pricing - Pública (não requer autenticação) */}
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/planos" element={<Pricing />} />
+        
         <Route
           path="/change-password"
           element={session ? <ChangePassword /> : <Navigate to="/login" />}
