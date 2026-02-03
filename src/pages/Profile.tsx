@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react';
+import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2, CreditCard } from 'lucide-react';
 import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
 import { SocialLinks } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -267,6 +267,15 @@ export default function Profile() {
               </span>
             </div>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/pricing')} 
+            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+          >
+            <CreditCard className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Planos</span>
+            <span className="sm:hidden">Planos</span>
+          </Button>
         </div>
       </header>
 

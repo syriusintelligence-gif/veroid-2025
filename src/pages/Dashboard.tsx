@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -290,6 +290,26 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/admin/dashboard')} 
+                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Admin Dashboard</span>
+                <span className="sm:hidden">Admin</span>
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/pricing')} 
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <CreditCard className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Planos</span>
+              <span className="sm:hidden">Planos</span>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
