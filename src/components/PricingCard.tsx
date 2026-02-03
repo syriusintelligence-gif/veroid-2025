@@ -31,47 +31,40 @@ export function PricingCard({ plan, onSubscribe, isLoading = false }: PricingCar
 
   return (
     <Card 
-      className={`relative flex flex-col ${
+      className={`relative flex flex-col bg-slate-900/50 backdrop-blur-sm border-slate-700/50 ${
         isPopular 
-          ? 'border-2 border-primary shadow-lg scale-105' 
-          : 'border border-border'
+          ? 'border-2 border-cyan-500/50 shadow-lg shadow-cyan-500/20 scale-105' 
+          : 'border border-slate-700/50'
       }`}
     >
       {/* Popular Badge */}
       {isPopular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-          <Badge className="bg-primary text-primary-foreground px-4 py-1 text-sm font-semibold">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <Badge className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-4 py-1 text-sm font-semibold shadow-lg">
             Mais Popular
           </Badge>
         </div>
       )}
 
-      <CardHeader className="text-center pb-4">
+      <CardHeader className="text-center pb-4 pt-6">
         {/* Plan Name */}
-        <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
+        <CardTitle className="text-2xl font-bold text-white">{plan.name}</CardTitle>
         
         {/* Plan Description */}
-        <CardDescription className="text-sm mt-2">
+        <CardDescription className="text-sm mt-2 text-gray-400">
           {plan.description}
         </CardDescription>
 
         {/* Price */}
         <div className="mt-6">
           <div className="flex items-baseline justify-center gap-2">
-            <span className="text-4xl font-bold tracking-tight">
+            <span className="text-4xl font-bold tracking-tight text-white">
               {formatPrice(plan.price)}
             </span>
             {isSubscription && !isFree && (
-              <span className="text-muted-foreground text-sm">/mês</span>
+              <span className="text-gray-400 text-sm">/mês</span>
             )}
           </div>
-          
-          {/* Authentications Count */}
-          {plan.maxProfiles && (
-            <p className="text-sm text-muted-foreground mt-2">
-              {plan.maxProfiles} autenticações{isSubscription ? ' por mês' : ''}
-            </p>
-          )}
         </div>
       </CardHeader>
 
@@ -80,8 +73,8 @@ export function PricingCard({ plan, onSubscribe, isLoading = false }: PricingCar
         <ul className="space-y-3">
           {plan.features.map((feature, index) => (
             <li key={index} className="flex items-start gap-3">
-              <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-muted-foreground">{feature}</span>
+              <Check className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-300">{feature}</span>
             </li>
           ))}
         </ul>
@@ -89,9 +82,12 @@ export function PricingCard({ plan, onSubscribe, isLoading = false }: PricingCar
 
       <CardFooter className="pt-4">
         <Button
-          className="w-full"
+          className={`w-full ${
+            isPopular 
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30' 
+              : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+          }`}
           size="lg"
-          variant={isPopular ? 'default' : 'outline'}
           onClick={handleSubscribe}
           disabled={isLoading || isFree}
         >
