@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Shield, BarChart3 } from 'lucide-react';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -35,15 +37,47 @@ export default function Pricing() {
     setIsLoading(true);
     
     try {
-      // TODO: Implement Stripe Checkout redirect
-      console.log('Subscribe to plan:', plan);
+      console.log('🔐 Iniciando processo de assinatura:', plan);
       
-      // Placeholder for Stripe Checkout integration
-      alert(`Redirecionando para checkout do plano: ${plan.name}`);
+      // Verifica se o usuário está autenticado
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('Você precisa estar logado para assinar um plano');
+        navigate('/login');
+        return;
+      }
+
+      console.log('✅ Usuário autenticado:', user.email);
+      console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
+
+      // Chama a Edge Function para criar sessão de checkout
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          priceId: plan.priceId,
+          userId: user.id,
+          userEmail: user.email,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Erro ao criar sessão de checkout:', error);
+        throw new Error(error.message || 'Erro ao criar sessão de checkout');
+      }
+
+      if (!data || !data.url) {
+        throw new Error('URL de checkout não retornada');
+      }
+
+      console.log('✅ Sessão de checkout criada:', data.sessionId);
+      console.log('🔗 Redirecionando para:', data.url);
+
+      // Redireciona para a página de checkout do Stripe
+      window.location.href = data.url;
       
     } catch (error) {
-      console.error('Error subscribing:', error);
-      alert('Erro ao processar assinatura. Tente novamente.');
+      console.error('❌ Erro ao processar assinatura:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar assinatura. Tente novamente.');
     } finally {
       setIsLoading(false);
     }

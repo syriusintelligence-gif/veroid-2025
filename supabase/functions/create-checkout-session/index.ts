@@ -1,14 +1,8 @@
 /**
- * 🚀 EDGE FUNCTION: CREATE CHECKOUT SESSION
+ * Supabase Edge Function: create-checkout-session
  * 
- * Esta função cria uma sessão de checkout do Stripe e retorna a URL de pagamento.
- * 
- * Fluxo:
- * 1. Recebe priceId, userId, planType do frontend
- * 2. Verifica autenticação do usuário
- * 3. Cria ou recupera customer do Stripe
- * 4. Cria sessão de checkout com metadata
- * 5. Retorna sessionId e URL de checkout
+ * Cria uma sessão de checkout do Stripe para processar pagamentos.
+ * Esta função é chamada pelo frontend quando o usuário clica em "Assinar".
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -26,152 +20,92 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🛒 [CREATE CHECKOUT] Iniciando criação de sessão...');
+    // Obtém a Stripe Secret Key do ambiente
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
+    
+    if (!stripeSecretKey) {
+      throw new Error('STRIPE_SECRET_KEY não configurada');
+    }
 
-    // Inicializa Stripe
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+    // Inicializa o cliente Stripe
+    const stripe = new Stripe(stripeSecretKey, {
       apiVersion: '2023-10-16',
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    // Parse request body
-    const { priceId, userId, planType, successUrl, cancelUrl } = await req.json();
+    // Parse do body da requisição
+    const { priceId, userId, userEmail } = await req.json();
 
-    console.log('📊 [CREATE CHECKOUT] Dados recebidos:', {
-      priceId,
-      userId,
-      planType,
-      successUrl: successUrl?.substring(0, 50) + '...',
-      cancelUrl: cancelUrl?.substring(0, 50) + '...',
-    });
+    console.log('📝 Criando sessão de checkout:', { priceId, userId, userEmail });
 
-    // Validação de dados
-    if (!priceId || !userId || !planType) {
-      console.error('❌ [CREATE CHECKOUT] Dados inválidos');
+    // Valida parâmetros obrigatórios
+    if (!priceId) {
       return new Response(
-        JSON.stringify({ error: 'Dados inválidos: priceId, userId e planType são obrigatórios' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        JSON.stringify({ error: 'priceId é obrigatório' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    // Verifica autenticação
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('❌ [CREATE CHECKOUT] Token de autenticação não fornecido');
+    if (!userId || !userEmail) {
       return new Response(
-        JSON.stringify({ error: 'Token de autenticação não fornecido' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    console.log('✅ [CREATE CHECKOUT] Usuário autenticado');
-
-    // Busca ou cria customer no Stripe
-    let customerId: string;
-
-    try {
-      // Busca customer existente por metadata userId
-      const existingCustomers = await stripe.customers.list({
-        limit: 1,
-        email: undefined, // Busca por metadata
-      });
-
-      const customer = existingCustomers.data.find(
-        (c) => c.metadata?.userId === userId
-      );
-
-      if (customer) {
-        customerId = customer.id;
-        console.log('✅ [CREATE CHECKOUT] Customer existente encontrado:', customerId);
-      } else {
-        // Cria novo customer
-        const newCustomer = await stripe.customers.create({
-          metadata: {
-            userId,
-          },
-        });
-        customerId = newCustomer.id;
-        console.log('✅ [CREATE CHECKOUT] Novo customer criado:', customerId);
-      }
-    } catch (error) {
-      console.error('❌ [CREATE CHECKOUT] Erro ao buscar/criar customer:', error);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao processar customer no Stripe' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Configura parâmetros da sessão baseado no tipo de plano
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      customer: customerId,
+    // Obtém a URL base do frontend
+    const origin = req.headers.get('origin') || 'http://localhost:5173';
+    
+    // Cria a sessão de checkout do Stripe
+    const session = await stripe.checkout.sessions.create({
+      customer_email: userEmail,
+      client_reference_id: userId,
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      mode: planType === 'subscription' ? 'subscription' : 'payment',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      mode: priceId.includes('pacote') ? 'payment' : 'subscription',
+      success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/payment/cancel`,
       metadata: {
         userId,
-        planType,
+        userEmail,
+        priceId,
       },
-      allow_promotion_codes: true,
-      billing_address_collection: 'required',
-    };
-
-    // Adiciona configurações específicas para assinaturas
-    if (planType === 'subscription') {
-      sessionParams.subscription_data = {
-        metadata: {
-          userId,
-        },
-      };
-    }
-
-    console.log('🔧 [CREATE CHECKOUT] Parâmetros da sessão configurados');
-
-    // Cria sessão de checkout
-    const session = await stripe.checkout.sessions.create(sessionParams);
-
-    console.log('✅ [CREATE CHECKOUT] Sessão criada com sucesso:', {
-      sessionId: session.id,
-      customerId: session.customer,
-      url: session.url?.substring(0, 50) + '...',
     });
 
-    // Retorna sessionId e URL
+    console.log('✅ Sessão criada com sucesso:', session.id);
+
+    // Retorna a URL da sessão de checkout
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         sessionId: session.id,
-        url: session.url,
+        url: session.url 
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
 
   } catch (error) {
-    console.error('❌ [CREATE CHECKOUT] Erro ao criar sessão:', error);
+    console.error('❌ Erro ao criar sessão de checkout:', error);
     
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Erro desconhecido ao criar sessão de checkout',
+      JSON.stringify({ 
+        error: error.message || 'Erro ao criar sessão de checkout' 
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }

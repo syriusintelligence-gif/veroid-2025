@@ -22,6 +22,8 @@ import Certificate from './pages/Certificate';
 import CertificateDebug from './pages/CertificateDebug';
 import ChangePassword from './pages/ChangePassword';
 import Pricing from './pages/Pricing';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
@@ -431,6 +433,10 @@ function AppContent() {
         {/* 🆕 Rota de Pricing - Pública (não requer autenticação) */}
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/planos" element={<Pricing />} />
+        
+        {/* 🆕 Rotas de Pagamento - Públicas */}
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/cancel" element={<PaymentCancel />} />
         
         <Route
           path="/change-password"
