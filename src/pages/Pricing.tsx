@@ -141,12 +141,26 @@ export default function Pricing() {
     try {
       setLoading(plan.id);
 
+      // Obter o token de acesso atual
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('❌ Erro ao obter sessão:', sessionError);
+        throw new Error('Sessão não encontrada. Faça login novamente.');
+      }
+
+      console.log('🔐 Token obtido, chamando Edge Function...');
+
+      // Chamar a Edge Function com o token de autenticação
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
           priceId: plan.priceId,
           planId: plan.id,
           planName: plan.name,
           mode: plan.type === 'subscription' ? 'subscription' : 'payment'
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
@@ -163,7 +177,7 @@ export default function Pricing() {
       }
     } catch (error) {
       console.error('❌ Erro ao processar assinatura:', error);
-      alert('Erro ao processar assinatura. Tente novamente.');
+      alert(`Erro ao processar assinatura: ${error.message || 'Tente novamente.'}`);
     } finally {
       setLoading(null);
     }
