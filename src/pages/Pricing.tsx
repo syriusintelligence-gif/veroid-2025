@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Check, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, Shield, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -94,14 +95,28 @@ const oneTimePlans: Plan[] = [
 
 export default function Pricing() {
   const [loading, setLoading] = useState<string | null>(null);
-  const { user } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const { user, session } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Debug: Log session info
+    console.log('🔍 Session info:', {
+      hasUser: !!user,
+      hasSession: !!session,
+      userId: user?.id,
+      hasAccessToken: !!session?.access_token
+    });
+  }, [user, session]);
 
   const handleSubscribe = async (plan: Plan) => {
     console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
+    setError(null);
 
-    if (!user) {
-      navigate('/login', { state: { from: '/pricing' } });
+    // Verificar se o usuário está logado
+    if (!user || !session) {
+      console.log('⚠️ Usuário não autenticado, redirecionando para login...');
+      navigate('/login-v2', { state: { from: '/pricing', plan: plan.id } });
       return;
     }
 
@@ -131,7 +146,7 @@ export default function Pricing() {
         navigate('/dashboard');
       } catch (error) {
         console.error('❌ Erro ao ativar plano Free:', error);
-        alert('Erro ao ativar plano Free. Tente novamente.');
+        setError('Erro ao ativar plano Free. Tente novamente.');
       } finally {
         setLoading(null);
       }
@@ -141,15 +156,13 @@ export default function Pricing() {
     try {
       setLoading(plan.id);
 
-      // Obter o token de acesso atual
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.error('❌ Erro ao obter sessão:', sessionError);
-        throw new Error('Sessão não encontrada. Faça login novamente.');
+      // Verificar se temos um token de acesso válido
+      if (!session.access_token) {
+        throw new Error('Token de acesso não encontrado. Por favor, faça login novamente.');
       }
 
       console.log('🔐 Token obtido, chamando Edge Function...');
+      console.log('📊 Session access_token (primeiros 20 chars):', session.access_token.substring(0, 20));
 
       // Chamar a Edge Function com o token de autenticação
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
@@ -175,9 +188,17 @@ export default function Pricing() {
       } else {
         throw new Error('URL de checkout não retornada');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao processar assinatura:', error);
-      alert(`Erro ao processar assinatura: ${error.message || 'Tente novamente.'}`);
+      const errorMessage = error.message || 'Erro ao processar assinatura. Tente novamente.';
+      setError(errorMessage);
+      
+      // Se for erro de autenticação, redirecionar para login
+      if (errorMessage.includes('autenticação') || errorMessage.includes('token')) {
+        setTimeout(() => {
+          navigate('/login-v2', { state: { from: '/pricing', plan: plan.id } });
+        }, 2000);
+      }
     } finally {
       setLoading(null);
     }
@@ -195,12 +216,20 @@ export default function Pricing() {
             </span>
           </div>
           <nav className="flex gap-3">
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => navigate('/login')}>
-              Entrar
-            </Button>
-            <Button className="bg-cyan-500 hover:bg-cyan-600 text-white" onClick={() => navigate('/cadastro')}>
-              Cadastro
-            </Button>
+            {user ? (
+              <Button className="bg-cyan-500 hover:bg-cyan-600 text-white" onClick={() => navigate('/dashboard')}>
+                Dashboard
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => navigate('/login-v2')}>
+                  Entrar
+                </Button>
+                <Button className="bg-cyan-500 hover:bg-cyan-600 text-white" onClick={() => navigate('/cadastro')}>
+                  Cadastro
+                </Button>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -214,6 +243,24 @@ export default function Pricing() {
           <p className="text-lg text-gray-300 max-w-3xl mx-auto">
             Proteja seu conteúdo com autenticações verificadas. Escolha um plano mensal ou compre pacotes avulsos conforme sua necessidade.
           </p>
+          
+          {!user && (
+            <Alert className="mt-6 max-w-2xl mx-auto bg-blue-900/50 border-blue-500/50">
+              <AlertCircle className="h-4 w-4 text-blue-400" />
+              <AlertDescription className="text-blue-200">
+                Faça login para assinar um plano ou comprar pacotes
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {error && (
+            <Alert className="mt-6 max-w-2xl mx-auto bg-red-900/50 border-red-500/50">
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <AlertDescription className="text-red-200">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         {/* Subscription Plans */}
@@ -272,7 +319,7 @@ export default function Pricing() {
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
                   >
-                    {loading === plan.id ? 'Processando...' : plan.id === 'vero-id-free' ? 'Plano Atual' : 'Assinar Agora'}
+                    {loading === plan.id ? 'Processando...' : plan.id === 'vero-id-free' ? 'Plano Atual' : user ? 'Assinar Agora' : 'Fazer Login'}
                   </Button>
                 </CardFooter>
               </Card>
@@ -331,7 +378,7 @@ export default function Pricing() {
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
                   >
-                    {loading === plan.id ? 'Processando...' : 'Comprar Agora'}
+                    {loading === plan.id ? 'Processando...' : user ? 'Comprar Agora' : 'Fazer Login'}
                   </Button>
                 </CardFooter>
               </Card>
