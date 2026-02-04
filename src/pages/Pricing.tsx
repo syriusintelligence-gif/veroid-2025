@@ -1,254 +1,367 @@
-/**
- * Pricing Page
- * 
- * Displays all available pricing plans organized by type:
- * - Subscription Plans (monthly recurring)
- * - Overage Packages (one-time purchases)
- */
-
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PricingCard } from '@/components/PricingCard';
-import { getSubscriptionPlans, getPackagePlans } from '@/config/plans';
-import { Plan } from '@/types/stripe';
+import { Check, Zap, Crown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Shield, BarChart3 } from 'lucide-react';
-import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
-import { useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+interface Plan {
+  id: string;
+  name: string;
+  priceId: string;
+  price: string;
+  description: string;
+  validations: string;
+  features: string[];
+  icon: React.ReactNode;
+  popular?: boolean;
+  type: 'subscription' | 'one-time';
+}
+
+const subscriptionPlans: Plan[] = [
+  {
+    id: 'vero-id-free',
+    name: 'Vero iD Free',
+    priceId: 'price_1Sx4uCJbBunj3EyEXSFIlqlV',
+    price: 'R$ 0',
+    description: 'Ideal para começar',
+    validations: '10 validações únicas',
+    features: [
+      '10 validações únicas',
+      'Verificação básica de documentos',
+      'Suporte por email',
+      'Dashboard básico'
+    ],
+    icon: <Zap className="h-6 w-6" />,
+    type: 'subscription'
+  },
+  {
+    id: 'vero-id-creator',
+    name: 'Vero iD Creator',
+    priceId: 'price_1Sx55HJbBunj3EyElTWIGj2O',
+    price: 'R$ 29,90',
+    description: 'Para criadores de conteúdo',
+    validations: '50 validações/mês',
+    features: [
+      '50 validações por mês',
+      'Verificação avançada de documentos',
+      'Suporte prioritário',
+      'Dashboard completo',
+      'Relatórios mensais'
+    ],
+    icon: <Sparkles className="h-6 w-6" />,
+    popular: true,
+    type: 'subscription'
+  },
+  {
+    id: 'vero-id-creator-pro',
+    name: 'Vero iD Creator Pro',
+    priceId: 'price_1Sx58MJbBunj3EyEQn1MNT5x',
+    price: 'R$ 79,90',
+    description: 'Para profissionais',
+    validations: '150 validações/mês',
+    features: [
+      '150 validações por mês',
+      'Verificação premium de documentos',
+      'Suporte prioritário 24/7',
+      'Dashboard avançado',
+      'Relatórios detalhados',
+      'API access'
+    ],
+    icon: <Crown className="h-6 w-6" />,
+    type: 'subscription'
+  },
+  {
+    id: 'vero-id-creator-elite',
+    name: 'Vero iD Creator Elite',
+    priceId: 'price_1Sx5GCJbBunj3EyEyfGjJRGH',
+    price: 'R$ 139,90',
+    description: 'Para empresas',
+    validations: '350 validações/mês',
+    features: [
+      '350 validações por mês',
+      'Verificação enterprise',
+      'Suporte dedicado 24/7',
+      'Dashboard personalizado',
+      'Relatórios customizados',
+      'API ilimitada',
+      'Integração customizada'
+    ],
+    icon: <Crown className="h-6 w-6 text-yellow-500" />,
+    type: 'subscription'
+  }
+];
+
+const oneTimePlans: Plan[] = [
+  {
+    id: 'pacote-10',
+    name: 'Pacote 10',
+    priceId: 'price_1Sx5PdJbBunj3EyE09582RVh',
+    price: 'R$ 9,90',
+    description: 'Pagamento único',
+    validations: '10 validações únicas',
+    features: [
+      '10 validações únicas',
+      'Sem renovação automática',
+      'Válido por 12 meses',
+      'Suporte por email'
+    ],
+    icon: <Zap className="h-6 w-6" />,
+    type: 'one-time'
+  },
+  {
+    id: 'pacote-20',
+    name: 'Pacote 20',
+    priceId: 'price_1Sx5RhJbBunj3EyEmPAR5EQA',
+    price: 'R$ 19,90',
+    description: 'Pagamento único',
+    validations: '20 validações únicas',
+    features: [
+      '20 validações únicas',
+      'Sem renovação automática',
+      'Válido por 12 meses',
+      'Suporte prioritário'
+    ],
+    icon: <Sparkles className="h-6 w-6" />,
+    type: 'one-time'
+  },
+  {
+    id: 'pacote-50',
+    name: 'Pacote 50',
+    priceId: 'price_1Sx5UUJbBunj3EyE0VQdHSMe',
+    price: 'R$ 49,90',
+    description: 'Pagamento único',
+    validations: '50 validações únicas',
+    features: [
+      '50 validações únicas',
+      'Sem renovação automática',
+      'Válido por 12 meses',
+      'Suporte prioritário',
+      'Dashboard completo'
+    ],
+    icon: <Crown className="h-6 w-6" />,
+    type: 'one-time'
+  }
+];
 
 export default function Pricing() {
+  const [loading, setLoading] = useState<string | null>(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
-  const subscriptionPlans = getSubscriptionPlans();
-  const overagePackages = getPackagePlans();
-
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (user && isCurrentUserAdmin()) {
-      setIsAdmin(true);
-    }
-  }, []);
 
   const handleSubscribe = async (plan: Plan) => {
-    setIsLoading(true);
-    
-    try {
-      console.log('🔐 Iniciando processo de assinatura:', plan);
-      
-      // Verifica se o usuário está autenticado
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error('Você precisa estar logado para assinar um plano');
-        navigate('/login');
-        return;
+    console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
+
+    if (!user) {
+      navigate('/login', { state: { from: '/pricing' } });
+      return;
+    }
+
+    // Plano Free não precisa de checkout
+    if (plan.id === 'vero-id-free') {
+      try {
+        setLoading(plan.id);
+        
+        // Ativar plano Free diretamente no banco
+        const { error } = await supabase
+          .from('subscriptions')
+          .upsert({
+            user_id: user.id,
+            plan_id: plan.id,
+            plan_name: plan.name,
+            status: 'active',
+            validations_limit: 10,
+            validations_used: 0,
+            stripe_price_id: plan.priceId,
+            current_period_start: new Date().toISOString(),
+            current_period_end: null, // Free plan não expira
+            cancel_at_period_end: false
+          });
+
+        if (error) throw error;
+
+        alert('✅ Plano Free ativado com sucesso!');
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('❌ Erro ao ativar plano Free:', error);
+        alert('Erro ao ativar plano Free. Tente novamente.');
+      } finally {
+        setLoading(null);
       }
+      return;
+    }
 
-      console.log('✅ Usuário autenticado:', user.email);
-      console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
+    try {
+      setLoading(plan.id);
 
-      // Chama a Edge Function para criar sessão de checkout
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
           priceId: plan.priceId,
-          userId: user.id,
-          userEmail: user.email,
-        },
+          planId: plan.id,
+          planName: plan.name,
+          mode: plan.type === 'subscription' ? 'subscription' : 'payment'
+        }
       });
 
       if (error) {
         console.error('❌ Erro ao criar sessão de checkout:', error);
-        throw new Error(error.message || 'Erro ao criar sessão de checkout');
+        throw error;
       }
 
-      if (!data || !data.url) {
+      if (data?.url) {
+        console.log('✅ Redirecionando para checkout:', data.url);
+        window.location.href = data.url;
+      } else {
         throw new Error('URL de checkout não retornada');
       }
-
-      console.log('✅ Sessão de checkout criada:', data.sessionId);
-      console.log('🔗 Redirecionando para:', data.url);
-
-      // Redireciona para a página de checkout do Stripe
-      window.location.href = data.url;
-      
     } catch (error) {
       console.error('❌ Erro ao processar assinatura:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar assinatura. Tente novamente.');
+      alert('Erro ao processar assinatura. Tente novamente.');
     } finally {
-      setIsLoading(false);
+      setLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
-      {/* Header with Glassmorphism - Same as Index.tsx */}
-      <header className="glass-header sticky top-0 z-50 shadow-lg shadow-blue-500/10">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <Shield className="h-7 w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
-            <span className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Vero iD
-            </span>
-          </div>
-          <nav className="flex gap-2 md:gap-3">
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/admin/dashboard')} 
-                className="border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
-              >
-                <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
-                <span className="sm:hidden">Admin</span>
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/login')} 
-              className="border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-3 md:px-4 transition-all duration-300"
-            >
-              Entrar
-            </Button>
-            <Button 
-              onClick={() => navigate('/cadastro')} 
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-3 md:px-4"
-            >
-              Cadastro
-            </Button>
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Escolha o Plano Ideal para Você
           </h1>
-          <p className="text-lg text-gray-300">
-            Proteja seu conteúdo com autenticações verificadas. 
-            Escolha um plano mensal ou compre pacotes avulsos conforme sua necessidade.
+          <p className="text-xl text-gray-600">
+            Planos flexíveis para todas as necessidades
           </p>
         </div>
 
-        {/* Subscription Plans Section */}
-        <div className="mb-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-2 text-white">Planos Mensais</h2>
-            <p className="text-gray-400">
-              Assinatura recorrente com autenticações mensais
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-            {subscriptionPlans.map((plan) => (
-              <PricingCard
-                key={plan.id}
-                plan={plan}
-                onSubscribe={handleSubscribe}
-                isLoading={isLoading}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Overage Packages Section */}
-        <div>
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-2 text-white">Pacotes Avulsos</h2>
-            <p className="text-gray-400">
-              Compre autenticações extras quando precisar (válido por 30 dias)
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {overagePackages.map((plan) => (
-              <PricingCard
-                key={plan.id}
-                plan={plan}
-                onSubscribe={handleSubscribe}
-                isLoading={isLoading}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* FAQ Section */}
-        <div className="mt-20 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8 text-white">
-            Perguntas Frequentes
+        {/* Subscription Plans */}
+        <div className="mb-16">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            Planos Mensais
           </h2>
-          
-          <div className="space-y-6">
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
-              <h3 className="font-semibold mb-2 text-white">
-                O que são autenticações de conteúdo?
-              </h3>
-              <p className="text-sm text-gray-300">
-                Cada autenticação permite verificar a originalidade de um conteúdo digital, 
-                garantindo sua procedência e autenticidade.
-              </p>
-            </div>
-
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
-              <h3 className="font-semibold mb-2 text-white">
-                Como funcionam os pacotes avulsos?
-              </h3>
-              <p className="text-sm text-gray-300">
-                Os pacotes avulsos são compras únicas de autenticações extras que podem ser 
-                usadas junto com qualquer plano mensal. Eles têm validade de 30 dias após a compra.
-              </p>
-            </div>
-
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
-              <h3 className="font-semibold mb-2 text-white">
-                Posso cancelar minha assinatura a qualquer momento?
-              </h3>
-              <p className="text-sm text-gray-300">
-                Sim, você pode cancelar sua assinatura a qualquer momento. 
-                O plano permanecerá ativo até o final do período pago.
-              </p>
-            </div>
-
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
-              <h3 className="font-semibold mb-2 text-white">
-                O que acontece se eu exceder meu limite mensal?
-              </h3>
-              <p className="text-sm text-gray-300">
-                Você pode comprar pacotes avulsos para adicionar mais autenticações ao seu plano atual. 
-                Alternativamente, você pode fazer upgrade para um plano maior.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {subscriptionPlans.map((plan) => (
+              <Card
+                key={plan.id}
+                className={`relative ${
+                  plan.popular
+                    ? 'border-2 border-blue-500 shadow-xl scale-105'
+                    : 'border border-gray-200'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                      Mais Popular
+                    </span>
+                  </div>
+                )}
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">{plan.icon}</div>
+                  </div>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold text-gray-900">
+                      {plan.price}
+                    </span>
+                    {plan.id !== 'vero-id-free' && (
+                      <span className="text-gray-600">/mês</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-blue-600 font-semibold mt-2">
+                    {plan.validations}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-gray-600">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    className="w-full"
+                    variant={plan.popular ? 'default' : 'outline'}
+                    onClick={() => handleSubscribe(plan)}
+                    disabled={loading === plan.id}
+                  >
+                    {loading === plan.id ? 'Processando...' : 'Assinar Agora'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
           </div>
+        </div>
+
+        {/* One-Time Plans */}
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            Pacotes Avulsos
+          </h2>
+          <p className="text-center text-gray-600 mb-8">
+            Compre validações únicas sem compromisso mensal
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {oneTimePlans.map((plan) => (
+              <Card key={plan.id} className="border border-gray-200">
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">{plan.icon}</div>
+                  </div>
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                  <div className="mt-4">
+                    <span className="text-3xl font-bold text-gray-900">
+                      {plan.price}
+                    </span>
+                  </div>
+                  <p className="text-sm text-purple-600 font-semibold mt-2">
+                    {plan.validations}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-gray-600">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => handleSubscribe(plan)}
+                    disabled={loading === plan.id}
+                  >
+                    {loading === plan.id ? 'Processando...' : 'Comprar Agora'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* FAQ or Additional Info */}
+        <div className="mt-16 text-center">
+          <p className="text-gray-600">
+            Tem dúvidas? Entre em contato com nosso{' '}
+            <a href="/support" className="text-blue-600 hover:underline">
+              suporte
+            </a>
+          </p>
         </div>
       </div>
-
-      {/* Footer - Same as Index.tsx */}
-      <footer className="glass-header py-6 md:py-8">
-        <div className="container mx-auto px-4 text-center text-gray-400">
-          <p className="font-semibold text-white text-sm md:text-base">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
-          <p className="text-xs md:text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
-          <div className="flex justify-center gap-4 mt-4 text-xs md:text-sm">
-            <button 
-              onClick={() => navigate('/privacy')} 
-              className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
-            >
-              Política de Privacidade
-            </button>
-            <span className="text-gray-600">•</span>
-            <button 
-              onClick={() => navigate('/terms')} 
-              className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
-            >
-              Termos de Uso
-            </button>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

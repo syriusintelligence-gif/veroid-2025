@@ -1,12 +1,6 @@
-/**
- * Supabase Edge Function: create-checkout-session
- * 
- * Cria uma sessão de checkout do Stripe para processar pagamentos.
- * Esta função é chamada pelo frontend quando o usuário clica em "Assinar".
- */
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
+import Stripe from 'https://esm.sh/stripe@14.21.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,92 +14,128 @@ serve(async (req) => {
   }
 
   try {
-    // Obtém a Stripe Secret Key do ambiente
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
-    
-    if (!stripeSecretKey) {
+    // Initialize Stripe
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!stripeKey) {
       throw new Error('STRIPE_SECRET_KEY não configurada');
     }
-
-    // Inicializa o cliente Stripe
-    const stripe = new Stripe(stripeSecretKey, {
+    const stripe = new Stripe(stripeKey, {
       apiVersion: '2023-10-16',
-      httpClient: Stripe.createFetchHttpClient(),
     });
 
-    // Parse do body da requisição
-    const { priceId, userId, userEmail } = await req.json();
+    // Initialize Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase credentials não configuradas');
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('📝 Criando sessão de checkout:', { priceId, userId, userEmail });
-
-    // Valida parâmetros obrigatórios
-    if (!priceId) {
-      return new Response(
-        JSON.stringify({ error: 'priceId é obrigatório' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // Get user from authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Authorization header ausente');
     }
 
-    if (!userId || !userEmail) {
-      return new Response(
-        JSON.stringify({ error: 'Usuário não autenticado' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      throw new Error('Usuário não autenticado');
     }
 
-    // Obtém a URL base do frontend
+    // Parse request body
+    const { priceId, planId, planName, mode = 'subscription' } = await req.json();
+
+    console.log('📦 Dados recebidos:', { priceId, planId, planName, mode, userId: user.id });
+
+    // Validate priceId
+    if (!priceId || typeof priceId !== 'string' || !priceId.startsWith('price_')) {
+      throw new Error(`Price ID inválido: ${priceId}. Deve começar com 'price_'`);
+    }
+
+    // Get or create Stripe customer
+    let stripeCustomerId: string;
+
+    // Check if customer already exists
+    const { data: existingCustomer } = await supabase
+      .from('stripe_customers')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingCustomer?.stripe_customer_id) {
+      stripeCustomerId = existingCustomer.stripe_customer_id;
+      console.log('✅ Cliente Stripe existente:', stripeCustomerId);
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          supabase_user_id: user.id,
+        },
+      });
+
+      stripeCustomerId = customer.id;
+      console.log('✅ Novo cliente Stripe criado:', stripeCustomerId);
+
+      // Save to database
+      await supabase.from('stripe_customers').insert({
+        user_id: user.id,
+        stripe_customer_id: stripeCustomerId,
+        email: user.email || '',
+      });
+    }
+
+    // Get the base URL for success/cancel redirects
     const origin = req.headers.get('origin') || 'http://localhost:5173';
-    
-    // Cria a sessão de checkout do Stripe
+
+    // Create Checkout Session
     const session = await stripe.checkout.sessions.create({
-      customer_email: userEmail,
-      client_reference_id: userId,
+      customer: stripeCustomerId,
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      mode: priceId.includes('pacote') ? 'payment' : 'subscription',
+      mode: mode as 'subscription' | 'payment',
       success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/payment/cancel`,
       metadata: {
-        userId,
-        userEmail,
-        priceId,
+        user_id: user.id,
+        plan_id: planId,
+        plan_name: planName,
       },
+      subscription_data: mode === 'subscription' ? {
+        metadata: {
+          user_id: user.id,
+          plan_id: planId,
+          plan_name: planName,
+        },
+      } : undefined,
     });
 
-    console.log('✅ Sessão criada com sucesso:', session.id);
+    console.log('✅ Sessão de checkout criada:', session.id);
 
-    // Retorna a URL da sessão de checkout
     return new Response(
-      JSON.stringify({ 
-        sessionId: session.id,
-        url: session.url 
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify({ url: session.url }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       }
     );
-
   } catch (error) {
     console.error('❌ Erro ao criar sessão de checkout:', error);
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Erro ao criar sessão de checkout' 
+        error: error.message || 'Erro ao criar sessão de checkout',
+        details: error.toString()
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
       }
     );
   }
