@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Zap, Crown, Sparkles, Shield } from 'lucide-react';
+import { Check, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
@@ -11,9 +11,9 @@ interface Plan {
   name: string;
   priceId: string;
   price: string;
+  pricePerMonth?: string;
   description: string;
   validations: string;
-  icon: React.ReactNode;
   popular?: boolean;
   type: 'subscription' | 'one-time';
 }
@@ -23,10 +23,9 @@ const subscriptionPlans: Plan[] = [
     id: 'vero-id-free',
     name: 'Vero iD Free',
     priceId: 'price_1Sx4uCJbBunj3EyEXSFIlqlV',
-    price: 'R$ 0',
-    description: 'Ideal para começar',
-    validations: '10 validações únicas',
-    icon: <Zap className="h-6 w-6" />,
+    price: 'Grátis',
+    description: 'Plano gratuito para começar',
+    validations: '10 autenticações de conteúdo por mês',
     type: 'subscription'
   },
   {
@@ -34,9 +33,9 @@ const subscriptionPlans: Plan[] = [
     name: 'Vero iD Creator',
     priceId: 'price_1Sx55HJbBunj3EyElTWIGj2O',
     price: 'R$ 29,90',
-    description: 'Para criadores de conteúdo',
-    validations: '50 validações/mês',
-    icon: <Sparkles className="h-6 w-6" />,
+    pricePerMonth: '/mês',
+    description: 'Ideal para criadores de conteúdo',
+    validations: '50 autenticações de conteúdo por mês',
     type: 'subscription'
   },
   {
@@ -44,9 +43,9 @@ const subscriptionPlans: Plan[] = [
     name: 'Vero iD Creator Pro',
     priceId: 'price_1Sx58MJbBunj3EyEQn1MNT5x',
     price: 'R$ 79,90',
-    description: 'Para profissionais',
-    validations: '150 validações/mês',
-    icon: <Crown className="h-6 w-6" />,
+    pricePerMonth: '/mês',
+    description: 'Para profissionais que precisam de mais',
+    validations: '150 autenticações de conteúdo por mês',
     popular: true,
     type: 'subscription'
   },
@@ -55,9 +54,9 @@ const subscriptionPlans: Plan[] = [
     name: 'Vero iD Creator Elite',
     priceId: 'price_1Sx5GCJbBunj3EyEyfGjJRGH',
     price: 'R$ 139,90',
-    description: 'Para empresas',
-    validations: '350 validações/mês',
-    icon: <Crown className="h-6 w-6 text-yellow-500" />,
+    pricePerMonth: '/mês',
+    description: 'O melhor para empresas e influencers',
+    validations: '350 autenticações de conteúdo por mês',
     type: 'subscription'
   }
 ];
@@ -68,9 +67,8 @@ const oneTimePlans: Plan[] = [
     name: 'Pacote 10',
     priceId: 'price_1Sx5PdJbBunj3EyE09582RVh',
     price: 'R$ 9,90',
-    description: 'Pagamento único',
-    validations: '10 validações únicas',
-    icon: <Zap className="h-6 w-6" />,
+    description: 'Compra única',
+    validations: '10 autenticações únicas',
     type: 'one-time'
   },
   {
@@ -78,9 +76,9 @@ const oneTimePlans: Plan[] = [
     name: 'Pacote 20',
     priceId: 'price_1Sx5RhJbBunj3EyEmPAR5EQA',
     price: 'R$ 19,90',
-    description: 'Pagamento único',
-    validations: '20 validações únicas',
-    icon: <Sparkles className="h-6 w-6" />,
+    description: 'Compra única',
+    validations: '20 autenticações únicas',
+    popular: true,
     type: 'one-time'
   },
   {
@@ -88,9 +86,8 @@ const oneTimePlans: Plan[] = [
     name: 'Pacote 50',
     priceId: 'price_1Sx5UUJbBunj3EyE0VQdHSMe',
     price: 'R$ 49,90',
-    description: 'Pagamento único',
-    validations: '50 validações únicas',
-    icon: <Crown className="h-6 w-6" />,
+    description: 'Compra única',
+    validations: '50 autenticações únicas',
     type: 'one-time'
   }
 ];
@@ -113,7 +110,6 @@ export default function Pricing() {
       try {
         setLoading(plan.id);
         
-        // Ativar plano Free diretamente no banco
         const { error } = await supabase
           .from('subscriptions')
           .upsert({
@@ -125,7 +121,7 @@ export default function Pricing() {
             validations_used: 0,
             stripe_price_id: plan.priceId,
             current_period_start: new Date().toISOString(),
-            current_period_end: null, // Free plan não expira
+            current_period_end: null,
             cancel_at_period_end: false
           });
 
@@ -174,86 +170,95 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <Shield className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <Shield className="h-8 w-8 text-cyan-400" />
+            <span className="text-2xl font-bold text-white">
               Vero iD
             </span>
           </div>
           <nav className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate('/login')}>
+            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => navigate('/login')}>
               Entrar
             </Button>
-            <Button onClick={() => navigate('/cadastro')}>
+            <Button className="bg-cyan-500 hover:bg-cyan-600 text-white" onClick={() => navigate('/cadastro')}>
               Cadastro
             </Button>
           </nav>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-20">
+      <div className="container mx-auto px-4 py-16">
         {/* Header */}
-        <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <h1 className="text-5xl font-bold mb-4">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Escolha o Plano Ideal para Você
           </h1>
-          <p className="text-xl text-muted-foreground">
-            Planos flexíveis para todas as necessidades
+          <p className="text-lg text-gray-300 max-w-3xl mx-auto">
+            Proteja seu conteúdo com autenticações verificadas. Escolha um plano mensal ou compre pacotes avulsos conforme sua necessidade.
           </p>
         </div>
 
         {/* Subscription Plans */}
-        <div className="mb-20">
-          <h2 className="text-3xl font-bold text-center mb-8">
+        <div className="mb-16">
+          <h2 className="text-3xl font-bold text-white text-center mb-3">
             Planos Mensais
           </h2>
+          <p className="text-center text-gray-400 mb-8">
+            Assinatura recorrente com autenticações mensais
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {subscriptionPlans.map((plan) => (
               <Card
                 key={plan.id}
-                className={`relative hover:shadow-lg transition-all ${
-                  plan.popular
-                    ? 'border-2 border-blue-500 shadow-xl scale-105'
-                    : 'border border-gray-200'
+                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all ${
+                  plan.popular ? 'border-2 border-cyan-500 shadow-lg shadow-cyan-500/20' : ''
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-cyan-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
                       Mais Popular
                     </span>
                   </div>
                 )}
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 bg-blue-100 rounded-lg">{plan.icon}</div>
-                  </div>
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-gray-900">
+                <CardHeader className="text-center pb-4">
+                  <CardTitle className="text-2xl text-white mb-2">{plan.name}</CardTitle>
+                  <CardDescription className="text-gray-400 text-sm mb-4">
+                    {plan.description}
+                  </CardDescription>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold text-white">
                       {plan.price}
                     </span>
-                    {plan.id !== 'vero-id-free' && (
-                      <span className="text-gray-600">/mês</span>
+                    {plan.pricePerMonth && (
+                      <span className="text-gray-400 text-lg">{plan.pricePerMonth}</span>
                     )}
                   </div>
-                  <p className="text-sm text-blue-600 font-semibold mt-2">
-                    {plan.validations}
-                  </p>
                 </CardHeader>
+                <CardContent className="pb-6">
+                  <div className="flex items-start gap-2 text-gray-300">
+                    <Check className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">{plan.validations}</span>
+                  </div>
+                </CardContent>
                 <CardFooter>
                   <Button
-                    className="w-full border-2"
-                    variant={plan.popular ? 'default' : 'outline'}
+                    className={`w-full border-2 ${
+                      plan.id === 'vero-id-free'
+                        ? 'border-slate-600 text-white hover:bg-slate-700'
+                        : plan.popular
+                        ? 'bg-cyan-500 hover:bg-cyan-600 text-white border-cyan-500'
+                        : 'border-slate-600 text-white hover:bg-slate-700'
+                    }`}
+                    variant={plan.id === 'vero-id-free' ? 'outline' : plan.popular ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
                   >
-                    {loading === plan.id ? 'Processando...' : 'Assinar Agora'}
+                    {loading === plan.id ? 'Processando...' : plan.id === 'vero-id-free' ? 'Plano Atual' : 'Assinar Agora'}
                   </Button>
                 </CardFooter>
               </Card>
@@ -263,34 +268,52 @@ export default function Pricing() {
 
         {/* One-Time Plans */}
         <div>
-          <h2 className="text-3xl font-bold text-center mb-4">
+          <h2 className="text-3xl font-bold text-white text-center mb-3">
             Pacotes Avulsos
           </h2>
-          <p className="text-center text-muted-foreground mb-8 text-lg">
-            Compre validações únicas sem compromisso mensal
+          <p className="text-center text-gray-400 mb-8">
+            Compre autenticações extras quando precisar (válido por 30 dias)
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {oneTimePlans.map((plan) => (
-              <Card key={plan.id} className="border border-gray-200 hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 bg-purple-100 rounded-lg">{plan.icon}</div>
+              <Card
+                key={plan.id}
+                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all ${
+                  plan.popular ? 'border-2 border-cyan-500 shadow-lg shadow-cyan-500/20' : ''
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-cyan-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                      Mais Popular
+                    </span>
                   </div>
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                  <div className="mt-4">
-                    <span className="text-3xl font-bold text-gray-900">
+                )}
+                <CardHeader className="text-center pb-4">
+                  <CardTitle className="text-xl text-white mb-2">{plan.name}</CardTitle>
+                  <CardDescription className="text-gray-400 text-sm mb-4">
+                    {plan.description}
+                  </CardDescription>
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold text-white">
                       {plan.price}
                     </span>
                   </div>
-                  <p className="text-sm text-purple-600 font-semibold mt-2">
-                    {plan.validations}
-                  </p>
                 </CardHeader>
+                <CardContent className="pb-6">
+                  <div className="flex items-start gap-2 text-gray-300">
+                    <Check className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">{plan.validations}</span>
+                  </div>
+                </CardContent>
                 <CardFooter>
                   <Button
-                    className="w-full border-2"
-                    variant="outline"
+                    className={`w-full border-2 ${
+                      plan.popular
+                        ? 'bg-cyan-500 hover:bg-cyan-600 text-white border-cyan-500'
+                        : 'border-slate-600 text-white hover:bg-slate-700'
+                    }`}
+                    variant={plan.popular ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
                   >
@@ -301,25 +324,7 @@ export default function Pricing() {
             ))}
           </div>
         </div>
-
-        {/* FAQ or Additional Info */}
-        <div className="mt-20 text-center">
-          <p className="text-muted-foreground text-lg">
-            Tem dúvidas? Entre em contato com nosso{' '}
-            <a href="/support" className="text-blue-600 hover:underline font-semibold">
-              suporte
-            </a>
-          </p>
-        </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t bg-muted/50 py-8 mt-20">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p>© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
-          <p className="text-sm mt-2">Combatendo desinformação através de criptografia</p>
-        </div>
-      </footer>
     </div>
   );
 }
