@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Zap, Crown, Sparkles } from 'lucide-react';
+import { Check, Zap, Crown, Sparkles, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
@@ -13,7 +13,6 @@ interface Plan {
   price: string;
   description: string;
   validations: string;
-  features: string[];
   icon: React.ReactNode;
   popular?: boolean;
   type: 'subscription' | 'one-time';
@@ -27,12 +26,6 @@ const subscriptionPlans: Plan[] = [
     price: 'R$ 0',
     description: 'Ideal para começar',
     validations: '10 validações únicas',
-    features: [
-      '10 validações únicas',
-      'Verificação básica de documentos',
-      'Suporte por email',
-      'Dashboard básico'
-    ],
     icon: <Zap className="h-6 w-6" />,
     type: 'subscription'
   },
@@ -43,15 +36,7 @@ const subscriptionPlans: Plan[] = [
     price: 'R$ 29,90',
     description: 'Para criadores de conteúdo',
     validations: '50 validações/mês',
-    features: [
-      '50 validações por mês',
-      'Verificação avançada de documentos',
-      'Suporte prioritário',
-      'Dashboard completo',
-      'Relatórios mensais'
-    ],
     icon: <Sparkles className="h-6 w-6" />,
-    popular: true,
     type: 'subscription'
   },
   {
@@ -61,15 +46,8 @@ const subscriptionPlans: Plan[] = [
     price: 'R$ 79,90',
     description: 'Para profissionais',
     validations: '150 validações/mês',
-    features: [
-      '150 validações por mês',
-      'Verificação premium de documentos',
-      'Suporte prioritário 24/7',
-      'Dashboard avançado',
-      'Relatórios detalhados',
-      'API access'
-    ],
     icon: <Crown className="h-6 w-6" />,
+    popular: true,
     type: 'subscription'
   },
   {
@@ -79,15 +57,6 @@ const subscriptionPlans: Plan[] = [
     price: 'R$ 139,90',
     description: 'Para empresas',
     validations: '350 validações/mês',
-    features: [
-      '350 validações por mês',
-      'Verificação enterprise',
-      'Suporte dedicado 24/7',
-      'Dashboard personalizado',
-      'Relatórios customizados',
-      'API ilimitada',
-      'Integração customizada'
-    ],
     icon: <Crown className="h-6 w-6 text-yellow-500" />,
     type: 'subscription'
   }
@@ -101,12 +70,6 @@ const oneTimePlans: Plan[] = [
     price: 'R$ 9,90',
     description: 'Pagamento único',
     validations: '10 validações únicas',
-    features: [
-      '10 validações únicas',
-      'Sem renovação automática',
-      'Válido por 12 meses',
-      'Suporte por email'
-    ],
     icon: <Zap className="h-6 w-6" />,
     type: 'one-time'
   },
@@ -117,12 +80,6 @@ const oneTimePlans: Plan[] = [
     price: 'R$ 19,90',
     description: 'Pagamento único',
     validations: '20 validações únicas',
-    features: [
-      '20 validações únicas',
-      'Sem renovação automática',
-      'Válido por 12 meses',
-      'Suporte prioritário'
-    ],
     icon: <Sparkles className="h-6 w-6" />,
     type: 'one-time'
   },
@@ -133,13 +90,6 @@ const oneTimePlans: Plan[] = [
     price: 'R$ 49,90',
     description: 'Pagamento único',
     validations: '50 validações únicas',
-    features: [
-      '50 validações únicas',
-      'Sem renovação automática',
-      'Válido por 12 meses',
-      'Suporte prioritário',
-      'Dashboard completo'
-    ],
     icon: <Crown className="h-6 w-6" />,
     type: 'one-time'
   }
@@ -224,28 +174,48 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header */}
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+            <Shield className="h-8 w-8 text-blue-600" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Vero iD
+            </span>
+          </div>
+          <nav className="flex gap-3">
+            <Button variant="outline" onClick={() => navigate('/login')}>
+              Entrar
+            </Button>
+            <Button onClick={() => navigate('/cadastro')}>
+              Cadastro
+            </Button>
+          </nav>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-20">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <h1 className="text-5xl font-bold mb-4">
             Escolha o Plano Ideal para Você
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-muted-foreground">
             Planos flexíveis para todas as necessidades
           </p>
         </div>
 
         {/* Subscription Plans */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+        <div className="mb-20">
+          <h2 className="text-3xl font-bold text-center mb-8">
             Planos Mensais
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {subscriptionPlans.map((plan) => (
               <Card
                 key={plan.id}
-                className={`relative ${
+                className={`relative hover:shadow-lg transition-all ${
                   plan.popular
                     ? 'border-2 border-blue-500 shadow-xl scale-105'
                     : 'border border-gray-200'
@@ -276,19 +246,9 @@ export default function Pricing() {
                     {plan.validations}
                   </p>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-600">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
                 <CardFooter>
                   <Button
-                    className="w-full"
+                    className="w-full border-2"
                     variant={plan.popular ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
@@ -303,15 +263,15 @@ export default function Pricing() {
 
         {/* One-Time Plans */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+          <h2 className="text-3xl font-bold text-center mb-4">
             Pacotes Avulsos
           </h2>
-          <p className="text-center text-gray-600 mb-8">
+          <p className="text-center text-muted-foreground mb-8 text-lg">
             Compre validações únicas sem compromisso mensal
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {oneTimePlans.map((plan) => (
-              <Card key={plan.id} className="border border-gray-200">
+              <Card key={plan.id} className="border border-gray-200 hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 bg-purple-100 rounded-lg">{plan.icon}</div>
@@ -327,19 +287,9 @@ export default function Pricing() {
                     {plan.validations}
                   </p>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-600">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
                 <CardFooter>
                   <Button
-                    className="w-full"
+                    className="w-full border-2"
                     variant="outline"
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
@@ -353,15 +303,23 @@ export default function Pricing() {
         </div>
 
         {/* FAQ or Additional Info */}
-        <div className="mt-16 text-center">
-          <p className="text-gray-600">
+        <div className="mt-20 text-center">
+          <p className="text-muted-foreground text-lg">
             Tem dúvidas? Entre em contato com nosso{' '}
-            <a href="/support" className="text-blue-600 hover:underline">
+            <a href="/support" className="text-blue-600 hover:underline font-semibold">
               suporte
             </a>
           </p>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t bg-muted/50 py-8 mt-20">
+        <div className="container mx-auto px-4 text-center text-muted-foreground">
+          <p>© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
+          <p className="text-sm mt-2">Combatendo desinformação através de criptografia</p>
+        </div>
+      </footer>
     </div>
   );
 }
