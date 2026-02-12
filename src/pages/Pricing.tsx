@@ -42,7 +42,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'vero-id-creator-pro',
     name: 'Vero iD Creator Pro',
-    priceId: 'price_1Sx58MJbBunj3EyEQn1MNT5x',
+    priceId: 'price_1Sx57WJbBunj3EyEqWqlhhiV',
     price: 'R$ 79,90',
     pricePerMonth: '/mês',
     description: 'Para profissionais que precisam de mais',
@@ -53,7 +53,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'vero-id-creator-elite',
     name: 'Vero iD Creator Elite',
-    priceId: 'price_1Sx5GCJbBunj3EyEyfGjJRGH',
+    priceId: 'price_1Sx5FPJbBunj3EyE26tqLogH',
     price: 'R$ 139,90',
     pricePerMonth: '/mês',
     description: 'O melhor para empresas e influencers',
