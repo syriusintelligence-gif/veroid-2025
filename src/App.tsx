@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import Landing from './pages/Landing';
+import Index from './pages/Index';
 import LoginV2 from './pages/LoginV2';
 import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
@@ -14,7 +14,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Index />} />
           <Route path="/login-v2" element={<LoginV2 />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/pricing" element={<Pricing />} />
