@@ -275,7 +275,7 @@ export default function Pricing() {
             {subscriptionPlans.map((plan) => (
               <Card
                 key={plan.id}
-                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all ${
+                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all flex flex-col ${
                   plan.popular ? 'border-2 border-cyan-500 shadow-lg shadow-cyan-500/20' : ''
                 }`}
               >
@@ -300,13 +300,13 @@ export default function Pricing() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pb-6">
+                <CardContent className="pb-6 flex-grow">
                   <div className="flex items-start gap-2 text-gray-300">
                     <Check className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
                     <span className="text-sm">{plan.validations}</span>
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="mt-auto">
                   <Button
                     className={`w-full border-2 ${
                       plan.id === 'vero-id-free'
@@ -339,7 +339,7 @@ export default function Pricing() {
             {oneTimePlans.map((plan) => (
               <Card
                 key={plan.id}
-                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all ${
+                className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all flex flex-col ${
                   plan.popular ? 'border-2 border-cyan-500 shadow-lg shadow-cyan-500/20' : ''
                 }`}
               >
@@ -361,13 +361,13 @@ export default function Pricing() {
                     </span>
                   </div>
                 </CardHeader>
-                <CardContent className="pb-6">
+                <CardContent className="pb-6 flex-grow">
                   <div className="flex items-start gap-2 text-gray-300">
                     <Check className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
                     <span className="text-sm">{plan.validations}</span>
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="mt-auto">
                   <Button
                     className={`w-full border-2 ${
                       plan.popular
