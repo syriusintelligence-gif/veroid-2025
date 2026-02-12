@@ -204,6 +204,9 @@ export default function Pricing() {
     }
   };
 
+  // Filtrar planos para exibição (remover Free)
+  const displaySubscriptionPlans = subscriptionPlans.filter(plan => plan.id !== 'vero-id-free');
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Header */}
@@ -271,8 +274,8 @@ export default function Pricing() {
           <p className="text-center text-gray-400 mb-8">
             Assinatura recorrente com autenticações mensais
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {subscriptionPlans.map((plan) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {displaySubscriptionPlans.map((plan) => (
               <Card
                 key={plan.id}
                 className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all flex flex-col ${
@@ -309,17 +312,15 @@ export default function Pricing() {
                 <CardFooter className="mt-auto">
                   <Button
                     className={`w-full border-2 ${
-                      plan.id === 'vero-id-free'
-                        ? 'border-slate-600 text-white hover:bg-slate-700'
-                        : plan.popular
+                      plan.popular
                         ? 'bg-cyan-500 hover:bg-cyan-600 text-white border-cyan-500'
                         : 'border-slate-600 text-white hover:bg-slate-700'
                     }`}
-                    variant={plan.id === 'vero-id-free' ? 'outline' : plan.popular ? 'default' : 'outline'}
+                    variant={plan.popular ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
                     disabled={loading === plan.id}
                   >
-                    {loading === plan.id ? 'Processando...' : plan.id === 'vero-id-free' ? 'Plano Atual' : user ? 'Assinar Agora' : 'Fazer Login'}
+                    {loading === plan.id ? 'Processando...' : user ? 'Assinar Agora' : 'Fazer Login'}
                   </Button>
                 </CardFooter>
               </Card>
