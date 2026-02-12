@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 
 export interface Subscription {
   id: string;
@@ -32,49 +31,107 @@ interface UseSubscriptionReturn {
 }
 
 export const useSubscription = (): UseSubscriptionReturn => {
-  const { user } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSubscription = async () => {
-    if (!user) {
-      setSubscription(null);
-      setLoading(false);
-      return;
-    }
-
     try {
+      console.log('🔄 [useSubscription] Iniciando busca de assinatura...');
       setLoading(true);
       setError(null);
 
+      // Buscar usuário atual diretamente do Supabase
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('❌ [useSubscription] Erro ao buscar usuário:', userError);
+        throw userError;
+      }
+
+      if (!user) {
+        console.log('⚠️ [useSubscription] Nenhum usuário autenticado');
+        setSubscription(null);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ [useSubscription] Usuário encontrado:', user.id);
+
+      // Buscar assinatura com logs detalhados
+      console.log('🔍 [useSubscription] Buscando assinatura para user_id:', user.id);
+      
       const { data, error: fetchError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // Usar maybeSingle() em vez de single() para evitar erro quando não há dados
+
+      console.log('📊 [useSubscription] Resposta da query:', { data, error: fetchError });
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // No subscription found
+        console.error('❌ [useSubscription] Erro na query:', {
+          code: fetchError.code,
+          message: fetchError.message,
+          details: fetchError.details,
+          hint: fetchError.hint,
+        });
+
+        // Tratamento específico para erro 406
+        if (fetchError.code === '406' || fetchError.message.includes('406')) {
+          console.error('🚨 [useSubscription] Erro 406 - Possível problema de RLS ou headers');
+          setError('Erro ao acessar dados de assinatura. Verifique as permissões.');
+        } else if (fetchError.code === 'PGRST116') {
+          // No subscription found (código normal quando não há assinatura)
+          console.log('ℹ️ [useSubscription] Nenhuma assinatura encontrada para o usuário');
           setSubscription(null);
         } else {
           throw fetchError;
         }
-      } else {
+      } else if (data) {
+        console.log('✅ [useSubscription] Assinatura encontrada:', {
+          id: data.id,
+          plan_type: data.plan_type,
+          status: data.status,
+          signatures_used: data.signatures_used,
+          signatures_limit: data.signatures_limit,
+        });
         setSubscription(data);
+      } else {
+        console.log('ℹ️ [useSubscription] Nenhuma assinatura encontrada (data é null)');
+        setSubscription(null);
       }
     } catch (err) {
-      console.error('Error fetching subscription:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch subscription');
+      console.error('❌ [useSubscription] Erro ao buscar assinatura:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Falha ao buscar assinatura';
+      setError(errorMessage);
+      setSubscription(null);
     } finally {
       setLoading(false);
+      console.log('🏁 [useSubscription] Busca finalizada');
     }
   };
 
   useEffect(() => {
     fetchSubscription();
-  }, [user]);
+
+    // Configurar listener para mudanças na sessão
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('🔄 [useSubscription] Auth state changed:', event);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          fetchSubscription();
+        } else if (event === 'SIGNED_OUT') {
+          setSubscription(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      authSubscription.unsubscribe();
+    };
+  }, []);
 
   return {
     subscription,
