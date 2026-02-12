@@ -16,6 +16,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getCurrentUser, logout, User } from '@/lib/supabase-auth';
+import SubscriptionSettings from '@/components/SubscriptionSettings';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -123,6 +124,9 @@ export default function Settings() {
           <h1 className="text-4xl font-bold mb-2">Configurações</h1>
           <p className="text-muted-foreground">Gerencie as configurações da sua conta</p>
         </div>
+
+        {/* Subscription Settings - NEW */}
+        <SubscriptionSettings />
 
         {/* Security Settings */}
         <Card className="mb-6">
