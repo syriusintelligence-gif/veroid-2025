@@ -23,7 +23,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'vero-id-free',
     name: 'Vero iD Free',
-    priceId: 'price_1Sx4uCJbBunj3EyEXSFIlqlV',
+    priceId: 'price_1Sx4nTJbBunj3EyEZLqvzqGk',
     price: 'Grátis',
     description: 'Plano gratuito para começar',
     validations: '10 autenticações de conteúdo por mês',
