@@ -20,7 +20,7 @@ import type { KeyPair } from '@/lib/supabase-crypto';
 import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
-import SubscriptionCard from '@/components/SubscriptionCard';
+import { SubscriptionCard } from '@/components/SubscriptionCard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -428,7 +428,9 @@ export default function Dashboard() {
         </div>
         
         {/* Subscription Card - NEW */}
-        <SubscriptionCard />
+        <div className="mb-8">
+          <SubscriptionCard />
+        </div>
         
         {/* Key Status Card */}
         <Card className="mb-8">
