@@ -22,6 +22,7 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
 import {
   useSubscription,
@@ -88,6 +89,9 @@ export const SubscriptionSettings = () => {
   const daysUntilRenewal = getDaysUntilRenewal(subscription.current_period_end);
   const usagePercentage = (subscription.signatures_used / subscription.signatures_limit) * 100;
   const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+  
+  // ✅ NOVO: Verificar se é plano FREE/trial (não renovável)
+  const isFreeOrTrial = subscription.plan_type === 'trial' || subscription.plan_type === 'free';
 
   const handleCancelSubscription = async () => {
     setCanceling(true);
@@ -131,8 +135,16 @@ export const SubscriptionSettings = () => {
             <div>
               <p className="text-sm text-gray-500 mb-1">Plano</p>
               <p className="text-2xl font-bold">{getPlanName(subscription.plan_type)}</p>
+              {/* ✅ NOVO: Mostrar badge "Teste Único" para FREE/trial */}
+              {isFreeOrTrial && (
+                <Badge variant="outline" className="mt-2 text-xs">
+                  Teste Único - Não Renovável
+                </Badge>
+              )}
             </div>
-            {isActive && (
+            
+            {/* ✅ MODIFICADO: Mostrar "Próxima Renovação" APENAS para planos pagos */}
+            {isActive && !isFreeOrTrial && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Próxima Renovação</p>
                 <div className="flex items-center gap-2">
@@ -148,7 +160,40 @@ export const SubscriptionSettings = () => {
                 </div>
               </div>
             )}
+
+            {/* ✅ NOVO: Mostrar "Válido Até" para planos FREE/trial */}
+            {isActive && isFreeOrTrial && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Válido Até</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-orange-500" />
+                  <div>
+                    <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
+                    {daysUntilRenewal > 0 && (
+                      <p className="text-sm text-orange-600">
+                        Expira em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* ✅ NOVO: Aviso para planos FREE/trial */}
+          {isFreeOrTrial && (
+            <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-orange-900">
+                  Período de Teste Único
+                </p>
+                <p className="text-xs text-orange-700">
+                  Este é um teste gratuito de 10 assinaturas válido por 30 dias. Após esgotar as assinaturas ou expirar o período, será necessário assinar um plano pago ou comprar pacotes avulsos para continuar usando o Vero iD.
+                </p>
+              </div>
+            </div>
+          )}
 
           <Separator />
 
@@ -177,7 +222,11 @@ export const SubscriptionSettings = () => {
                 <>
                   <AlertCircle className="h-4 w-4 text-red-500" />
                   <span className="text-red-600">
-                    Você está próximo do limite. Considere fazer upgrade.
+                    {/* ✅ MODIFICADO: Mensagem diferente para FREE/trial */}
+                    {isFreeOrTrial 
+                      ? 'Você está próximo do limite. Assine um plano para continuar.'
+                      : 'Você está próximo do limite. Considere fazer upgrade.'
+                    }
                   </span>
                 </>
               ) : usagePercentage >= 70 ? (
@@ -224,7 +273,11 @@ export const SubscriptionSettings = () => {
         <CardHeader>
           <CardTitle>Gerenciar Assinatura</CardTitle>
           <CardDescription>
-            Atualize seu plano ou gerencie suas configurações de pagamento.
+            {/* ✅ MODIFICADO: Descrição diferente para FREE/trial */}
+            {isFreeOrTrial 
+              ? 'Assine um plano para continuar usando o Vero iD após o período de teste.'
+              : 'Atualize seu plano ou gerencie suas configurações de pagamento.'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -232,7 +285,8 @@ export const SubscriptionSettings = () => {
             <Link to="/pricing">
               <Button variant="default" className="w-full">
                 <TrendingUp className="mr-2 h-4 w-4" />
-                Fazer Upgrade do Plano
+                {/* ✅ MODIFICADO: Texto do botão diferente para FREE/trial */}
+                {isFreeOrTrial ? 'Assinar um Plano' : 'Fazer Upgrade do Plano'}
               </Button>
             </Link>
 
@@ -250,7 +304,8 @@ export const SubscriptionSettings = () => {
               </Button>
             )}
 
-            {isActive && !subscription.canceled_at && (
+            {/* ✅ MODIFICADO: Ocultar botão de cancelamento para FREE/trial */}
+            {isActive && !subscription.canceled_at && !isFreeOrTrial && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full">
