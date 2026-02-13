@@ -8,11 +8,25 @@ import { getCurrentUser } from '@/lib/supabase-auth-v2';
 import type { User } from '@/lib/supabase-auth-v2';
 import { supabase } from '@/lib/supabase';
 
-// Mapeamento de Price IDs para pacotes (deve corresponder ao webhook)
+// Mapeamento de Price IDs para pacotes (com fallback hardcoded)
 const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_10 || '']: { credits: 10, name: 'Pacote 10' },
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_20 || '']: { credits: 20, name: 'Pacote 20' },
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_50 || '']: { credits: 50, name: 'Pacote 50' },
+  // Usar variáveis de ambiente se disponíveis, senão usar valores hardcoded
+  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_10 || 'price_1Sx5OqJbBunj3EyEQQt7S0Pu']: { 
+    credits: 10, 
+    name: 'Pacote 10' 
+  },
+  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_20 || 'price_1Sx5ROJbBunj3EyECeFX4XRT']: { 
+    credits: 20, 
+    name: 'Pacote 20' 
+  },
+  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_50 || 'price_1Sx5UEJbBunj3EyEBTZfHZGs']: { 
+    credits: 50, 
+    name: 'Pacote 50' 
+  },
+  // Adicionar também os IDs diretamente como fallback
+  'price_1Sx5OqJbBunj3EyEQQt7S0Pu': { credits: 10, name: 'Pacote 10' },
+  'price_1Sx5ROJbBunj3EyECeFX4XRT': { credits: 20, name: 'Pacote 20' },
+  'price_1Sx5UEJbBunj3EyEBTZfHZGs': { credits: 50, name: 'Pacote 50' },
 };
 
 interface SubscriptionMetadata {
@@ -38,7 +52,7 @@ export default function PaymentSuccess() {
   const [error, setError] = useState<string | null>(null);
   
   const sessionId = searchParams.get('session_id');
-  const priceId = searchParams.get('price_id'); // Adicionar price_id na URL ao redirecionar
+  const priceId = searchParams.get('price_id');
 
   useEffect(() => {
     checkUser();
@@ -69,6 +83,7 @@ export default function PaymentSuccess() {
     console.log('📋 [PaymentSuccess] userId:', userId);
     console.log('📋 [PaymentSuccess] sessionId:', sessionId);
     console.log('📋 [PaymentSuccess] priceId:', priceId);
+    console.log('📋 [PaymentSuccess] PRICE_TO_PACKAGE:', PRICE_TO_PACKAGE);
 
     setProcessingCredits(true);
 
@@ -77,6 +92,7 @@ export default function PaymentSuccess() {
       const packageInfo = PRICE_TO_PACKAGE[priceId];
       if (!packageInfo) {
         console.log('ℹ️ [PaymentSuccess] Não é compra de pacote, ignorando...');
+        console.log('ℹ️ [PaymentSuccess] Price IDs disponíveis:', Object.keys(PRICE_TO_PACKAGE));
         return;
       }
 
@@ -96,6 +112,7 @@ export default function PaymentSuccess() {
       }
 
       console.log('✅ [PaymentSuccess] Assinatura encontrada:', subscription.id);
+      console.log('📊 [PaymentSuccess] Créditos atuais:', subscription.overage_signatures_available);
 
       // 3. Verificar se esta compra já foi processada (idempotência)
       const metadata = (subscription.metadata as SubscriptionMetadata) || {};
@@ -103,6 +120,7 @@ export default function PaymentSuccess() {
       
       if (lastPurchase && lastPurchase.stripe_session_id === sessionId) {
         console.log('⚠️ [PaymentSuccess] Compra já processada anteriormente');
+        console.log('📋 [PaymentSuccess] Detalhes da compra anterior:', lastPurchase);
         setCreditsAdded(packageInfo.credits);
         return;
       }
@@ -143,7 +161,8 @@ export default function PaymentSuccess() {
         return;
       }
 
-      console.log(`✅ [PaymentSuccess] ${packageInfo.credits} créditos adicionados! Total: ${newOverage}`);
+      console.log(`✅ [PaymentSuccess] ${packageInfo.credits} créditos adicionados com sucesso!`);
+      console.log(`📊 [PaymentSuccess] Total de créditos extras: ${currentOverage} → ${newOverage}`);
       setCreditsAdded(packageInfo.credits);
 
     } catch (error) {
