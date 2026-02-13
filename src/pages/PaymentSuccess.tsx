@@ -3,23 +3,33 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { getCurrentUser } from '@/lib/supabase-auth-v2';
+import type { User } from '@/lib/supabase-auth-v2';
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    // Simular processamento (você pode adicionar lógica de webhook aqui)
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
+    checkUser();
   }, []);
+
+  async function checkUser() {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+    } catch (error) {
+      console.error('Erro ao verificar usuário:', error);
+    } finally {
+      // Simular processamento
+      setTimeout(() => {
+        setLoading(false);
+      }, 2000);
+    }
+  }
 
   useEffect(() => {
     // Se não houver usuário logado, redirecionar para login

@@ -191,3 +191,75 @@ export async function consumeSignature(userId: string): Promise<{
     };
   }
 }
+
+// ========================================
+// 🔧 FUNÇÕES AUXILIARES (MANTIDAS DO CÓDIGO ORIGINAL)
+// ========================================
+
+/**
+ * Retorna o nome amigável do plano
+ */
+export function getPlanName(planType: string): string {
+  const planNames: Record<string, string> = {
+    trial: 'Trial Gratuito',
+    creator: 'Creator',
+    creator_pro: 'Creator Pro',
+    creator_elite: 'Creator Elite',
+  };
+  return planNames[planType] || planType;
+}
+
+/**
+ * Retorna as classes CSS para colorir o status
+ */
+export function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    trialing: 'text-blue-600 bg-blue-50',
+    active: 'text-green-600 bg-green-50',
+    past_due: 'text-yellow-600 bg-yellow-50',
+    canceled: 'text-red-600 bg-red-50',
+    incomplete: 'text-gray-600 bg-gray-50',
+    incomplete_expired: 'text-gray-600 bg-gray-50',
+    unpaid: 'text-red-600 bg-red-50',
+  };
+  return colors[status] || 'text-gray-600 bg-gray-50';
+}
+
+/**
+ * Retorna o label amigável do status
+ */
+export function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    trialing: 'Em Período de Teste',
+    active: 'Ativo',
+    past_due: 'Pagamento Atrasado',
+    canceled: 'Cancelado',
+    incomplete: 'Incompleto',
+    incomplete_expired: 'Expirado',
+    unpaid: 'Não Pago',
+  };
+  return labels[status] || status;
+}
+
+/**
+ * Formata uma data para o padrão brasileiro
+ */
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Calcula quantos dias faltam até a renovação
+ */
+export function getDaysUntilRenewal(endDate: string): number {
+  const end = new Date(endDate);
+  const now = new Date();
+  const diffTime = end.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}

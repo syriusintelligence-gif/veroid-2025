@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { getCurrentUser } from '@/lib/supabase-auth-v2';
+import type { User } from '@/lib/supabase-auth-v2';
 import { useNavigate } from 'react-router-dom';
 
 interface Plan {
@@ -26,7 +27,7 @@ const subscriptionPlans: Plan[] = [
     priceId: 'price_1Sx4nTJbBunj3EyEZLqvzqGk',
     price: 'Grátis',
     description: 'Plano gratuito para começar',
-    validations: '10 autenticações de conteúdo por mês',
+    validations: '10 autenticações únicas',
     type: 'subscription'
   },
   {
@@ -69,7 +70,7 @@ const oneTimePlans: Plan[] = [
     priceId: 'price_1Sx5OqJbBunj3EyEQQt7S0Pu',
     price: 'R$ 9,90',
     description: 'Compra única',
-    validations: '10 autenticações únicas',
+    validations: '10 autenticações avulsas (válido por 30 dias)',
     type: 'one-time'
   },
   {
@@ -78,7 +79,7 @@ const oneTimePlans: Plan[] = [
     priceId: 'price_1Sx5ROJbBunj3EyECeFX4XRT',
     price: 'R$ 19,90',
     description: 'Compra única',
-    validations: '20 autenticações únicas',
+    validations: '20 autenticações avulsas (válido por 30 dias)',
     popular: true,
     type: 'one-time'
   },
@@ -88,7 +89,7 @@ const oneTimePlans: Plan[] = [
     priceId: 'price_1Sx5UEJbBunj3EyEBTZfHZGs',
     price: 'R$ 49,90',
     description: 'Compra única',
-    validations: '50 autenticações únicas',
+    validations: '50 autenticações avulsas (válido por 30 dias)',
     type: 'one-time'
   }
 ];
@@ -96,25 +97,37 @@ const oneTimePlans: Plan[] = [
 export default function Pricing() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { user, session } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Debug: Log session info
-    console.log('🔍 Session info:', {
-      hasUser: !!user,
-      hasSession: !!session,
-      userId: user?.id,
-      hasAccessToken: !!session?.access_token
-    });
-  }, [user, session]);
+    checkUser();
+  }, []);
+
+  async function checkUser() {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      
+      // Debug: Log session info
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔍 Session info:', {
+        hasUser: !!currentUser,
+        hasSession: !!session,
+        userId: currentUser?.id,
+        hasAccessToken: !!session?.access_token
+      });
+    } catch (error) {
+      console.error('Erro ao verificar usuário:', error);
+    }
+  }
 
   const handleSubscribe = async (plan: Plan) => {
     console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
     setError(null);
 
     // Verificar se o usuário está logado
-    if (!user || !session) {
+    if (!user) {
       console.log('⚠️ Usuário não autenticado, redirecionando para login...');
       navigate('/login-v2', { state: { from: '/pricing', plan: plan.id } });
       return;
@@ -156,8 +169,11 @@ export default function Pricing() {
     try {
       setLoading(plan.id);
 
+      // Obter sessão atual
+      const { data: { session } } = await supabase.auth.getSession();
+
       // Verificar se temos um token de acesso válido
-      if (!session.access_token) {
+      if (!session?.access_token) {
         throw new Error('Token de acesso não encontrado. Por favor, faça login novamente.');
       }
 
@@ -188,9 +204,9 @@ export default function Pricing() {
       } else {
         throw new Error('URL de checkout não retornada');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Erro ao processar assinatura:', error);
-      const errorMessage = error.message || 'Erro ao processar assinatura. Tente novamente.';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar assinatura. Tente novamente.';
       setError(errorMessage);
       
       // Se for erro de autenticação, redirecionar para login
