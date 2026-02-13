@@ -117,26 +117,44 @@ export function useSignatureStatus() {
       if (!user) {
         setError('Usuário não autenticado');
         setStatus(null);
+        setLoading(false);
         return;
       }
 
+      // ✅ CORREÇÃO: A função SQL retorna um array, pegamos o primeiro elemento
       const { data, error: rpcError } = await supabase
         .rpc('get_signature_status', { p_user_id: user.id });
 
       if (rpcError) {
-        console.error('Erro ao buscar status de assinaturas:', rpcError);
+        console.error('❌ Erro RPC ao buscar status:', rpcError);
         setError(rpcError.message);
         setStatus(null);
+        setLoading(false);
         return;
       }
 
-      if (data) {
+      // ✅ CORREÇÃO: data é um array, pegamos o primeiro elemento
+      if (data && Array.isArray(data) && data.length > 0) {
+        console.log('✅ Status de assinatura obtido:', data[0]);
+        setStatus(data[0]);
+      } else if (data && !Array.isArray(data)) {
+        // Caso retorne objeto único (não deveria, mas por segurança)
+        console.log('✅ Status de assinatura obtido (objeto):', data);
         setStatus(data);
       } else {
-        setStatus(null);
+        console.warn('⚠️ Nenhum status de assinatura encontrado');
+        setStatus({
+          has_active_subscription: false,
+          signatures_used: 0,
+          signatures_limit: 0,
+          overage_available: 0,
+          total_available: 0,
+          subscription_status: 'none',
+          plan_type: 'none',
+        });
       }
     } catch (err) {
-      console.error('Erro ao buscar status de assinaturas:', err);
+      console.error('❌ Erro ao buscar status de assinaturas:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
       setStatus(null);
     } finally {
@@ -167,11 +185,12 @@ export async function consumeSignature(userId: string): Promise<{
   subscription_id: string | null;
 }> {
   try {
+    // ✅ CORREÇÃO: A função SQL retorna um array, pegamos o primeiro elemento
     const { data, error } = await supabase
       .rpc('consume_signature', { p_user_id: userId });
 
     if (error) {
-      console.error('Erro ao consumir assinatura:', error);
+      console.error('❌ Erro ao consumir assinatura:', error);
       return {
         success: false,
         message: error.message,
@@ -180,9 +199,24 @@ export async function consumeSignature(userId: string): Promise<{
       };
     }
 
-    return data;
+    // ✅ CORREÇÃO: data é um array, pegamos o primeiro elemento
+    if (data && Array.isArray(data) && data.length > 0) {
+      console.log('✅ Assinatura consumida:', data[0]);
+      return data[0];
+    } else if (data && !Array.isArray(data)) {
+      // Caso retorne objeto único (não deveria, mas por segurança)
+      console.log('✅ Assinatura consumida (objeto):', data);
+      return data;
+    }
+
+    return {
+      success: false,
+      message: 'Nenhum resultado retornado',
+      signatures_remaining: 0,
+      subscription_id: null,
+    };
   } catch (err) {
-    console.error('Erro ao consumir assinatura:', err);
+    console.error('❌ Erro ao consumir assinatura:', err);
     return {
       success: false,
       message: err instanceof Error ? err.message : 'Erro desconhecido',
