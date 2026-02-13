@@ -74,6 +74,13 @@ import { generateMusicPreview, isMusicFile } from '@/lib/music-preview-generator
 // ========================================
 // FIM: MUSIC PREVIEW GENERATOR
 // ========================================
+// ========================================
+// 🆕 CONTADOR DE ASSINATURAS - PROBLEMA 4
+// ========================================
+import { useSignatureStatus, consumeSignature } from '@/hooks/useSubscription';
+// ========================================
+// FIM: CONTADOR DE ASSINATURAS
+// ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
@@ -135,6 +142,14 @@ export default function SignContent() {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   // ========================================
   // FIM: ESTADOS PARA STORAGE
+  // ========================================
+  
+  // ========================================
+  // 🆕 CONTADOR DE ASSINATURAS - PROBLEMA 4
+  // ========================================
+  const { status: signatureStatus, loading: statusLoading, refetch: refetchStatus } = useSignatureStatus();
+  // ========================================
+  // FIM: CONTADOR DE ASSINATURAS
   // ========================================
   
   useEffect(() => {
@@ -576,6 +591,33 @@ export default function SignContent() {
       privateKey: keyPair.privateKey.substring(0, 20) + '...',
     });
     
+    // ========================================
+    // 🆕 CONTADOR DE ASSINATURAS - VALIDAÇÃO ANTES DE ASSINAR
+    // ========================================
+    console.log('🔍 [SIGNATURE COUNTER] Verificando disponibilidade de assinaturas...');
+    
+    if (!signatureStatus || statusLoading) {
+      alert('Carregando status de assinaturas. Por favor, aguarde.');
+      return;
+    }
+    
+    if (!signatureStatus.has_active_subscription) {
+      alert('Você não possui uma assinatura ativa. Por favor, assine um plano para continuar.');
+      navigate('/pricing');
+      return;
+    }
+    
+    if (signatureStatus.total_available <= 0) {
+      alert(`Você atingiu o limite de ${signatureStatus.signatures_limit} assinaturas do seu plano. Adquira pacotes avulsos ou faça upgrade para continuar.`);
+      navigate('/pricing');
+      return;
+    }
+    
+    console.log('✅ [SIGNATURE COUNTER] Assinaturas disponíveis:', signatureStatus.total_available);
+    // ========================================
+    // FIM: VALIDAÇÃO DE CONTADOR
+    // ========================================
+    
     // 🆕 RATE LIMITING - Verificação ANTES de assinar
     console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
     const rateLimitResult = await checkRateLimit();
@@ -703,6 +745,28 @@ ${content}
       }
       
       console.log('✅ Assinatura realizada com sucesso!');
+      
+      // ========================================
+      // 🆕 CONTADOR DE ASSINATURAS - CONSUMIR APÓS ASSINATURA BEM-SUCEDIDA
+      // ========================================
+      console.log('🔄 [SIGNATURE COUNTER] Consumindo assinatura...');
+      const consumeResult = await consumeSignature(currentUser.id);
+      
+      if (!consumeResult.success) {
+        console.error('❌ [SIGNATURE COUNTER] Erro ao consumir assinatura:', consumeResult.message);
+        // Não bloqueia o fluxo, apenas loga o erro
+        // O conteúdo já foi assinado com sucesso
+      } else {
+        console.log('✅ [SIGNATURE COUNTER] Assinatura consumida com sucesso!');
+        console.log(`📊 [SIGNATURE COUNTER] Assinaturas restantes: ${consumeResult.signatures_remaining}`);
+        
+        // Atualiza o status local
+        await refetchStatus();
+      }
+      // ========================================
+      // FIM: CONSUMIR ASSINATURA
+      // ========================================
+      
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
@@ -815,6 +879,54 @@ ${content}
                   Assinando como: <span className="font-medium">{currentUser?.nomePublico || currentUser?.nomeCompleto}</span>
                 </AlertDescription>
               </Alert>
+              
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de status */}
+              {signatureStatus && signatureStatus.has_active_subscription && (
+                <Alert className="border-blue-500 bg-blue-50">
+                  <AlertDescription className="text-blue-800">
+                    📊 <strong>Assinaturas disponíveis:</strong> {signatureStatus.total_available} 
+                    {signatureStatus.overage_available > 0 && (
+                      <span className="ml-2">
+                        ({signatureStatus.signatures_limit - signatureStatus.signatures_used} do plano + {signatureStatus.overage_available} avulsas)
+                      </span>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de limite atingido */}
+              {signatureStatus && signatureStatus.has_active_subscription && signatureStatus.total_available <= 0 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Limite atingido!</strong> Você usou todas as {signatureStatus.signatures_limit} assinaturas do seu plano. 
+                    <Button 
+                      variant="link" 
+                      className="ml-2 p-0 h-auto text-red-600 underline"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      Adquira pacotes avulsos ou faça upgrade
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de sem assinatura */}
+              {signatureStatus && !signatureStatus.has_active_subscription && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Sem assinatura ativa!</strong> Você precisa assinar um plano para continuar. 
+                    <Button 
+                      variant="link" 
+                      className="ml-2 p-0 h-auto text-red-600 underline"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      Ver planos disponíveis
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
               
               {/* 🆕 RATE LIMITING - Alerta visual quando bloqueado */}
               {isBlocked && (
@@ -1109,7 +1221,16 @@ ${content}
               
               <Button
                 onClick={handleSign}
-                disabled={isSigning || isBlocked || isProcessingVideo || isUploadingFile || !title.trim() || selectedPlatforms.length === 0}
+                disabled={
+                  isSigning || 
+                  isBlocked || 
+                  isProcessingVideo || 
+                  isUploadingFile || 
+                  !title.trim() || 
+                  selectedPlatforms.length === 0 ||
+                  (signatureStatus && !signatureStatus.has_active_subscription) ||
+                  (signatureStatus && signatureStatus.total_available <= 0)
+                }
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                 size="lg"
               >
@@ -1130,6 +1251,10 @@ ${content}
                   </>
                 ) : isBlocked ? (
                   'Bloqueado Temporariamente'
+                ) : (signatureStatus && !signatureStatus.has_active_subscription) ? (
+                  'Sem Assinatura Ativa'
+                ) : (signatureStatus && signatureStatus.total_available <= 0) ? (
+                  'Limite de Assinaturas Atingido'
                 ) : (
                   <>
                     <Shield className="mr-2 h-5 w-5" />
