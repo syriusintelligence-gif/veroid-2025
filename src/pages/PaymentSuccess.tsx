@@ -8,9 +8,32 @@ import { getCurrentUser } from '@/lib/supabase-auth-v2';
 import type { User } from '@/lib/supabase-auth-v2';
 import { supabase } from '@/lib/supabase';
 
-// Mapeamento de Price IDs para pacotes (com fallback hardcoded)
+// 🆕 Mapeamento de Price IDs para PLANOS DE ASSINATURA
+const PRICE_TO_PLAN: Record<string, { plan_type: string; signatures_limit: number; name: string }> = {
+  // Planos de assinatura
+  [import.meta.env.VITE_STRIPE_PRICE_CREATOR || 'price_1Sx54aJbBunj3EyEF078nMOQ']: {
+    plan_type: 'creator',
+    signatures_limit: 50,
+    name: 'Creator',
+  },
+  [import.meta.env.VITE_STRIPE_PRICE_CREATOR_PRO || 'price_1Sx57WJbBunj3EyEqWqlhhiV']: {
+    plan_type: 'creator_pro',
+    signatures_limit: 150,
+    name: 'Creator Pro',
+  },
+  [import.meta.env.VITE_STRIPE_PRICE_CREATOR_ELITE || 'price_1Sx5FPJbBunj3EyE26tqLogH']: {
+    plan_type: 'creator_elite',
+    signatures_limit: 350,
+    name: 'Creator Elite',
+  },
+  // Fallback direto com IDs
+  'price_1Sx54aJbBunj3EyEF078nMOQ': { plan_type: 'creator', signatures_limit: 50, name: 'Creator' },
+  'price_1Sx57WJbBunj3EyEqWqlhhiV': { plan_type: 'creator_pro', signatures_limit: 150, name: 'Creator Pro' },
+  'price_1Sx5FPJbBunj3EyE26tqLogH': { plan_type: 'creator_elite', signatures_limit: 350, name: 'Creator Elite' },
+};
+
+// Mapeamento de Price IDs para PACOTES AVULSOS
 const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
-  // Usar variáveis de ambiente se disponíveis, senão usar valores hardcoded
   [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_10 || 'price_1Sx5OqJbBunj3EyEQQt7S0Pu']: { 
     credits: 10, 
     name: 'Pacote 10' 
@@ -23,7 +46,7 @@ const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
     credits: 50, 
     name: 'Pacote 50' 
   },
-  // Adicionar também os IDs diretamente como fallback
+  // Fallback direto
   'price_1Sx5OqJbBunj3EyEQQt7S0Pu': { credits: 10, name: 'Pacote 10' },
   'price_1Sx5ROJbBunj3EyECeFX4XRT': { credits: 20, name: 'Pacote 20' },
   'price_1Sx5UEJbBunj3EyEBTZfHZGs': { credits: 50, name: 'Pacote 50' },
@@ -47,8 +70,9 @@ export default function PaymentSuccess() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processingCredits, setProcessingCredits] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [creditsAdded, setCreditsAdded] = useState<number | null>(null);
+  const [planActivated, setPlanActivated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const sessionId = searchParams.get('session_id');
@@ -63,42 +87,151 @@ export default function PaymentSuccess() {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
       
-      // Se houver sessionId e priceId, verificar se é compra de pacote
+      // Se houver sessionId e priceId, processar compra
       if (currentUser && sessionId && priceId) {
-        await processPackagePurchase(currentUser.id, sessionId, priceId);
+        await processPayment(currentUser.id, sessionId, priceId);
       }
     } catch (error) {
       console.error('Erro ao verificar usuário:', error);
       setError('Erro ao verificar usuário. Por favor, contate o suporte.');
     } finally {
-      // Simular processamento
       setTimeout(() => {
         setLoading(false);
       }, 2000);
     }
   }
 
-  async function processPackagePurchase(userId: string, sessionId: string, priceId: string) {
-    console.log('🔍 [PaymentSuccess] Verificando compra de pacote...');
+  async function processPayment(userId: string, sessionId: string, priceId: string) {
+    console.log('🔍 [PaymentSuccess] Processando pagamento...');
     console.log('📋 [PaymentSuccess] userId:', userId);
     console.log('📋 [PaymentSuccess] sessionId:', sessionId);
     console.log('📋 [PaymentSuccess] priceId:', priceId);
-    console.log('📋 [PaymentSuccess] PRICE_TO_PACKAGE:', PRICE_TO_PACKAGE);
 
-    setProcessingCredits(true);
+    setProcessing(true);
 
     try {
-      // 1. Verificar se é um pacote válido
-      const packageInfo = PRICE_TO_PACKAGE[priceId];
-      if (!packageInfo) {
-        console.log('ℹ️ [PaymentSuccess] Não é compra de pacote, ignorando...');
-        console.log('ℹ️ [PaymentSuccess] Price IDs disponíveis:', Object.keys(PRICE_TO_PACKAGE));
+      // 🆕 1. Verificar se é um PLANO DE ASSINATURA
+      const planInfo = PRICE_TO_PLAN[priceId];
+      if (planInfo) {
+        console.log(`📋 [PaymentSuccess] Plano identificado: ${planInfo.name}`);
+        await activateSubscriptionPlan(userId, sessionId, priceId, planInfo);
         return;
       }
 
-      console.log(`📦 [PaymentSuccess] Pacote identificado: ${packageInfo.name} (${packageInfo.credits} créditos)`);
+      // 2. Verificar se é um PACOTE AVULSO
+      const packageInfo = PRICE_TO_PACKAGE[priceId];
+      if (packageInfo) {
+        console.log(`📦 [PaymentSuccess] Pacote identificado: ${packageInfo.name}`);
+        await processPackagePurchase(userId, sessionId, priceId, packageInfo);
+        return;
+      }
 
-      // 2. Buscar assinatura do usuário
+      // 3. Se não for nem plano nem pacote
+      console.log('⚠️ [PaymentSuccess] Price ID não reconhecido');
+      console.log('ℹ️ [PaymentSuccess] Planos disponíveis:', Object.keys(PRICE_TO_PLAN));
+      console.log('ℹ️ [PaymentSuccess] Pacotes disponíveis:', Object.keys(PRICE_TO_PACKAGE));
+      
+    } catch (error) {
+      console.error('❌ [PaymentSuccess] Erro ao processar pagamento:', error);
+      setError('Erro ao processar pagamento. Por favor, contate o suporte.');
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  // 🆕 Função para ativar plano de assinatura
+  async function activateSubscriptionPlan(
+    userId: string, 
+    sessionId: string, 
+    priceId: string, 
+    planInfo: { plan_type: string; signatures_limit: number; name: string }
+  ) {
+    console.log(`🎯 [PaymentSuccess] Ativando plano ${planInfo.name}...`);
+
+    try {
+      // 1. Buscar assinatura existente
+      const { data: existingSubscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      const now = new Date();
+      const periodEnd = new Date(now);
+      periodEnd.setMonth(periodEnd.getMonth() + 1); // 30 dias
+
+      if (existingSubscription) {
+        // Atualizar assinatura existente
+        console.log('📝 [PaymentSuccess] Atualizando assinatura existente...');
+        
+        const { error: updateError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: planInfo.plan_type,
+            signatures_limit: planInfo.signatures_limit,
+            status: 'active',
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            stripe_price_id: priceId,
+            updated_at: now.toISOString(),
+          })
+          .eq('user_id', userId);
+
+        if (updateError) {
+          console.error('❌ [PaymentSuccess] Erro ao atualizar assinatura:', updateError);
+          setError('Erro ao ativar plano. Por favor, contate o suporte.');
+          return;
+        }
+      } else {
+        // Criar nova assinatura
+        console.log('✨ [PaymentSuccess] Criando nova assinatura...');
+        
+        const { error: insertError } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            plan_type: planInfo.plan_type,
+            signatures_limit: planInfo.signatures_limit,
+            signatures_used: 0,
+            overage_signatures_available: 0,
+            status: 'active',
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            stripe_price_id: priceId,
+            metadata: {
+              activated_by: 'payment_success_fallback',
+              activation_date: now.toISOString(),
+              stripe_session_id: sessionId,
+            },
+          });
+
+        if (insertError) {
+          console.error('❌ [PaymentSuccess] Erro ao criar assinatura:', insertError);
+          setError('Erro ao ativar plano. Por favor, contate o suporte.');
+          return;
+        }
+      }
+
+      console.log(`✅ [PaymentSuccess] Plano ${planInfo.name} ativado com sucesso!`);
+      setPlanActivated(planInfo.name);
+
+    } catch (error) {
+      console.error('❌ [PaymentSuccess] Erro ao ativar plano:', error);
+      setError('Erro ao ativar plano. Por favor, contate o suporte.');
+    }
+  }
+
+  // Função para processar pacote avulso (já existente, mantida)
+  async function processPackagePurchase(
+    userId: string, 
+    sessionId: string, 
+    priceId: string,
+    packageInfo: { credits: number; name: string }
+  ) {
+    console.log(`📦 [PaymentSuccess] Processando pacote ${packageInfo.name}...`);
+
+    try {
+      // Buscar assinatura do usuário
       const { data: subscription, error: fetchError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -112,24 +245,22 @@ export default function PaymentSuccess() {
       }
 
       console.log('✅ [PaymentSuccess] Assinatura encontrada:', subscription.id);
-      console.log('📊 [PaymentSuccess] Créditos atuais:', subscription.overage_signatures_available);
 
-      // 3. Verificar se esta compra já foi processada (idempotência)
+      // Verificar idempotência
       const metadata = (subscription.metadata as SubscriptionMetadata) || {};
       const lastPurchase = metadata.last_package_purchase;
       
       if (lastPurchase && lastPurchase.stripe_session_id === sessionId) {
         console.log('⚠️ [PaymentSuccess] Compra já processada anteriormente');
-        console.log('📋 [PaymentSuccess] Detalhes da compra anterior:', lastPurchase);
         setCreditsAdded(packageInfo.credits);
         return;
       }
 
-      // 4. Adicionar créditos extras
+      // Adicionar créditos extras
       const currentOverage = subscription.overage_signatures_available || 0;
       const newOverage = currentOverage + packageInfo.credits;
       const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + 30); // Validade de 30 dias
+      expirationDate.setDate(expirationDate.getDate() + 30);
 
       const updateData = {
         overage_signatures_available: newOverage,
@@ -148,8 +279,6 @@ export default function PaymentSuccess() {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('💾 [PaymentSuccess] Atualizando créditos extras:', updateData);
-
       const { error: updateError } = await supabase
         .from('subscriptions')
         .update(updateData)
@@ -157,37 +286,33 @@ export default function PaymentSuccess() {
 
       if (updateError) {
         console.error('❌ [PaymentSuccess] Erro ao adicionar créditos:', updateError);
-        setError('Erro ao adicionar créditos. Por favor, contate o suporte com o ID da transação.');
+        setError('Erro ao adicionar créditos. Por favor, contate o suporte.');
         return;
       }
 
       console.log(`✅ [PaymentSuccess] ${packageInfo.credits} créditos adicionados com sucesso!`);
-      console.log(`📊 [PaymentSuccess] Total de créditos extras: ${currentOverage} → ${newOverage}`);
       setCreditsAdded(packageInfo.credits);
 
     } catch (error) {
       console.error('❌ [PaymentSuccess] Erro ao processar pacote:', error);
       setError('Erro ao processar pacote. Por favor, contate o suporte.');
-    } finally {
-      setProcessingCredits(false);
     }
   }
 
   useEffect(() => {
-    // Se não houver usuário logado, redirecionar para login
     if (!loading && !user) {
       navigate('/login-v2');
     }
   }, [loading, user, navigate]);
 
-  if (loading || processingCredits) {
+  if (loading || processing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
         <Card className="w-full max-w-md bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
           <CardContent className="pt-6 flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 text-cyan-400 animate-spin" />
             <p className="text-white text-lg">
-              {processingCredits ? 'Adicionando créditos à sua conta...' : 'Processando seu pagamento...'}
+              {processing ? 'Processando seu pagamento...' : 'Carregando...'}
             </p>
           </CardContent>
         </Card>
@@ -226,13 +351,25 @@ export default function PaymentSuccess() {
               Pagamento Realizado com Sucesso! 🎉
             </CardTitle>
             <CardDescription className="text-gray-300 text-lg">
-              {creditsAdded 
+              {planActivated 
+                ? `Seu plano ${planActivated} foi ativado e você já pode começar a usar todos os recursos!`
+                : creditsAdded 
                 ? `${creditsAdded} créditos foram adicionados à sua conta e você já pode começar a usá-los!`
-                : 'Sua assinatura foi ativada e você já pode começar a usar todos os recursos do seu plano.'
+                : 'Sua compra foi processada com sucesso!'
               }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Alerta de sucesso para planos */}
+            {planActivated && (
+              <Alert className="bg-blue-500/10 border-blue-500/50">
+                <CheckCircle className="h-4 w-4 text-blue-400" />
+                <AlertDescription className="text-blue-300">
+                  <strong>Plano Ativado!</strong> Seu plano {planActivated} está ativo e pronto para uso.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Alerta de sucesso para pacotes */}
             {creditsAdded && (
               <Alert className="bg-green-500/10 border-green-500/50">
