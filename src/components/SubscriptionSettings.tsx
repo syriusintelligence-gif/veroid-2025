@@ -96,6 +96,9 @@ export const SubscriptionSettings = () => {
   // ✅ NOVO: Verificar se é plano FREE/trial (não renovável)
   const isFreeOrTrial = subscription.plan_type === 'trial' || subscription.plan_type === 'free';
 
+  // ✅ NOVO: Detecta se a assinatura foi cancelada
+  const isCanceled = subscription.cancel_at_period_end === true;
+
   // ✅ IMPLEMENTADO: Função de cancelamento que chama a Edge Function
   const handleCancelSubscription = async () => {
     setCanceling(true);
@@ -198,8 +201,8 @@ export const SubscriptionSettings = () => {
               )}
             </div>
             
-            {/* ✅ MODIFICADO: Mostrar "Próxima Renovação" APENAS para planos pagos */}
-            {isActive && !isFreeOrTrial && (
+            {/* ✅ MODIFICADO: Mostrar "Próxima Renovação" APENAS para planos pagos NÃO cancelados */}
+            {isActive && !isFreeOrTrial && !isCanceled && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Próxima Renovação</p>
                 <div className="flex items-center gap-2">
@@ -208,6 +211,24 @@ export const SubscriptionSettings = () => {
                     <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
                     {daysUntilRenewal > 0 && (
                       <p className="text-sm text-gray-500">
+                        Em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ NOVO: Mostrar "Expira em" para planos pagos CANCELADOS */}
+            {isActive && !isFreeOrTrial && isCanceled && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Expira em</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-red-500" />
+                  <div>
+                    <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
+                    {daysUntilRenewal > 0 && (
+                      <p className="text-sm text-red-600">
                         Em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
                       </p>
                     )}

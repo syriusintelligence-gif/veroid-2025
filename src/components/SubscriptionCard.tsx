@@ -69,6 +69,9 @@ export const SubscriptionCard = () => {
   const totalLimit = subscription.signatures_limit + overageAvailable;
   const usagePercentage = totalLimit > 0 ? (subscription.signatures_used / totalLimit) * 100 : 0;
 
+  // ✅ NOVO: Detecta se a assinatura foi cancelada
+  const isCanceled = subscription.cancel_at_period_end === true;
+
   return (
     <Card>
       <CardHeader>
@@ -91,12 +94,13 @@ export const SubscriptionCard = () => {
           <p className="text-sm text-gray-500">Plano atual</p>
         </div>
 
-        {/* Renewal Date */}
+        {/* ✅ MODIFICADO: Renewal Date - Mostra "Expira em" se cancelado */}
         {subscription.status === 'active' && (
           <div className="flex items-center gap-2 text-sm">
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-gray-600">
-              Renova em {formatDate(subscription.current_period_end)}
+              {/* ✅ NOVO: Texto condicional baseado em cancelamento */}
+              {isCanceled ? 'Expira em' : 'Renova em'} {formatDate(subscription.current_period_end)}
               {daysUntilRenewal > 0 && (
                 <span className="text-gray-400 ml-1">
                   ({daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'})
