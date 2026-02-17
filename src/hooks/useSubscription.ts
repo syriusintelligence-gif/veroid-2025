@@ -16,6 +16,17 @@ export interface Subscription {
   cancel_at_period_end: boolean;
   canceled_at: string | null;
   trial_end: string | null;
+  metadata?: {
+    last_package_purchase?: {
+      package_name?: string;
+      credits_added?: number;
+      purchase_date?: string;
+      expiration_date?: string;
+      stripe_price_id?: string;
+      stripe_session_id?: string;
+    };
+    [key: string]: unknown;
+  };
 }
 
 /**
@@ -87,6 +98,7 @@ export function useSubscription(): UseSubscriptionReturn {
           cancel_at_period_end: data.cancel_at_period_end || false,
           canceled_at: data.canceled_at,
           trial_end: data.trial_end,
+          metadata: data.metadata || {},
         });
       } else {
         setSubscription(null);
