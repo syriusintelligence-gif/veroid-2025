@@ -4,6 +4,7 @@ import Index from './pages/Index';
 import Login from './pages/Login';
 import LoginV2 from './pages/Login-v2';
 import Cadastro from './pages/Cadastro';
+import EmailConfirmation from './pages/EmailConfirmation';
 import Dashboard from './pages/Dashboard';
 import SignContent from './pages/SignContent';
 import Profile from './pages/Profile';
@@ -57,6 +58,9 @@ function App() {
         {/* Rotas de autenticação antigas (mantidas para compatibilidade) */}
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
+        
+        {/* 📧 Página de confirmação de email após cadastro */}
+        <Route path="/email-confirmation" element={<EmailConfirmation />} />
         
         {/* Rotas de autenticação V2 (novas e melhoradas) */}
         <Route path="/login-v2" element={<LoginV2 />} />

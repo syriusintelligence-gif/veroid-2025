@@ -550,35 +550,11 @@ export default function Cadastro() {
       
       console.log('✅ Usuário registrado com sucesso!');
       
-      // 📧 ALERTA DE CONFIRMAÇÃO DE EMAIL
-      toast({
-        title: "✅ Cadastro realizado com sucesso!",
-        description: (
-          <div className="space-y-2 mt-2">
-            <div className="flex items-start gap-2">
-              <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-sm">📧 Importante: Confirme seu email</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Enviamos um email de confirmação para <strong>{sanitizedData.email}</strong>
-                </p>
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded p-3 mt-2">
-              <p className="text-xs text-amber-800">
-                ⚠️ <strong>Antes de fazer login:</strong> Verifique sua caixa de entrada (e spam) e clique no link de confirmação.
-              </p>
-            </div>
-          </div>
-        ),
-        duration: 10000, // 10 segundos
-      });
+      // 📧 REDIRECIONA PARA PÁGINA DE CONFIRMAÇÃO DE EMAIL
+      console.log('🔄 Redirecionando para página de confirmação de email...');
       
-      // Aguarda 2 segundos para o usuário ler o toast, depois redireciona
-      setTimeout(() => {
-        console.log('🔄 Redirecionando para página de login...');
-        navigate('/login');
-      }, 2000);
+      // Redireciona imediatamente para a página de confirmação com o email como parâmetro
+      navigate(`/email-confirmation?email=${encodeURIComponent(sanitizedData.email)}`);
       
     } catch (err) {
       console.error('❌ Erro ao criar conta:', err);
