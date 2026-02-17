@@ -21,6 +21,7 @@ import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
+import TwoFactorAlert from '@/components/TwoFactorAlert';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -426,6 +427,11 @@ export default function Dashboard() {
             Gerencie suas assinaturas digitais e proteja seu conteúdo
           </p>
         </div>
+        
+        {/* 🔐 2FA Security Alert */}
+        {currentUser && (
+          <TwoFactorAlert userId={currentUser.id} className="mb-6" />
+        )}
         
         {/* Subscription Card - NEW */}
         <div className="mb-8">
