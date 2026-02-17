@@ -23,6 +23,7 @@ import {
   XCircle,
   ExternalLink,
   Clock,
+  Package,
 } from 'lucide-react';
 import {
   useSubscription,
@@ -93,13 +94,19 @@ export const SubscriptionSettings = () => {
   const usagePercentage = (subscription.signatures_used / subscription.signatures_limit) * 100;
   const isActive = subscription.status === 'active' || subscription.status === 'trialing';
   
-  // ✅ NOVO: Verificar se é plano FREE/trial (não renovável)
+  // ✅ Verificar se é plano FREE/trial (não renovável)
   const isFreeOrTrial = subscription.plan_type === 'trial' || subscription.plan_type === 'free';
 
-  // ✅ NOVO: Detecta se a assinatura foi cancelada
+  // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
 
-  // ✅ IMPLEMENTADO: Função de cancelamento que chama a Edge Function
+  // 🆕 Extrai data de expiração dos créditos extras do metadata
+  const packageExpirationDate = subscription.metadata?.last_package_purchase?.expiration_date;
+  const packageExpirationFormatted = packageExpirationDate 
+    ? formatDate(packageExpirationDate)
+    : null;
+
+  // ✅ Função de cancelamento que chama a Edge Function
   const handleCancelSubscription = async () => {
     setCanceling(true);
     try {
@@ -193,7 +200,7 @@ export const SubscriptionSettings = () => {
             <div>
               <p className="text-sm text-gray-500 mb-1">Plano</p>
               <p className="text-2xl font-bold">{getPlanName(subscription.plan_type)}</p>
-              {/* ✅ NOVO: Mostrar badge "Teste Único" para FREE/trial */}
+              {/* ✅ Mostrar badge "Teste Único" para FREE/trial */}
               {isFreeOrTrial && (
                 <Badge variant="outline" className="mt-2 text-xs">
                   Teste Único - Não Renovável
@@ -201,7 +208,7 @@ export const SubscriptionSettings = () => {
               )}
             </div>
             
-            {/* ✅ MODIFICADO: Mostrar "Próxima Renovação" APENAS para planos pagos NÃO cancelados */}
+            {/* ✅ Mostrar "Próxima Renovação" APENAS para planos pagos NÃO cancelados */}
             {isActive && !isFreeOrTrial && !isCanceled && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Próxima Renovação</p>
@@ -219,7 +226,7 @@ export const SubscriptionSettings = () => {
               </div>
             )}
 
-            {/* ✅ NOVO: Mostrar "Expira em" para planos pagos CANCELADOS */}
+            {/* ✅ Mostrar "Expira em" para planos pagos CANCELADOS */}
             {isActive && !isFreeOrTrial && isCanceled && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Expira em</p>
@@ -237,7 +244,7 @@ export const SubscriptionSettings = () => {
               </div>
             )}
 
-            {/* ✅ NOVO: Mostrar "Válido Até" para planos FREE/trial */}
+            {/* ✅ Mostrar "Válido Até" para planos FREE/trial */}
             {isActive && isFreeOrTrial && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Válido Até</p>
@@ -256,7 +263,7 @@ export const SubscriptionSettings = () => {
             )}
           </div>
 
-          {/* ✅ NOVO: Aviso para planos FREE/trial */}
+          {/* ✅ Aviso para planos FREE/trial */}
           {isFreeOrTrial && (
             <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
               <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
@@ -271,7 +278,7 @@ export const SubscriptionSettings = () => {
             </div>
           )}
 
-          {/* ✅ NOVO: Aviso de cancelamento agendado */}
+          {/* ✅ Aviso de cancelamento agendado */}
           {subscription.cancel_at_period_end && (
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -313,7 +320,6 @@ export const SubscriptionSettings = () => {
                 <>
                   <AlertCircle className="h-4 w-4 text-red-500" />
                   <span className="text-red-600">
-                    {/* ✅ MODIFICADO: Mensagem diferente para FREE/trial */}
                     {isFreeOrTrial 
                       ? 'Você está próximo do limite. Assine um plano para continuar.'
                       : 'Você está próximo do limite. Considere fazer upgrade.'
@@ -338,21 +344,34 @@ export const SubscriptionSettings = () => {
             </div>
           </div>
 
+          {/* 🆕 NOVO: Créditos extras COM data de expiração */}
           {subscription.overage_signatures_available > 0 && (
             <>
               <Separator />
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">
-                      Autenticações Extras Disponíveis
-                    </p>
-                    <p className="text-xs text-blue-700">
-                      Você tem {subscription.overage_signatures_available} autenticações extras de pacotes adicionais
-                    </p>
+              <div className="flex flex-col gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-green-900">
+                        Autenticações Extras Disponíveis
+                      </p>
+                      <p className="text-xs text-green-700">
+                        Você tem {subscription.overage_signatures_available} autenticações extras de pacotes adicionais
+                      </p>
+                    </div>
                   </div>
+                  <span className="text-2xl font-bold text-green-700">
+                    +{subscription.overage_signatures_available}
+                  </span>
                 </div>
+                {/* 🆕 NOVO: Data de expiração dos créditos extras */}
+                {packageExpirationFormatted && (
+                  <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Válidos até {packageExpirationFormatted}</span>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -364,7 +383,6 @@ export const SubscriptionSettings = () => {
         <CardHeader>
           <CardTitle>Gerenciar Assinatura</CardTitle>
           <CardDescription>
-            {/* ✅ MODIFICADO: Descrição diferente para FREE/trial */}
             {isFreeOrTrial 
               ? 'Assine um plano para continuar usando o Vero iD após o período de teste.'
               : 'Atualize seu plano ou gerencie suas configurações de pagamento.'
@@ -376,7 +394,6 @@ export const SubscriptionSettings = () => {
             <Link to="/pricing">
               <Button variant="default" className="w-full">
                 <TrendingUp className="mr-2 h-4 w-4" />
-                {/* ✅ MODIFICADO: Texto do botão diferente para FREE/trial */}
                 {isFreeOrTrial ? 'Assinar um Plano' : 'Fazer Upgrade do Plano'}
               </Button>
             </Link>
@@ -395,7 +412,7 @@ export const SubscriptionSettings = () => {
               </Button>
             )}
 
-            {/* ✅ MODIFICADO: Ocultar botão de cancelamento para FREE/trial e assinaturas já canceladas */}
+            {/* ✅ Ocultar botão de cancelamento para FREE/trial e assinaturas já canceladas */}
             {isActive && !subscription.cancel_at_period_end && !isFreeOrTrial && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -404,7 +421,6 @@ export const SubscriptionSettings = () => {
                     Cancelar Assinatura
                   </Button>
                 </AlertDialogTrigger>
-                {/* ✅ CORRIGIDO: Layout do AlertDialog com classes personalizadas */}
                 <AlertDialogContent className="bg-white border-2 border-gray-200 shadow-2xl max-w-lg">
                   <AlertDialogHeader>
                     <AlertDialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Calendar, TrendingUp, Settings, Package } from 'lucide-react';
+import { CreditCard, Calendar, TrendingUp, Settings, Package, Clock } from 'lucide-react';
 import {
   useSubscription,
   getPlanName,
@@ -69,8 +69,14 @@ export const SubscriptionCard = () => {
   const totalLimit = subscription.signatures_limit + overageAvailable;
   const usagePercentage = totalLimit > 0 ? (subscription.signatures_used / totalLimit) * 100 : 0;
 
-  // ✅ NOVO: Detecta se a assinatura foi cancelada
+  // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
+
+  // 🆕 Extrai data de expiração dos créditos extras do metadata
+  const packageExpirationDate = subscription.metadata?.last_package_purchase?.expiration_date;
+  const packageExpirationFormatted = packageExpirationDate 
+    ? formatDate(packageExpirationDate)
+    : null;
 
   return (
     <Card>
@@ -97,12 +103,16 @@ export const SubscriptionCard = () => {
         {/* ✅ MODIFICADO: Renewal Date - Mostra "Expira em" se cancelado */}
         {subscription.status === 'active' && (
           <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-gray-400" />
-            <span className="text-gray-600">
+            {isCanceled ? (
+              <Clock className="h-4 w-4 text-red-500" />
+            ) : (
+              <Calendar className="h-4 w-4 text-gray-400" />
+            )}
+            <span className={isCanceled ? "text-red-600" : "text-gray-600"}>
               {/* ✅ NOVO: Texto condicional baseado em cancelamento */}
               {isCanceled ? 'Expira em' : 'Renova em'} {formatDate(subscription.current_period_end)}
               {daysUntilRenewal > 0 && (
-                <span className="text-gray-400 ml-1">
+                <span className={isCanceled ? "text-red-400 ml-1" : "text-gray-400 ml-1"}>
                   ({daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'})
                 </span>
               )}
@@ -136,15 +146,25 @@ export const SubscriptionCard = () => {
               </span>
             </div>
             
+            {/* 🆕 NOVO: Mostra créditos extras COM data de expiração */}
             {overageAvailable > 0 && (
-              <div className="flex justify-between items-center p-2 bg-green-50 rounded border border-green-200">
-                <span className="text-green-700 flex items-center gap-1">
-                  <Package className="h-4 w-4" />
-                  Créditos extras (pacotes)
-                </span>
-                <span className="font-bold text-green-700">
-                  +{overageAvailable}
-                </span>
+              <div className="flex flex-col gap-1 p-2 bg-green-50 rounded border border-green-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-green-700 flex items-center gap-1">
+                    <Package className="h-4 w-4" />
+                    Créditos extras (pacotes)
+                  </span>
+                  <span className="font-bold text-green-700">
+                    +{overageAvailable}
+                  </span>
+                </div>
+                {/* 🆕 NOVO: Data de expiração dos créditos extras */}
+                {packageExpirationFormatted && (
+                  <div className="flex items-center gap-1 text-xs text-green-600">
+                    <Clock className="h-3 w-3" />
+                    <span>Válidos até {packageExpirationFormatted}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
