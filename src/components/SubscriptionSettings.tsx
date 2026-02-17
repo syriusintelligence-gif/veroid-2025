@@ -33,10 +33,13 @@ import {
   getDaysUntilRenewal,
 } from '@/hooks/useSubscription';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 export const SubscriptionSettings = () => {
-  const { subscription, loading } = useSubscription();
+  const { subscription, loading, refetch } = useSubscription();
   const [canceling, setCanceling] = useState(false);
+  const { toast } = useToast();
 
   if (loading) {
     return (
@@ -93,14 +96,66 @@ export const SubscriptionSettings = () => {
   // ✅ NOVO: Verificar se é plano FREE/trial (não renovável)
   const isFreeOrTrial = subscription.plan_type === 'trial' || subscription.plan_type === 'free';
 
+  // ✅ IMPLEMENTADO: Função de cancelamento que chama a Edge Function
   const handleCancelSubscription = async () => {
     setCanceling(true);
     try {
-      // TODO: Implementar cancelamento via API do Stripe
-      alert('Funcionalidade de cancelamento será implementada em breve.');
+      // Obter sessão atual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Erro de Autenticação",
+          description: "Você precisa estar logado para cancelar a assinatura.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Obter a URL da Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/cancel-subscription`;
+
+      console.log('🚫 Cancelando assinatura para userId:', session.user.id);
+
+      // Chamar a Edge Function
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          userId: session.user.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao cancelar assinatura');
+      }
+
+      console.log('✅ Assinatura cancelada com sucesso:', result);
+
+      // Atualizar os dados da assinatura
+      await refetch();
+
+      // Mostrar mensagem de sucesso
+      toast({
+        title: "Assinatura Cancelada",
+        description: result.message || "Sua assinatura foi cancelada com sucesso. Você terá acesso até o final do período atual.",
+        variant: "default",
+      });
+
     } catch (error) {
-      console.error('Error canceling subscription:', error);
-      alert('Erro ao cancelar assinatura. Tente novamente.');
+      console.error('❌ Erro ao cancelar assinatura:', error);
+      
+      toast({
+        title: "Erro ao Cancelar",
+        description: error instanceof Error ? error.message : 'Erro desconhecido ao cancelar assinatura. Tente novamente.',
+        variant: "destructive",
+      });
     } finally {
       setCanceling(false);
     }
@@ -190,6 +245,21 @@ export const SubscriptionSettings = () => {
                 </p>
                 <p className="text-xs text-orange-700">
                   Este é um teste gratuito de 10 assinaturas válido por 30 dias. Após esgotar as assinaturas ou expirar o período, será necessário assinar um plano pago ou comprar pacotes avulsos para continuar usando o Vero iD.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ NOVO: Aviso de cancelamento agendado */}
+          {subscription.cancel_at_period_end && (
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-red-900">
+                  Cancelamento Agendado
+                </p>
+                <p className="text-xs text-red-700">
+                  Sua assinatura será cancelada em {formatDate(subscription.current_period_end)}. Você continuará tendo acesso até essa data. Seus créditos extras (se houver) serão preservados até a data de expiração.
                 </p>
               </div>
             </div>
@@ -304,8 +374,8 @@ export const SubscriptionSettings = () => {
               </Button>
             )}
 
-            {/* ✅ MODIFICADO: Ocultar botão de cancelamento para FREE/trial */}
-            {isActive && !subscription.canceled_at && !isFreeOrTrial && (
+            {/* ✅ MODIFICADO: Ocultar botão de cancelamento para FREE/trial e assinaturas já canceladas */}
+            {isActive && !subscription.cancel_at_period_end && !isFreeOrTrial && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full">
@@ -313,20 +383,37 @@ export const SubscriptionSettings = () => {
                     Cancelar Assinatura
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                {/* ✅ CORRIGIDO: Layout do AlertDialog com classes personalizadas */}
+                <AlertDialogContent className="bg-white border-2 border-gray-200 shadow-2xl max-w-lg">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Ao cancelar sua assinatura, você perderá acesso aos recursos premium no final do período atual
-                      ({formatDate(subscription.current_period_end)}). Esta ação não pode ser desfeita.
+                    <AlertDialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                      <AlertCircle className="h-6 w-6 text-red-600" />
+                      Cancelar Assinatura?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-base text-gray-700 leading-relaxed mt-4">
+                      <div className="space-y-3">
+                        <p>
+                          Ao cancelar sua assinatura, você <strong>perderá acesso aos recursos premium</strong> no final do período atual ({formatDate(subscription.current_period_end)}).
+                        </p>
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-900">
+                            ✅ <strong>Seus créditos extras (pacotes avulsos) serão preservados</strong> até a data de expiração deles, mesmo após o cancelamento.
+                          </p>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Esta ação não pode ser desfeita, mas você pode assinar novamente a qualquer momento.
+                        </p>
+                      </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Voltar</AlertDialogCancel>
+                  <AlertDialogFooter className="mt-6">
+                    <AlertDialogCancel className="border-2 hover:bg-gray-100">
+                      Voltar
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleCancelSubscription}
                       disabled={canceling}
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
                     >
                       {canceling ? 'Cancelando...' : 'Sim, Cancelar Assinatura'}
                     </AlertDialogAction>
@@ -365,6 +452,15 @@ export const SubscriptionSettings = () => {
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Período de Teste até</dt>
                   <dd>{formatDate(subscription.trial_end)}</dd>
+                </div>
+              </>
+            )}
+            {subscription.cancel_at_period_end && (
+              <>
+                <Separator />
+                <div className="flex justify-between">
+                  <dt className="text-gray-500 text-red-600">Cancelamento Agendado</dt>
+                  <dd className="text-red-600 font-semibold">Sim</dd>
                 </div>
               </>
             )}

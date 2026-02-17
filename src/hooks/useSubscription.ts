@@ -9,6 +9,13 @@ export interface Subscription {
   signatures_limit: number;
   overage_signatures_available: number;
   current_period_end: string;
+  current_period_start: string;
+  created_at: string;
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
+  trial_end: string | null;
 }
 
 /**
@@ -73,6 +80,13 @@ export function useSubscription(): UseSubscriptionReturn {
           signatures_limit: data.signatures_limit,
           overage_signatures_available: data.overage_signatures_available || 0,
           current_period_end: data.current_period_end,
+          current_period_start: data.current_period_start,
+          created_at: data.created_at,
+          stripe_subscription_id: data.stripe_subscription_id,
+          stripe_customer_id: data.stripe_customer_id,
+          cancel_at_period_end: data.cancel_at_period_end || false,
+          canceled_at: data.canceled_at,
+          trial_end: data.trial_end,
         });
       } else {
         setSubscription(null);
