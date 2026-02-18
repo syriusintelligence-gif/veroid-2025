@@ -220,6 +220,18 @@ export default function Certificate() {
     }
   };
 
+  // 🆕 CORREÇÃO: Função para garantir que URLs tenham protocolo
+  const ensureProtocol = (url: string): string => {
+    if (!url) return '';
+    const trimmedUrl = url.trim();
+    // Se já tem protocolo, retorna como está
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    // Adiciona https:// por padrão
+    return `https://${trimmedUrl}`;
+  };
+
   const getPlatformLabel = (platform: string) => {
     switch (platform.toLowerCase()) {
       case 'instagram': return 'Instagram';
@@ -328,7 +340,7 @@ export default function Certificate() {
             {relevantLinks.map(({ platform, url }) => (
               <a
                 key={platform}
-                href={url}
+                href={ensureProtocol(url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"

@@ -54,8 +54,11 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<string>('recent');
   
   useEffect(() => {
+    // 🆕 CORREÇÃO: Removida dependência de navigate para evitar loop de re-renderização
+    // O navigate é estável e não precisa ser uma dependência
     loadUserData();
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const loadUserData = async () => {
     try {

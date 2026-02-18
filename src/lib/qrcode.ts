@@ -241,6 +241,16 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
 
   console.log(`✅ Gerando HTML para ${relevantLinks.length} links sociais`);
 
+  // 🆕 Função auxiliar para garantir protocolo na URL
+  const ensureProtocol = (url: string): string => {
+    if (!url) return '';
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
+  };
+
   return `
     <div class="info-section" style="background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
       <div class="info-label" style="color: #4b5563; margin-bottom: 12px;">🔗 Perfis Oficiais do Criador</div>
@@ -249,7 +259,7 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
       </p>
       <div style="display: flex; flex-wrap: wrap; gap: 10px;">
         ${relevantLinks.map(({ url, icon, label }) => `
-          <a href="${url}" target="_blank" rel="noopener noreferrer" 
+          <a href="${ensureProtocol(url)}" target="_blank" rel="noopener noreferrer" 
              style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 10px 16px; border-radius: 25px; border: 2px solid #667eea; text-decoration: none; color: #1f2937; font-weight: 500; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
              onmouseover="this.style.background='#667eea'; this.style.color='white'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)';"
              onmouseout="this.style.background='white'; this.style.color='#1f2937'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
