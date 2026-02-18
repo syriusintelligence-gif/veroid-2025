@@ -105,13 +105,25 @@ function App() {
         setUser(null);
         setLoading(false);
       } else if (event === 'SIGNED_IN') {
-        // Só verifica se não foi a verificação inicial
-        // O evento INITIAL_SESSION é disparado junto com SIGNED_IN no carregamento
-        console.log('✅ [App] Usuário logado, atualizando estado...');
-        await checkUser();
+        // 🆕 CORREÇÃO: Só atualiza se o usuário ainda não estiver logado
+        // Isso evita re-renderizações desnecessárias quando navega entre páginas
+        if (!user) {
+          console.log('✅ [App] Usuário logado, atualizando estado...');
+          await checkUser();
+        } else {
+          console.log('ℹ️ [App] Usuário já logado, ignorando evento SIGNED_IN');
+        }
       } else if (event === 'TOKEN_REFRESHED') {
         console.log('🔄 [App] Token atualizado');
         // Não precisa verificar novamente, apenas log
+      } else if (event === 'INITIAL_SESSION') {
+        // 🆕 Ignora INITIAL_SESSION se já temos um usuário
+        if (!user && session) {
+          console.log('🔄 [App] Sessão inicial detectada, verificando usuário...');
+          await checkUser();
+        } else {
+          console.log('ℹ️ [App] INITIAL_SESSION ignorado - usuário já carregado');
+        }
       }
     });
 
@@ -119,7 +131,7 @@ function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [checkUser]);
+  }, [checkUser, user]);
 
   if (loading) {
     return (
