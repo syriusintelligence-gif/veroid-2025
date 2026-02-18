@@ -37,6 +37,12 @@ export interface SignedContent {
   platforms?: string[];
   verificationCount: number;
   creatorSocialLinks?: SocialLinks;
+  // 🆕 Campos de arquivo anexado
+  filePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  storageBucket?: string;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -69,6 +75,12 @@ function dbSignedContentToAppSignedContent(
     platforms: dbContent.platforms || undefined,
     verificationCount: dbContent.verification_count,
     creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
+    // 🆕 Campos de arquivo anexado - usando type assertion segura
+    filePath: 'file_path' in dbContent ? (dbContent.file_path as string | null) || undefined : undefined,
+    fileName: 'file_name' in dbContent ? (dbContent.file_name as string | null) || undefined : undefined,
+    fileSize: 'file_size' in dbContent ? (dbContent.file_size as number | null) || undefined : undefined,
+    mimeType: 'mime_type' in dbContent ? (dbContent.mime_type as string | null) || undefined : undefined,
+    storageBucket: 'storage_bucket' in dbContent ? (dbContent.storage_bucket as string | null) || undefined : undefined,
   };
 }
 

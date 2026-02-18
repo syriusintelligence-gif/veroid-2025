@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import { Button } from '@/components/ui/button';
-import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy } from 'lucide-react';
-import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
+import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy, FileText, QrCode } from 'lucide-react';
+import { generateCertificate, decodeContentFromUrl, generateQRData } from '@/lib/qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -20,6 +21,31 @@ const platformIcons: Record<string, string> = {
   Outros: '📱',
 };
 
+/**
+ * 🆕 CORREÇÃO: Extrai título e descrição do conteúdo assinado
+ */
+function extractContentDescription(fullContent: string): { title: string; description: string } {
+  // Procura pelo marcador "Conteúdo:" e extrai o texto após ele
+  const contentMarker = 'Conteúdo:';
+  const contentIndex = fullContent.indexOf(contentMarker);
+  
+  let description = '';
+  let title = '';
+  
+  // Extrai o título
+  const titleMatch = fullContent.match(/Título:\s*(.+?)(?:\n|$)/);
+  if (titleMatch && titleMatch[1]) {
+    title = titleMatch[1].trim();
+  }
+  
+  // Extrai a descrição (texto após "Conteúdo:")
+  if (contentIndex !== -1) {
+    description = fullContent.substring(contentIndex + contentMarker.length).trim();
+  }
+  
+  return { title, description };
+}
+
 export default function Certificate() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -28,6 +54,7 @@ export default function Certificate() {
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     checkUserAndLoadCertificate();
@@ -62,6 +89,8 @@ export default function Certificate() {
           console.log('✅ [QRCODE] Conteúdo completo carregado do Supabase');
           console.log('🔍 [QRCODE] Links sociais do Supabase:', fullContent.creatorSocialLinks);
           console.log('🔍 [QRCODE] Quantidade de links:', fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0);
+          console.log('🔍 [QRCODE] Thumbnail:', fullContent.thumbnail ? 'Presente (' + fullContent.thumbnail.substring(0, 50) + '...)' : 'Ausente');
+          console.log('🔍 [QRCODE] Conteúdo:', fullContent.content ? fullContent.content.substring(0, 100) + '...' : 'Ausente');
           setContent(fullContent);
           
           // Incrementa contador de verificações
@@ -228,6 +257,9 @@ export default function Certificate() {
   }
 
   const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
+  
+  // 🆕 CORREÇÃO: Extrai título e descrição do conteúdo
+  const { title, description } = extractContentDescription(content.content);
 
   // 🆕 FUNÇÃO RENDERIZAÇÃO DE LINKS SOCIAIS - MOVIDA PARA CIMA E COM CSS FORÇADO
   const renderSocialLinks = () => {
@@ -331,26 +363,55 @@ export default function Certificate() {
             ✓ Conteúdo Autenticado
           </div>
 
-          {/* Thumbnail */}
-          {content.thumbnail && (
+          {/* 🆕 CORREÇÃO: Thumbnail com tratamento de erro */}
+          {content.thumbnail && !imageError && (
             <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Preview do Conteúdo
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📸 Preview do Conteúdo
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
                 <img 
                   src={content.thumbnail} 
-                  alt="Thumbnail do conteúdo" 
+                  alt="Preview do conteúdo" 
                   className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                  onError={() => {
+                    console.error('❌ Erro ao carregar thumbnail');
+                    setImageError(true);
+                  }}
                 />
+              </div>
+            </div>
+          )}
+          
+          {/* 🆕 CORREÇÃO: Fallback quando thumbnail falha */}
+          {content.thumbnail && imageError && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📸 Preview do Conteúdo
+              </div>
+              <div className="bg-gray-100 p-8 rounded-lg border-l-4 border-gray-400 text-center">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">Preview não disponível</p>
+              </div>
+            </div>
+          )}
+
+          {/* 🆕 CORREÇÃO: Título do Conteúdo */}
+          {title && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📌 Título do Conteúdo
+              </div>
+              <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-50 to-purple-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 text-blue-900 break-words">
+                {title}
               </div>
             </div>
           )}
 
           {/* Creator */}
           <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Criador do Conteúdo
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              👤 Criador do Conteúdo
             </div>
             <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-words">
               {content.creatorName}
@@ -360,10 +421,22 @@ export default function Certificate() {
           {/* 🆕 LINKS SOCIAIS MOVIDOS PARA LOGO APÓS O NOME DO CRIADOR */}
           {renderSocialLinks()}
 
+          {/* 🆕 CORREÇÃO: Descrição/Conteúdo */}
+          {description && description.trim() !== '' && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📝 Descrição / Conteúdo
+              </div>
+              <div className="text-sm sm:text-base bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+                {description}
+              </div>
+            </div>
+          )}
+
           {/* Date */}
           <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Data e Hora da Assinatura
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              📅 Data e Hora da Assinatura
             </div>
             <div className="text-base sm:text-lg md:text-xl font-medium bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 flex items-center gap-2 flex-wrap">
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
@@ -373,8 +446,8 @@ export default function Certificate() {
 
           {/* ID */}
           <div className="mb-6 sm:mb-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              ID do Certificado
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              🆔 ID do Certificado
             </div>
             <div className="text-xs sm:text-sm font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all">
               {content.id}
@@ -384,8 +457,8 @@ export default function Certificate() {
           {/* Platforms */}
           {content.platforms && content.platforms.length > 0 && (
             <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Plataformas de Publicação
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📱 Plataformas de Publicação
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
                 <div className="flex flex-wrap gap-2">
@@ -479,6 +552,27 @@ export default function Certificate() {
               <div className="text-xs font-mono text-gray-700 break-all leading-relaxed">
                 {content.signature}
               </div>
+            </div>
+          </div>
+
+          {/* QR Code */}
+          <div className="mb-6 sm:mb-8">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              <QrCode className="h-3 w-3 sm:h-4 sm:w-4" />
+              QR Code de Verificação
+            </div>
+            <div className="bg-white p-4 sm:p-6 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center">
+              <QRCodeSVG
+                value={generateQRData(content)}
+                size={180}
+                level="M"
+                includeMargin={true}
+                bgColor="#ffffff"
+                fgColor="#000000"
+              />
+              <p className="text-xs text-center text-gray-500 mt-4">
+                Escaneie para verificar a autenticidade
+              </p>
             </div>
           </div>
 
