@@ -119,7 +119,14 @@ export function useSessionTimeout(
 
   // Configura os event listeners para detectar atividade
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      console.log('⏱️ [SessionTimeout] Desabilitado - usuário não autenticado');
+      return;
+    }
+
+    console.log('⏱️ [SessionTimeout] ✅ INICIADO - Monitorando inatividade');
+    console.log(`⏱️ [SessionTimeout] Timeout configurado: ${SESSION_TIMEOUT / 1000 / 60} minutos`);
+    console.log(`⏱️ [SessionTimeout] Aviso será exibido: ${WARNING_BEFORE_TIMEOUT / 1000 / 60} minutos antes do logout`);
 
     // Adiciona listeners para todos os eventos de atividade
     ACTIVITY_EVENTS.forEach((event) => {
@@ -131,6 +138,7 @@ export function useSessionTimeout(
 
     // Cleanup
     return () => {
+      console.log('⏱️ [SessionTimeout] Cleanup - removendo listeners');
       ACTIVITY_EVENTS.forEach((event) => {
         window.removeEventListener(event, updateLastActivity);
       });
