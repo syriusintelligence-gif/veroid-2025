@@ -16,6 +16,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminSetup from './pages/AdminSetup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AuthCallback from './pages/AuthCallback';
 import CreateAdminAccount from './pages/CreateAdminAccount';
 import Pricing from './pages/Pricing';
 import PaymentSuccess from './pages/PaymentSuccess';
@@ -147,6 +148,9 @@ function App() {
           {/* Recuperação de senha */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Auth Callback - Processa tokens de autenticação do Supabase */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
           
           {/* Admin Setup - Página para resetar senha do admin */}
           <Route path="/admin-setup" element={<AdminSetup />} />
