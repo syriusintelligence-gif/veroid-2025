@@ -179,16 +179,32 @@ export default function Profile() {
     }
   };
 
+  // 🆕 Função para garantir que URLs tenham protocolo https://
+  const ensureProtocol = (url: string): string => {
+    if (!url) return '';
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return '';
+    
+    // Se já tem protocolo, retorna como está
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    
+    // Adiciona https:// automaticamente
+    return `https://${trimmedUrl}`;
+  };
+
   const handleSaveSocialLinks = async () => {
     if (!currentUser) return;
     
     setIsSaving(true);
     
-    // Remove campos vazios
+    // Remove campos vazios e normaliza URLs (adiciona https:// se necessário)
     const cleanedLinks: SocialLinks = {};
     Object.entries(socialLinks).forEach(([key, value]) => {
       if (value && value.trim()) {
-        cleanedLinks[key as keyof SocialLinks] = value.trim();
+        // 🆕 Normaliza a URL adicionando https:// se não tiver protocolo
+        cleanedLinks[key as keyof SocialLinks] = ensureProtocol(value);
       }
     });
     
@@ -503,7 +519,7 @@ export default function Profile() {
                       url && (
                         <a
                           key={platform}
-                          href={url}
+                          href={ensureProtocol(url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
