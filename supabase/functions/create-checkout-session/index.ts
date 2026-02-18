@@ -80,6 +80,7 @@ serve(async (req) => {
 
     // 4. Create Stripe Checkout Session
     // ✅ MODIFICADO: Adicionar price_id na URL de sucesso para identificar pacotes
+    // ✅ MODIFICADO: Adicionar allow_promotion_codes para permitir cupons de desconto
     const session = await stripe.checkout.sessions.create({
       customer_email: user.email,
       client_reference_id: user.id,
@@ -90,6 +91,7 @@ serve(async (req) => {
         },
       ],
       mode: mode || 'subscription',
+      allow_promotion_codes: true, // 🎟️ Habilita campo de cupom de desconto no checkout
       success_url: `${req.headers.get('origin')}/payment/success?session_id={CHECKOUT_SESSION_ID}&price_id=${priceId}`,
       cancel_url: `${req.headers.get('origin')}/payment/cancel`,
       metadata: {
