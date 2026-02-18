@@ -31,7 +31,6 @@ import {
   getStatusColor,
   getStatusLabel,
   formatDate,
-  getDaysUntilRenewal,
 } from '@/hooks/useSubscription';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -90,7 +89,6 @@ export const SubscriptionSettings = () => {
     );
   }
 
-  const daysUntilRenewal = getDaysUntilRenewal(subscription.current_period_end);
   const usagePercentage = (subscription.signatures_used / subscription.signatures_limit) * 100;
   const isActive = subscription.status === 'active' || subscription.status === 'trialing';
   
@@ -214,14 +212,7 @@ export const SubscriptionSettings = () => {
                 <p className="text-sm text-gray-500 mb-1">Próxima Renovação</p>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
-                  <div>
-                    <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
-                    {daysUntilRenewal > 0 && (
-                      <p className="text-sm text-gray-500">
-                        Em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
-                      </p>
-                    )}
-                  </div>
+                  <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
                 </div>
               </div>
             )}
@@ -232,14 +223,7 @@ export const SubscriptionSettings = () => {
                 <p className="text-sm text-gray-500 mb-1">Expira em</p>
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-red-500" />
-                  <div>
-                    <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
-                    {daysUntilRenewal > 0 && (
-                      <p className="text-sm text-red-600">
-                        Em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
-                      </p>
-                    )}
-                  </div>
+                  <p className="font-medium text-red-600">{formatDate(subscription.current_period_end)}</p>
                 </div>
               </div>
             )}
@@ -250,14 +234,7 @@ export const SubscriptionSettings = () => {
                 <p className="text-sm text-gray-500 mb-1">Válido Até</p>
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-orange-500" />
-                  <div>
-                    <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
-                    {daysUntilRenewal > 0 && (
-                      <p className="text-sm text-orange-600">
-                        Expira em {daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'}
-                      </p>
-                    )}
-                  </div>
+                  <p className="font-medium text-orange-600">{formatDate(subscription.current_period_end)}</p>
                 </div>
               </div>
             )}

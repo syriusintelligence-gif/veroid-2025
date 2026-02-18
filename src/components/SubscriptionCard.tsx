@@ -9,7 +9,6 @@ import {
   getStatusColor,
   getStatusLabel,
   formatDate,
-  getDaysUntilRenewal,
 } from '@/hooks/useSubscription';
 
 export const SubscriptionCard = () => {
@@ -58,8 +57,6 @@ export const SubscriptionCard = () => {
     );
   }
 
-  const daysUntilRenewal = getDaysUntilRenewal(subscription.current_period_end);
-  
   // 🆕 Cálculo correto dos créditos
   const signaturesRemaining = Math.max(0, subscription.signatures_limit - subscription.signatures_used);
   const overageAvailable = subscription.overage_signatures_available || 0;
@@ -109,13 +106,8 @@ export const SubscriptionCard = () => {
               <Calendar className="h-4 w-4 text-gray-400" />
             )}
             <span className={isCanceled ? "text-red-600" : "text-gray-600"}>
-              {/* ✅ NOVO: Texto condicional baseado em cancelamento */}
+              {/* ✅ Texto condicional baseado em cancelamento - apenas data */}
               {isCanceled ? 'Expira em' : 'Renova em'} {formatDate(subscription.current_period_end)}
-              {daysUntilRenewal > 0 && (
-                <span className={isCanceled ? "text-red-400 ml-1" : "text-gray-400 ml-1"}>
-                  ({daysUntilRenewal} {daysUntilRenewal === 1 ? 'dia' : 'dias'})
-                </span>
-              )}
             </span>
           </div>
         )}
