@@ -15,7 +15,11 @@ export default function Verify() {
   const [isVerifying, setIsVerifying] = useState(false);
   
   // Função para codificar conteúdo para URL
+  // 🆕 CORREÇÃO: Incluindo creatorSocialLinks para exibir perfis oficiais
   const encodeContentToUrl = (content: SignedContent): string => {
+    console.log('🔍 [Verify] Codificando conteúdo para URL...');
+    console.log('🔍 [Verify] creatorSocialLinks:', content.creatorSocialLinks);
+    
     const compact = {
       i: content.id,
       c: content.content.substring(0, 200),
@@ -25,7 +29,13 @@ export default function Verify() {
       n: content.creatorName,
       v: content.verificationCode,
       pl: content.platforms,
+      // 🆕 CORREÇÃO: Incluindo links sociais do criador
+      sl: content.creatorSocialLinks || {},
+      // 🆕 CORREÇÃO: Incluindo thumbnail se existir
+      th: content.thumbnail ? content.thumbnail.substring(0, 500) : undefined,
     };
+    
+    console.log('✅ [Verify] Dados compactados incluem socialLinks:', !!compact.sl);
     
     const jsonStr = JSON.stringify(compact);
     const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
