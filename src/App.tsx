@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Index from './pages/Index';
 import Login from './pages/Login';
 import LoginV2 from './pages/Login-v2';
@@ -59,31 +59,21 @@ function SessionTimeoutManager({ children, isAuthenticated }: { children: React.
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Ref para controlar se a verificação inicial já foi feita
+  const initialCheckDoneRef = useRef(false);
+  // Ref para evitar chamadas simultâneas
+  const isCheckingRef = useRef(false);
 
-  useEffect(() => {
-    // Verifica o usuário inicial
-    checkUser();
-
-    // Escuta mudanças de autenticação do Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 [App] Auth state changed:', event);
-      
-      if (event === 'SIGNED_OUT' || !session) {
-        console.log('👋 [App] Usuário deslogado, limpando estado...');
-        setUser(null);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log('✅ [App] Usuário logado, atualizando estado...');
-        await checkUser();
-      }
-    });
-
-    // Cleanup da subscription
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  async function checkUser() {
+  const checkUser = useCallback(async () => {
+    // Evita chamadas simultâneas
+    if (isCheckingRef.current) {
+      console.log('🔄 [App] Verificação já em andamento, ignorando...');
+      return;
+    }
+    
+    isCheckingRef.current = true;
+    
     try {
       console.log('🔍 [App] Verificando usuário atual...');
       const currentUser = await getCurrentUser();
@@ -94,8 +84,41 @@ function App() {
       setUser(null);
     } finally {
       setLoading(false);
+      isCheckingRef.current = false;
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    // Verifica o usuário inicial apenas uma vez
+    if (!initialCheckDoneRef.current) {
+      initialCheckDoneRef.current = true;
+      checkUser();
+    }
+
+    // Escuta mudanças de autenticação do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 [App] Auth state changed:', event);
+      
+      if (event === 'SIGNED_OUT' || !session) {
+        console.log('👋 [App] Usuário deslogado, limpando estado...');
+        setUser(null);
+        setLoading(false);
+      } else if (event === 'SIGNED_IN') {
+        // Só verifica se não foi a verificação inicial
+        // O evento INITIAL_SESSION é disparado junto com SIGNED_IN no carregamento
+        console.log('✅ [App] Usuário logado, atualizando estado...');
+        await checkUser();
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 [App] Token atualizado');
+        // Não precisa verificar novamente, apenas log
+      }
+    });
+
+    // Cleanup da subscription
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [checkUser]);
 
   if (loading) {
     return (
