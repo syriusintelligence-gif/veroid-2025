@@ -76,13 +76,22 @@ export function useSessionTimeout(
   // Handler para logout
   const handleLogout = useCallback(async () => {
     try {
+      console.log('🔒 [SessionTimeout] Iniciando logout...');
+      
+      // Limpa o localStorage de atividade
+      localStorage.removeItem('lastActivity');
+      
       await logout();
-      // Redireciona para a página de login
-      window.location.href = '/login-v2';
+      
+      console.log('✅ [SessionTimeout] Logout realizado, recarregando página...');
+      
+      // Usa window.location.href para forçar um reload completo
+      // Isso garante que o estado do React seja completamente resetado
+      window.location.href = '/login';
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      console.error('❌ [SessionTimeout] Erro ao fazer logout:', error);
       // Força redirecionamento mesmo com erro
-      window.location.href = '/login-v2';
+      window.location.href = '/login';
     }
   }, []);
 

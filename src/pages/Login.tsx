@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { useCSRFProtection } from "@/hooks/useCSRFProtection";
 import { checkPasswordExpiration } from "@/lib/password-policy";
 
 // 🆕 VERSÃO DO CÓDIGO - Para debug de cache
-const CODE_VERSION = "ANTI-ENUMERATION-v1.0-2026-01-05";
+const CODE_VERSION = "LOGIN-FIX-v1.1-2026-02-18";
 
 // 🔑 Chaves para sessionStorage
 const STORAGE_KEYS = {
@@ -35,6 +35,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  
+  // 🆕 Ref para prevenir duplo submit
+  const isSubmittingRef = useRef(false);
   
   // 🆕 2FA State
   const [needs2FA, setNeeds2FA] = useState(false);
@@ -154,15 +157,25 @@ export default function Login() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    // 🆕 Previne duplo submit
+    if (isSubmittingRef.current || loading) {
+      console.log('⚠️ [Login] Submit já em andamento, ignorando...');
+      return;
+    }
+    
+    isSubmittingRef.current = true;
     setError("");
     setSuccess("");
 
     console.log('%c🔐 INICIANDO LOGIN', 'background: #9C27B0; color: white; font-size: 18px; padding: 8px;');
+    console.log('📝 Formulário submetido');
 
     // 🔒 Verifica se CSRF token está disponível
     if (!csrfToken) {
       console.error('❌ [Login] CSRF token não disponível!');
       setError("Erro de segurança. Recarregue a página e tente novamente.");
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -175,6 +188,7 @@ export default function Login() {
     // Validação básica
     if (!sanitizedEmail || !sanitizedPassword) {
       setError("Por favor, preencha todos os campos");
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -182,6 +196,7 @@ export default function Login() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(sanitizedEmail)) {
       setError("Por favor, insira um email válido");
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -194,6 +209,7 @@ export default function Login() {
       const timeRemaining = formatTimeRemaining(initialStatus.blockedUntil);
       setRateLimitMessage(`Muitas tentativas. Tente novamente em ${timeRemaining}`);
       setError(`Muitas tentativas de login. Tente novamente em ${timeRemaining}`);
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -339,6 +355,7 @@ export default function Login() {
       }
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
       console.log('%c🏁 PROCESSO DE LOGIN FINALIZADO', 'background: #607D8B; color: white; font-size: 16px; padding: 5px;');
     }
   }

@@ -23,6 +23,7 @@ import PaymentCancel from './pages/PaymentCancel';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
+import { supabase } from './lib/supabase';
 import type { User } from './lib/supabase-auth-v2';
 
 // Componente wrapper para gerenciar o timeout de sessão
@@ -60,15 +61,37 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verifica o usuário inicial
     checkUser();
+
+    // Escuta mudanças de autenticação do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 [App] Auth state changed:', event);
+      
+      if (event === 'SIGNED_OUT' || !session) {
+        console.log('👋 [App] Usuário deslogado, limpando estado...');
+        setUser(null);
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('✅ [App] Usuário logado, atualizando estado...');
+        await checkUser();
+      }
+    });
+
+    // Cleanup da subscription
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function checkUser() {
     try {
+      console.log('🔍 [App] Verificando usuário atual...');
       const currentUser = await getCurrentUser();
+      console.log('👤 [App] Usuário:', currentUser ? currentUser.email : 'não autenticado');
       setUser(currentUser);
     } catch (error) {
-      console.error('Erro ao verificar usuário:', error);
+      console.error('❌ [App] Erro ao verificar usuário:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -118,19 +141,19 @@ function App() {
           {/* Rotas protegidas */}
           <Route
             path="/dashboard"
-            element={user ? <Dashboard /> : <Navigate to="/login-v2" />}
+            element={user ? <Dashboard /> : <Navigate to="/login" />}
           />
           <Route
             path="/sign"
-            element={user ? <SignContent /> : <Navigate to="/login-v2" />}
+            element={user ? <SignContent /> : <Navigate to="/login" />}
           />
           <Route
             path="/profile"
-            element={user ? <Profile /> : <Navigate to="/login-v2" />}
+            element={user ? <Profile /> : <Navigate to="/login" />}
           />
           <Route
             path="/settings"
-            element={user ? <Settings /> : <Navigate to="/login-v2" />}
+            element={user ? <Settings /> : <Navigate to="/login" />}
           />
           <Route path="/certificate" element={<Certificate />} />
           <Route path="/c" element={<Certificate />} />
