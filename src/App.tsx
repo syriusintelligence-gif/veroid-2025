@@ -20,8 +20,40 @@ import CreateAdminAccount from './pages/CreateAdminAccount';
 import Pricing from './pages/Pricing';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
+import SessionTimeoutWarning from './components/SessionTimeoutWarning';
+import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
 import type { User } from './lib/supabase-auth-v2';
+
+// Componente wrapper para gerenciar o timeout de sessão
+function SessionTimeoutManager({ children, isAuthenticated }: { children: React.ReactNode; isAuthenticated: boolean }) {
+  const {
+    isWarningVisible,
+    remainingSeconds,
+    handleContinue,
+    handleLogout,
+  } = useSessionTimeout({
+    enabled: isAuthenticated, // Só ativa o timeout se o usuário estiver autenticado
+    onTimeout: () => {
+      console.log('🔒 Sessão expirada por inatividade');
+    },
+    onWarning: () => {
+      console.log('⚠️ Aviso de timeout de sessão exibido');
+    },
+  });
+
+  return (
+    <>
+      {children}
+      <SessionTimeoutWarning
+        isOpen={isWarningVisible}
+        remainingSeconds={remainingSeconds}
+        onContinue={handleContinue}
+        onLogout={handleLogout}
+      />
+    </>
+  );
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -52,72 +84,74 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        
-        {/* Rotas de autenticação antigas (mantidas para compatibilidade) */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/cadastro" element={<Cadastro />} />
-        
-        {/* 📧 Página de confirmação de email após cadastro */}
-        <Route path="/email-confirmation" element={<EmailConfirmation />} />
-        
-        {/* Rotas de autenticação V2 (novas e melhoradas) */}
-        <Route path="/login-v2" element={<LoginV2 />} />
-        
-        {/* Recuperação de senha */}
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        
-        {/* Admin Setup - Página para resetar senha do admin */}
-        <Route path="/admin-setup" element={<AdminSetup />} />
-        
-        {/* Criar conta admin */}
-        <Route path="/create-admin" element={<CreateAdminAccount />} />
-        
-        {/* Página de Preços/Planos */}
-        <Route path="/pricing" element={<Pricing />} />
-        
-        {/* 🆕 Rotas de Pagamento - Públicas */}
-        <Route path="/payment/success" element={<PaymentSuccess />} />
-        <Route path="/payment/cancel" element={<PaymentCancel />} />
-        
-        {/* Rotas protegidas */}
-        <Route
-          path="/dashboard"
-          element={user ? <Dashboard /> : <Navigate to="/login-v2" />}
-        />
-        <Route
-          path="/sign"
-          element={user ? <SignContent /> : <Navigate to="/login-v2" />}
-        />
-        <Route
-          path="/profile"
-          element={user ? <Profile /> : <Navigate to="/login-v2" />}
-        />
-        <Route
-          path="/settings"
-          element={user ? <Settings /> : <Navigate to="/login-v2" />}
-        />
-        <Route path="/certificate" element={<Certificate />} />
-        <Route path="/c" element={<Certificate />} />
-        <Route path="/verify" element={<Verify />} />
-        <Route
-          path="/admin/users"
-          element={user?.isAdmin ? <AdminUsers /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/admin/dashboard"
-          element={user?.isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/admin"
-          element={user?.isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" />}
-        />
-        
-        {/* Rota padrão */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <SessionTimeoutManager isAuthenticated={!!user}>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          
+          {/* Rotas de autenticação antigas (mantidas para compatibilidade) */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          
+          {/* 📧 Página de confirmação de email após cadastro */}
+          <Route path="/email-confirmation" element={<EmailConfirmation />} />
+          
+          {/* Rotas de autenticação V2 (novas e melhoradas) */}
+          <Route path="/login-v2" element={<LoginV2 />} />
+          
+          {/* Recuperação de senha */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Admin Setup - Página para resetar senha do admin */}
+          <Route path="/admin-setup" element={<AdminSetup />} />
+          
+          {/* Criar conta admin */}
+          <Route path="/create-admin" element={<CreateAdminAccount />} />
+          
+          {/* Página de Preços/Planos */}
+          <Route path="/pricing" element={<Pricing />} />
+          
+          {/* 🆕 Rotas de Pagamento - Públicas */}
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/cancel" element={<PaymentCancel />} />
+          
+          {/* Rotas protegidas */}
+          <Route
+            path="/dashboard"
+            element={user ? <Dashboard /> : <Navigate to="/login-v2" />}
+          />
+          <Route
+            path="/sign"
+            element={user ? <SignContent /> : <Navigate to="/login-v2" />}
+          />
+          <Route
+            path="/profile"
+            element={user ? <Profile /> : <Navigate to="/login-v2" />}
+          />
+          <Route
+            path="/settings"
+            element={user ? <Settings /> : <Navigate to="/login-v2" />}
+          />
+          <Route path="/certificate" element={<Certificate />} />
+          <Route path="/c" element={<Certificate />} />
+          <Route path="/verify" element={<Verify />} />
+          <Route
+            path="/admin/users"
+            element={user?.isAdmin ? <AdminUsers /> : <Navigate to="/dashboard" />}
+          />
+          <Route
+            path="/admin/dashboard"
+            element={user?.isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" />}
+          />
+          <Route
+            path="/admin"
+            element={user?.isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" />}
+          />
+          
+          {/* Rota padrão */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </SessionTimeoutManager>
     </Router>
   );
 }
