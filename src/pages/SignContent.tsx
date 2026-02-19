@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
@@ -46,10 +47,11 @@ import { sanitizeFileName } from '@/lib/input-sanitizer';
 // 🆕 FASE 2: INTEGRAÇÃO COM SUPABASE STORAGE
 // ========================================
 import { 
-  uploadToTempBucket, 
   moveToSignedDocuments,
   deleteFile
 } from '@/lib/services/storage-service';
+// 🆕 UPLOAD COM PROGRESSO
+import { uploadToTempBucketWithProgress } from '@/lib/services/storage-service-with-progress';
 // ========================================
 // FIM: INTEGRAÇÃO COM SUPABASE STORAGE
 // ========================================
@@ -140,6 +142,8 @@ export default function SignContent() {
   // ========================================
   const [tempFilePath, setTempFilePath] = useState<string | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  // 🆕 PROGRESSO DO UPLOAD (0-100)
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   // ========================================
   // FIM: ESTADOS PARA STORAGE
   // ========================================
@@ -327,14 +331,24 @@ export default function SignContent() {
     setUploadedFile(file);
     
     // ========================================
-    // 🆕 FASE 2: UPLOAD PARA SUPABASE STORAGE
+    // 🆕 FASE 2: UPLOAD PARA SUPABASE STORAGE (COM PROGRESSO)
     // ========================================
     if (currentUser) {
       setIsUploadingFile(true);
+      setUploadProgress(0); // 🆕 Reseta progresso
       try {
         console.log('📤 [STORAGE] Iniciando upload para temp-uploads...');
         
-        const uploadResult = await uploadToTempBucket(file, currentUser.id);
+        // 🆕 Usa função com callback de progresso
+        const uploadResult = await uploadToTempBucketWithProgress(
+          file, 
+          currentUser.id,
+          {
+            onProgress: (progress) => {
+              setUploadProgress(progress);
+            }
+          }
+        );
         
         if (!uploadResult.success) {
           throw new Error(uploadResult.error || 'Erro ao fazer upload');
@@ -355,6 +369,7 @@ export default function SignContent() {
         // Limpa estados em caso de erro
         setUploadedFile(null);
         setTempFilePath(null);
+        setUploadProgress(0); // 🆕 Reseta progresso em caso de erro
         e.target.value = '';
         return;
       } finally {
@@ -532,6 +547,7 @@ export default function SignContent() {
     setFileValidationError('');
     setVideoThumbnail(null);
     setTempFilePath(null); // 🆕 Limpa path temporário
+    setUploadProgress(0); // 🆕 Reseta progresso do upload
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -801,6 +817,7 @@ ${content}
     setFileValidationError('');
     setVideoThumbnail(null);
     setTempFilePath(null); // 🆕 Limpa path temporário
+    setUploadProgress(0); // 🆕 Reseta progresso do upload
   };
   
   if (isLoading) {
@@ -956,13 +973,23 @@ ${content}
                 </Alert>
               )}
               
-              {/* 🆕 FASE 2: Alerta de upload em progresso */}
+              {/* 🆕 FASE 2: Alerta de upload em progresso COM BARRA DE PROGRESSO */}
               {isUploadingFile && (
                 <Alert className="border-blue-500 bg-blue-50">
-                  <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                  <AlertDescription className="text-blue-800">
-                    <strong>Fazendo upload do arquivo...</strong> Aguarde enquanto o arquivo é enviado para o servidor.
-                  </AlertDescription>
+                  <div className="w-full">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin flex-shrink-0" />
+                      <AlertDescription className="text-blue-800">
+                        <strong>Fazendo upload do arquivo...</strong> {uploadProgress}%
+                      </AlertDescription>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2 w-full" />
+                    <p className="text-xs text-blue-600 mt-1">
+                      {uploadProgress < 100 
+                        ? 'Aguarde enquanto o arquivo é enviado para o servidor...' 
+                        : 'Finalizando upload...'}
+                    </p>
+                  </div>
                 </Alert>
               )}
               
