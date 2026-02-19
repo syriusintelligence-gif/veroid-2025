@@ -1190,13 +1190,15 @@ ${content}
                   id="content"
                   placeholder="Digite informações adicionais, descrição, legenda, ou o texto completo do conteúdo..."
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={(e) => setContent(e.target.value.slice(0, 500))}
+                  maxLength={500}
                   rows={8}
                   className="resize-none"
                   disabled={isBlocked || isProcessingVideo || isUploadingFile}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {content.length} caracteres
+                <p className={`text-xs ${content.length >= 450 ? (content.length >= 500 ? 'text-red-500 font-medium' : 'text-yellow-600') : 'text-muted-foreground'}`}>
+                  {content.length}/500 caracteres
+                  {content.length >= 500 && ' (limite atingido)'}
                 </p>
               </div>
               
