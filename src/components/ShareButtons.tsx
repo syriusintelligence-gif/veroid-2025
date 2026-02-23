@@ -101,7 +101,7 @@ export default function ShareButtons({
             Compartilhar
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 shadow-lg">
           <DropdownMenuLabel>Compartilhar Certificado</DropdownMenuLabel>
           <DropdownMenuSeparator />
           
