@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail, Send } from 'lucide-react';
+import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
@@ -582,56 +582,25 @@ export default function Index() {
         </div>
       </section>
       
-      {/* Contact Section */}
-      <section className="relative bg-gradient-to-b from-slate-950 to-slate-900 py-12 md:py-16 overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
-        
-        <div className="relative z-10 container mx-auto px-4">
+      {/* Contact Section - Compact */}
+      <section className="relative bg-slate-900/50 py-4 md:py-5 border-t border-slate-800/50">
+        <div className="container mx-auto px-4">
           <motion.div 
-            className="max-w-2xl mx-auto text-center"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.25, 0.1, 0.25, 1] }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.5 }}
             viewport={{ once: true }}
           >
-            <motion.div
-              className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl mb-6 shadow-lg shadow-cyan-500/30"
-              whileHover={shouldReduceMotion ? {} : { rotate: 360, scale: 1.1 }}
-              transition={{ duration: 0.6 }}
-            >
-              <Mail className="h-8 w-8 md:h-10 md:w-10 text-white" />
-            </motion.div>
-            
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-4 tracking-tight">
-              <span className="text-white">Entre em </span>
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Contato</span>
-            </h2>
-            
-            <p className="text-base md:text-lg text-gray-400 mb-6">
-              Tem dúvidas ou precisa de ajuda? Nossa equipe está pronta para atendê-lo.
-            </p>
-            
+            <span className="text-sm text-gray-400">Entre em contato:</span>
             <motion.a
               href="mailto:contato@veroid.com.br"
-              className="inline-flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-cyan-500/30 rounded-xl text-lg md:text-xl font-semibold text-cyan-400 hover:text-cyan-300 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300 group"
-              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -4 }}
-              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+              className="inline-flex items-center gap-2 text-sm md:text-base font-medium text-cyan-400 hover:text-cyan-300 transition-colors duration-200"
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
             >
-              <Mail className="h-5 w-5 md:h-6 md:w-6 group-hover:animate-pulse" />
+              <Mail className="h-4 w-4" />
               contato@veroid.com.br
-              <motion.div
-                className="ml-1"
-                whileHover={shouldReduceMotion ? {} : { x: 4 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Send className="h-4 w-4 md:h-5 md:w-5 opacity-60 group-hover:opacity-100 transition-opacity" />
-              </motion.div>
             </motion.a>
-            
-            <p className="text-sm text-gray-500 mt-4">
-              Respondemos em até 24 horas úteis
-            </p>
           </motion.div>
         </div>
       </section>
