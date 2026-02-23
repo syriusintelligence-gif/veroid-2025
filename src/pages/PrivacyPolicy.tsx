@@ -190,8 +190,8 @@ export default function PrivacyPolicy() {
               </ul>
               <p className="mt-4">
                 Para exercer qualquer um desses direitos, entre em contato conosco através do e-mail:{" "}
-                <a href="mailto:privacy@veroid.com" className="text-blue-600 hover:underline font-semibold">
-                  privacy@veroid.com
+                <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline font-semibold">
+                  contato@veroid.com.br
                 </a>
               </p>
             </CardContent>
@@ -249,8 +249,7 @@ export default function PrivacyPolicy() {
                 Se você tiver dúvidas, preocupações ou solicitações relacionadas a esta Política de Privacidade, entre em contato conosco:
               </p>
               <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                <p><strong>E-mail:</strong> <a href="mailto:privacy@veroid.com" className="text-blue-600 hover:underline">privacy@veroid.com</a></p>
-                <p><strong>E-mail do Encarregado de Dados (DPO):</strong> <a href="mailto:dpo@veroid.com" className="text-blue-600 hover:underline">dpo@veroid.com</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline">contato@veroid.com.br</a></p>
               </div>
             </CardContent>
           </Card>

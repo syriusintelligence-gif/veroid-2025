@@ -290,8 +290,7 @@ export default function Terms() {
                 Se você tiver dúvidas sobre estes Termos de Uso, entre em contato conosco:
               </p>
               <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                <p><strong>E-mail de Suporte:</strong> <a href="mailto:support@veroid.com" className="text-blue-600 hover:underline">support@veroid.com</a></p>
-                <p><strong>E-mail Jurídico:</strong> <a href="mailto:legal@veroid.com" className="text-blue-600 hover:underline">legal@veroid.com</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline">contato@veroid.com.br</a></p>
               </div>
             </CardContent>
           </Card>
@@ -312,7 +311,7 @@ export default function Terms() {
             Voltar para o Vero iD
           </Button>
           <p className="text-sm text-gray-600">
-            Tem dúvidas? <a href="mailto:support@veroid.com" className="text-blue-600 hover:underline">Entre em contato conosco</a>
+            Tem dúvidas? <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline">Entre em contato conosco</a>
           </p>
         </div>
       </main>
