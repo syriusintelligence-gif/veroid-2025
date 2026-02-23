@@ -583,43 +583,82 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        {/* Quick Actions */}
+        {/* Quick Actions - Ações Principais em Destaque */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-5 w-5 text-blue-600" />
-                Assinar Conteúdo
-              </CardTitle>
-              <CardDescription>
-                Adicione uma assinatura digital ao seu conteúdo
-              </CardDescription>
+          {/* Card Assinar Conteúdo - Destaque Principal */}
+          <Card 
+            className="relative overflow-hidden border-2 border-blue-500 bg-gradient-to-br from-blue-50 via-white to-blue-100 hover:shadow-2xl hover:shadow-blue-200 hover:border-blue-600 transition-all duration-300 cursor-pointer group" 
+            onClick={() => navigate('/sign')}
+          >
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-300/10 to-cyan-300/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-150 transition-transform duration-500" />
+            
+            <CardHeader className="relative z-10 pb-2">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <FileSignature className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-bold text-blue-900 group-hover:text-blue-700 transition-colors">
+                    Assinar Conteúdo
+                  </CardTitle>
+                  <CardDescription className="text-blue-600/80 font-medium">
+                    Proteja seu conteúdo digital
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10 pt-0">
+              <p className="text-sm text-gray-600 mb-4">
+                Adicione uma assinatura digital criptografada ao seu conteúdo para comprovar autoria e autenticidade.
+              </p>
               <Button 
-                className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 h-12 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300" 
                 disabled={!keyPair}
               >
-                {keyPair ? 'Criar Nova Assinatura' : 'Gere suas chaves primeiro'}
+                {keyPair ? (
+                  <>
+                    <FileSignature className="mr-2 h-5 w-5" />
+                    Criar Nova Assinatura
+                  </>
+                ) : 'Gere suas chaves primeiro'}
               </Button>
             </CardContent>
           </Card>
           
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/verify')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                Verificar Conteúdo
-              </CardTitle>
-              <CardDescription>
-                Verifique a autenticidade de um conteúdo assinado
-              </CardDescription>
+          {/* Card Verificar Conteúdo - Destaque Secundário */}
+          <Card 
+            className="relative overflow-hidden border-2 border-green-500 bg-gradient-to-br from-green-50 via-white to-emerald-100 hover:shadow-2xl hover:shadow-green-200 hover:border-green-600 transition-all duration-300 cursor-pointer group" 
+            onClick={() => navigate('/verify')}
+          >
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-green-300/10 to-teal-300/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-150 transition-transform duration-500" />
+            
+            <CardHeader className="relative z-10 pb-2">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-gradient-to-br from-green-500 to-green-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                  <CheckCircle2 className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-bold text-green-900 group-hover:text-green-700 transition-colors">
+                    Verificar Conteúdo
+                  </CardTitle>
+                  <CardDescription className="text-green-600/80 font-medium">
+                    Confirme a autenticidade
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10 pt-0">
+              <p className="text-sm text-gray-600 mb-4">
+                Verifique se um conteúdo é autêntico usando o código de verificação ou QR Code do certificado.
+              </p>
               <Button 
-                variant="outline" 
-                className="w-full border-2 border-gray-300 hover:scale-105 hover:shadow-lg transition-all duration-300"
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 h-12 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
               >
+                <CheckCircle2 className="mr-2 h-5 w-5" />
                 Verificar Assinatura
               </Button>
             </CardContent>
