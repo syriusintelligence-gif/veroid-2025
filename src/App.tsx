@@ -21,6 +21,8 @@ import CreateAdminAccount from './pages/CreateAdminAccount';
 import Pricing from './pages/Pricing';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Terms from './pages/Terms';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
@@ -176,6 +178,10 @@ function App() {
           {/* 🆕 Rotas de Pagamento - Públicas */}
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel" element={<PaymentCancel />} />
+          
+          {/* Páginas Institucionais */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<Terms />} />
           
           {/* Rotas protegidas */}
           <Route
