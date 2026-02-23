@@ -582,29 +582,6 @@ export default function Index() {
         </div>
       </section>
       
-      {/* Contact Section - Compact */}
-      <section className="relative bg-slate-900/50 py-4 md:py-5 border-t border-slate-800/50">
-        <div className="container mx-auto px-4">
-          <motion.div 
-            className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: shouldReduceMotion ? 0.01 : 0.5 }}
-            viewport={{ once: true }}
-          >
-            <span className="text-sm text-gray-400">Entre em contato:</span>
-            <motion.a
-              href="mailto:contato@veroid.com.br"
-              className="inline-flex items-center gap-2 text-sm md:text-base font-medium text-cyan-400 hover:text-cyan-300 transition-colors duration-200"
-              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
-            >
-              <Mail className="h-4 w-4" />
-              contato@veroid.com.br
-            </motion.a>
-          </motion.div>
-        </div>
-      </section>
-
       {/* Footer */}
       <motion.footer 
         className="glass-header py-6 md:py-8"
@@ -616,7 +593,7 @@ export default function Index() {
         <div className="container mx-auto px-4 text-center text-gray-400">
           <p className="font-semibold text-white text-sm md:text-base">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
           <p className="text-xs md:text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
-          <div className="flex justify-center gap-4 mt-4 text-xs md:text-sm">
+          <div className="flex justify-center items-center gap-4 mt-4 text-xs md:text-sm flex-wrap">
             <button 
               onClick={() => navigate('/privacy')} 
               className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
@@ -630,6 +607,14 @@ export default function Index() {
             >
               Termos de Uso
             </button>
+            <span className="text-gray-600">•</span>
+            <a 
+              href="mailto:contato@veroid.com.br"
+              className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              contato@veroid.com.br
+            </a>
           </div>
         </div>
       </motion.footer>
