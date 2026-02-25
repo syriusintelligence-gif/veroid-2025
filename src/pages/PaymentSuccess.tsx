@@ -230,8 +230,15 @@ export default function PaymentSuccess() {
       // Adicionar créditos extras
       const currentOverage = subscription.overage_signatures_available || 0;
       const newOverage = currentOverage + packageInfo.credits;
-      const expirationDate = new Date();
+      
+      // Pacote avulso vale 30 dias a partir da data de compra (independente do plano)
+      // Usar a data atual como data de compra (momento em que o usuário chegou nesta página)
+      const purchaseDate = new Date();
+      const expirationDate = new Date(purchaseDate);
       expirationDate.setDate(expirationDate.getDate() + 30);
+
+      console.log('📅 [PaymentSuccess] Data de compra:', purchaseDate.toISOString());
+      console.log('📅 [PaymentSuccess] Data de expiração do pacote:', expirationDate.toISOString());
 
       const updateData = {
         overage_signatures_available: newOverage,
@@ -240,7 +247,7 @@ export default function PaymentSuccess() {
           last_package_purchase: {
             package_name: packageInfo.name,
             credits_added: packageInfo.credits,
-            purchase_date: new Date().toISOString(),
+            purchase_date: purchaseDate.toISOString(),
             expiration_date: expirationDate.toISOString(),
             stripe_session_id: sessionId,
             stripe_price_id: priceId,

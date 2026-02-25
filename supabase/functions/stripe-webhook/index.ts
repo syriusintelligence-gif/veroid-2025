@@ -316,8 +316,20 @@ async function handlePackageCheckout(session: Record<string, unknown>, userId: s
   // Adicionar créditos extras à assinatura
   const currentOverage = subscription.overage_signatures_available || 0;
   const newOverageCredits = currentOverage + packageInfo.credits;
-  const expirationDate = new Date();
+  
+  // Usar a data de criação do checkout session (momento exato da compra) do Stripe
+  // session.created é um timestamp Unix em segundos
+  const sessionCreatedTimestamp = session.created as number;
+  const purchaseDate = sessionCreatedTimestamp 
+    ? new Date(sessionCreatedTimestamp * 1000) 
+    : new Date();
+  
+  // Pacote avulso vale 30 dias a partir da data de compra (independente do plano)
+  const expirationDate = new Date(purchaseDate);
   expirationDate.setDate(expirationDate.getDate() + 30);
+  
+  console.log('📅 [handlePackageCheckout] Data de compra (session.created):', purchaseDate.toISOString());
+  console.log('📅 [handlePackageCheckout] Data de expiração do pacote:', expirationDate.toISOString());
 
   const updateData = {
     overage_signatures_available: newOverageCredits,
@@ -326,7 +338,7 @@ async function handlePackageCheckout(session: Record<string, unknown>, userId: s
       last_package_purchase: {
         package_name: packageInfo.name,
         credits_added: packageInfo.credits,
-        purchase_date: new Date().toISOString(),
+        purchase_date: purchaseDate.toISOString(),
         expiration_date: expirationDate.toISOString(),
         stripe_session_id: session.id,
         stripe_price_id: priceId,
