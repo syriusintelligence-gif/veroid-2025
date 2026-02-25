@@ -22,39 +22,39 @@ interface Plan {
 
 const subscriptionPlans: Plan[] = [
   {
-    id: 'vero-id-free',
+    id: 'free',
     name: 'Vero iD Free',
-    priceId: 'price_1Sx4nTJbBunj3EyEZLqvzqGk',
+    priceId: '',
     price: 'Grátis',
     description: 'Plano gratuito para começar',
-    validations: '10 autenticações únicas',
+    validations: '5 autenticações por mês',
     type: 'subscription'
   },
   {
-    id: 'vero-id-creator',
+    id: 'creator',
     name: 'Vero iD Creator',
-    priceId: 'price_1Sx54aJbBunj3EyEF078nMOQ',
+    priceId: 'price_1T4gcAJc1p4mhrHNwOvzI8D8',
     price: 'R$ 29,90',
     pricePerMonth: '/mês',
     description: 'Ideal para criadores de conteúdo',
     validations: '50 autenticações de conteúdo por mês',
-    type: 'subscription'
-  },
-  {
-    id: 'vero-id-creator-pro',
-    name: 'Vero iD Creator Pro',
-    priceId: 'price_1Sx57WJbBunj3EyEqWqlhhiV',
-    price: 'R$ 79,90',
-    pricePerMonth: '/mês',
-    description: 'Para profissionais que precisam de mais',
-    validations: '150 autenticações de conteúdo por mês',
     popular: true,
     type: 'subscription'
   },
   {
-    id: 'vero-id-creator-elite',
+    id: 'creator-pro',
+    name: 'Vero iD Creator Pro',
+    priceId: 'price_1T4gijJc1p4mhrHNW3h3Ajzl',
+    price: 'R$ 79,90',
+    pricePerMonth: '/mês',
+    description: 'Para profissionais que precisam de mais',
+    validations: '150 autenticações de conteúdo por mês',
+    type: 'subscription'
+  },
+  {
+    id: 'creator-elite',
     name: 'Vero iD Creator Elite',
-    priceId: 'price_1Sx5FPJbBunj3EyE26tqLogH',
+    priceId: 'price_1T4gmTJc1p4mhrHNuHS9xGN2',
     price: 'R$ 139,90',
     pricePerMonth: '/mês',
     description: 'O melhor para empresas e influencers',
@@ -65,18 +65,18 @@ const subscriptionPlans: Plan[] = [
 
 const oneTimePlans: Plan[] = [
   {
-    id: 'pacote-10',
+    id: 'package-10',
     name: 'Pacote 10',
-    priceId: 'price_1Sx5OqJbBunj3EyEQQt7S0Pu',
+    priceId: 'price_1T4gpIJc1p4mhrHNJL1tt3UY',
     price: 'R$ 9,90',
     description: 'Compra única',
     validations: '10 autenticações avulsas (válido por 30 dias)',
     type: 'one-time'
   },
   {
-    id: 'pacote-20',
+    id: 'package-20',
     name: 'Pacote 20',
-    priceId: 'price_1Sx5ROJbBunj3EyECeFX4XRT',
+    priceId: 'price_1T4grUJc1p4mhrHNFJAl6Y4T',
     price: 'R$ 19,90',
     description: 'Compra única',
     validations: '20 autenticações avulsas (válido por 30 dias)',
@@ -84,9 +84,9 @@ const oneTimePlans: Plan[] = [
     type: 'one-time'
   },
   {
-    id: 'pacote-50',
+    id: 'package-50',
     name: 'Pacote 50',
-    priceId: 'price_1Sx5UEJbBunj3EyEBTZfHZGs',
+    priceId: 'price_1T4gu0Jc1p4mhrHNg8LhOIrJ',
     price: 'R$ 49,90',
     description: 'Compra única',
     validations: '50 autenticações avulsas (válido por 30 dias)',
@@ -134,7 +134,7 @@ export default function Pricing() {
     }
 
     // Plano Free não precisa de checkout
-    if (plan.id === 'vero-id-free') {
+    if (plan.id === 'free') {
       try {
         setLoading(plan.id);
         
@@ -221,7 +221,7 @@ export default function Pricing() {
   };
 
   // Filtrar planos para exibição (remover Free)
-  const displaySubscriptionPlans = subscriptionPlans.filter(plan => plan.id !== 'vero-id-free');
+  const displaySubscriptionPlans = subscriptionPlans.filter(plan => plan.id !== 'free');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
