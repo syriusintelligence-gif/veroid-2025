@@ -8,48 +8,19 @@ import { getCurrentUser } from '@/lib/supabase-auth-v2';
 import type { User } from '@/lib/supabase-auth-v2';
 import { supabase } from '@/lib/supabase';
 
-// 🆕 Mapeamento de Price IDs para PLANOS DE ASSINATURA
+// 🆕 Mapeamento de Price IDs para PLANOS DE ASSINATURA - PRODUÇÃO
 const PRICE_TO_PLAN: Record<string, { plan_type: string; signatures_limit: number; name: string }> = {
-  // Planos de assinatura
-  [import.meta.env.VITE_STRIPE_PRICE_CREATOR || 'price_1Sx54aJbBunj3EyEF078nMOQ']: {
-    plan_type: 'creator',
-    signatures_limit: 50,
-    name: 'Creator',
-  },
-  [import.meta.env.VITE_STRIPE_PRICE_CREATOR_PRO || 'price_1Sx57WJbBunj3EyEqWqlhhiV']: {
-    plan_type: 'creator_pro',
-    signatures_limit: 150,
-    name: 'Creator Pro',
-  },
-  [import.meta.env.VITE_STRIPE_PRICE_CREATOR_ELITE || 'price_1Sx5FPJbBunj3EyE26tqLogH']: {
-    plan_type: 'creator_elite',
-    signatures_limit: 350,
-    name: 'Creator Elite',
-  },
-  // Fallback direto com IDs
-  'price_1Sx54aJbBunj3EyEF078nMOQ': { plan_type: 'creator', signatures_limit: 50, name: 'Creator' },
-  'price_1Sx57WJbBunj3EyEqWqlhhiV': { plan_type: 'creator_pro', signatures_limit: 150, name: 'Creator Pro' },
-  'price_1Sx5FPJbBunj3EyE26tqLogH': { plan_type: 'creator_elite', signatures_limit: 350, name: 'Creator Elite' },
+  // Planos de assinatura - PRODUÇÃO
+  'price_1T4gcAJc1p4mhrHNwOvzI8D8': { plan_type: 'creator', signatures_limit: 50, name: 'Creator' },
+  'price_1T4gijJc1p4mhrHNW3h3Ajzl': { plan_type: 'creator_pro', signatures_limit: 150, name: 'Creator Pro' },
+  'price_1T4gmTJc1p4mhrHNuHS9xGN2': { plan_type: 'creator_elite', signatures_limit: 350, name: 'Creator Elite' },
 };
 
-// Mapeamento de Price IDs para PACOTES AVULSOS
+// Mapeamento de Price IDs para PACOTES AVULSOS - PRODUÇÃO
 const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_10 || 'price_1Sx5OqJbBunj3EyEQQt7S0Pu']: { 
-    credits: 10, 
-    name: 'Pacote 10' 
-  },
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_20 || 'price_1Sx5ROJbBunj3EyECeFX4XRT']: { 
-    credits: 20, 
-    name: 'Pacote 20' 
-  },
-  [import.meta.env.VITE_STRIPE_PRICE_PACKAGE_50 || 'price_1Sx5UEJbBunj3EyEBTZfHZGs']: { 
-    credits: 50, 
-    name: 'Pacote 50' 
-  },
-  // Fallback direto
-  'price_1Sx5OqJbBunj3EyEQQt7S0Pu': { credits: 10, name: 'Pacote 10' },
-  'price_1Sx5ROJbBunj3EyECeFX4XRT': { credits: 20, name: 'Pacote 20' },
-  'price_1Sx5UEJbBunj3EyEBTZfHZGs': { credits: 50, name: 'Pacote 50' },
+  'price_1T4gpIJc1p4mhrHNJL1tt3UY': { credits: 10, name: 'Pacote 10' },
+  'price_1T4grUJc1p4mhrHNFJAl6Y4T': { credits: 20, name: 'Pacote 20' },
+  'price_1T4gu0Jc1p4mhrHNg8LhOIrJ': { credits: 50, name: 'Pacote 50' },
 };
 
 interface SubscriptionMetadata {

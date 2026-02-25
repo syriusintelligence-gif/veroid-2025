@@ -1,201 +1,177 @@
 /**
  * Stripe Plans Configuration
  * 
- * This file contains all available plans with their Stripe Price IDs.
- * Price IDs are loaded from environment variables for security.
+ * This file defines all available pricing plans for the Vero iD platform.
+ * Plans are organized into two categories:
+ * 1. Subscription Plans (monthly recurring)
+ * 2. Overage Packages (one-time purchases)
  * 
- * IMPORTANT: Make sure all VITE_STRIPE_PRICE_ID_* variables are set in .env.local
+ * PRODUCTION Price IDs - Updated 2026-02-25
  */
 
-import { Plan, PlanType } from '@/types/stripe';
-
-/**
- * Get environment variable with fallback
- */
-const getEnvVar = (key: string): string => {
-  const value = import.meta.env[key];
-  if (!value) {
-    console.error(`Missing environment variable: ${key}`);
-    return '';
-  }
-  return value;
-};
+import { Plan } from '@/types/stripe';
 
 /**
- * All Available Plans
- * Includes monthly subscriptions and one-time overage packages
+ * Monthly Subscription Plans
+ * These plans provide recurring monthly credits for content authentication
  */
-export const PLANS: Plan[] = [
-  // FREE PLAN
+export const getSubscriptionPlans = (): Plan[] => [
   {
-    id: 'vero-id-free',
-    name: 'Vero iD Free',
-    description: 'Plano gratuito para começar',
+    id: 'free',
+    name: 'Vero iD - Free',
+    priceId: '', // Free plan has no Stripe price ID
     price: 0,
     currency: 'BRL',
     interval: 'month',
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_FREE'),
-    type: PlanType.FREE,
-    maxProfiles: 10, // 10 autenticações/mês
+    credits: 5,
     features: [
-      '10 autenticações de conteúdo por mês'
-    ]
+      '5 autenticações por mês',
+      'Verificação básica de conteúdo',
+      'Suporte por email',
+      'Armazenamento de 1GB',
+    ],
+    type: 'subscription',
+    popular: false,
   },
-
-  // CREATOR PLAN
   {
-    id: 'vero-id-creator',
-    name: 'Vero iD Creator',
-    description: 'Ideal para criadores de conteúdo',
+    id: 'creator',
+    name: 'Vero iD - Creator',
+    priceId: 'price_1T4gcAJc1p4mhrHNwOvzI8D8',
     price: 29.90,
     currency: 'BRL',
     interval: 'month',
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_CREATOR'),
-    type: PlanType.SUBSCRIPTION,
-    maxProfiles: 50, // 50 autenticações/mês
+    credits: 50,
     features: [
-      '50 autenticações de conteúdo por mês'
-    ]
+      '50 autenticações por mês',
+      'Verificação avançada',
+      'Suporte prioritário',
+      'Armazenamento de 5GB',
+      'Analytics básicos',
+    ],
+    type: 'subscription',
+    popular: true,
   },
-
-  // CREATOR PRO PLAN
   {
-    id: 'vero-id-creator-pro',
-    name: 'Vero iD Creator Pro',
-    description: 'Para profissionais que precisam de mais',
+    id: 'creator-pro',
+    name: 'Vero iD - Creator Pro',
+    priceId: 'price_1T4gijJc1p4mhrHNW3h3Ajzl',
     price: 79.90,
     currency: 'BRL',
     interval: 'month',
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_CREATOR_PRO'),
-    type: PlanType.SUBSCRIPTION,
-    popular: true,
-    maxProfiles: 150, // 150 autenticações/mês
+    credits: 150,
     features: [
-      '150 autenticações de conteúdo por mês'
-    ]
+      '150 autenticações por mês',
+      'Verificação premium',
+      'Suporte 24/7',
+      'Armazenamento de 20GB',
+      'Analytics avançados',
+      'API de integração',
+    ],
+    type: 'subscription',
+    popular: false,
   },
-
-  // CREATOR ELITE PLAN
   {
-    id: 'vero-id-creator-elite',
-    name: 'Vero iD Creator Elite',
-    description: 'O melhor para empresas e influencers',
+    id: 'creator-elite',
+    name: 'Vero iD - Creator Elite',
+    priceId: 'price_1T4gmTJc1p4mhrHNuHS9xGN2',
     price: 139.90,
     currency: 'BRL',
     interval: 'month',
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_CREATOR_ELITE'),
-    type: PlanType.SUBSCRIPTION,
-    maxProfiles: 350, // 350 autenticações/mês
+    credits: 350,
     features: [
-      '350 autenticações de conteúdo por mês'
-    ]
+      '350 autenticações por mês',
+      'Verificação enterprise',
+      'Suporte dedicado 24/7',
+      'Armazenamento ilimitado',
+      'Analytics completos',
+      'API ilimitada',
+      'White label',
+      'Gerente de conta',
+    ],
+    type: 'subscription',
+    popular: false,
   },
-
-  // OVERAGE PACKAGE 10
-  {
-    id: 'vero-id-pacote-10',
-    name: 'Pacote 10 Autenticações',
-    description: 'Compra avulsa de autenticações extras',
-    price: 9.90,
-    currency: 'BRL',
-    interval: null,
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_PACOTE_10'),
-    type: PlanType.PACKAGE,
-    maxProfiles: 10, // 10 autenticações avulsas
-    features: [
-      '10 autenticações de conteúdo',
-      'Válido por 30 dias'
-    ]
-  },
-
-  // OVERAGE PACKAGE 20
-  {
-    id: 'vero-id-pacote-20',
-    name: 'Pacote 20 Autenticações',
-    description: 'Compra avulsa de autenticações extras',
-    price: 19.90,
-    currency: 'BRL',
-    interval: null,
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_PACOTE_20'),
-    type: PlanType.PACKAGE,
-    maxProfiles: 20, // 20 autenticações avulsas
-    popular: true,
-    features: [
-      '20 autenticações de conteúdo',
-      'Válido por 30 dias'
-    ]
-  },
-
-  // OVERAGE PACKAGE 50
-  {
-    id: 'vero-id-pacote-50',
-    name: 'Pacote 50 Autenticações',
-    description: 'Compra avulsa de autenticações extras',
-    price: 49.90,
-    currency: 'BRL',
-    interval: null,
-    stripePriceId: getEnvVar('VITE_STRIPE_PRICE_ID_VERO_ID_PACOTE_50'),
-    type: PlanType.PACKAGE,
-    maxProfiles: 50, // 50 autenticações avulsas
-    features: [
-      '50 autenticações de conteúdo',
-      'Válido por 30 dias'
-    ]
-  }
 ];
 
 /**
- * Get plan by ID
+ * Overage Packages (One-time purchases)
+ * These packages provide additional credits that can be used alongside any subscription plan
+ * Valid for 30 days after purchase
+ */
+export const getPackagePlans = (): Plan[] => [
+  {
+    id: 'package-10',
+    name: 'Pacote 10',
+    priceId: 'price_1T4gpIJc1p4mhrHNJL1tt3UY',
+    price: 9.90,
+    currency: 'BRL',
+    interval: 'one_time',
+    credits: 10,
+    features: [
+      '10 autenticações extras',
+      'Válido por 30 dias',
+      'Pode ser usado com qualquer plano',
+      'Sem compromisso',
+    ],
+    type: 'package',
+    popular: false,
+  },
+  {
+    id: 'package-20',
+    name: 'Pacote 20',
+    priceId: 'price_1T4grUJc1p4mhrHNFJAl6Y4T',
+    price: 19.90,
+    currency: 'BRL',
+    interval: 'one_time',
+    credits: 20,
+    features: [
+      '20 autenticações extras',
+      'Válido por 30 dias',
+      'Pode ser usado com qualquer plano',
+      'Sem compromisso',
+      'Economia de 5%',
+    ],
+    type: 'package',
+    popular: true,
+  },
+  {
+    id: 'package-50',
+    name: 'Pacote 50',
+    priceId: 'price_1T4gu0Jc1p4mhrHNg8LhOIrJ',
+    price: 49.90,
+    currency: 'BRL',
+    interval: 'one_time',
+    credits: 50,
+    features: [
+      '50 autenticações extras',
+      'Válido por 30 dias',
+      'Pode ser usado com qualquer plano',
+      'Sem compromisso',
+      'Economia de 10%',
+    ],
+    type: 'package',
+    popular: false,
+  },
+];
+
+/**
+ * Get all plans (subscriptions + packages)
+ */
+export const getAllPlans = (): Plan[] => [
+  ...getSubscriptionPlans(),
+  ...getPackagePlans(),
+];
+
+/**
+ * Get a specific plan by ID
  */
 export const getPlanById = (planId: string): Plan | undefined => {
-  return PLANS.find(plan => plan.id === planId);
+  return getAllPlans().find(plan => plan.id === planId);
 };
 
 /**
- * Get plan by Stripe Price ID
+ * Get a specific plan by Stripe Price ID
  */
 export const getPlanByPriceId = (priceId: string): Plan | undefined => {
-  return PLANS.find(plan => plan.stripePriceId === priceId);
-};
-
-/**
- * Get subscription plans only
- */
-export const getSubscriptionPlans = (): Plan[] => {
-  return PLANS.filter(plan => 
-    plan.type === PlanType.SUBSCRIPTION || plan.type === PlanType.FREE
-  );
-};
-
-/**
- * Get overage packages only
- */
-export const getPackagePlans = (): Plan[] => {
-  return PLANS.filter(plan => plan.type === PlanType.PACKAGE);
-};
-
-/**
- * Format price for display
- */
-export const formatPrice = (price: number, currency: string = 'BRL'): string => {
-  if (price === 0) return 'Grátis';
-  
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: currency
-  }).format(price);
-};
-
-/**
- * Calculate cost per authentication
- */
-export const getCostPerAuthentication = (plan: Plan): string => {
-  if (plan.price === 0 || !plan.maxProfiles) return 'Grátis';
-  
-  const costPerAuth = plan.price / plan.maxProfiles;
-  
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: plan.currency
-  }).format(costPerAuth);
+  return getAllPlans().find(plan => plan.priceId === priceId);
 };
