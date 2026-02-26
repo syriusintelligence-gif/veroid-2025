@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle, XCircle, Eye, EyeOff, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -118,6 +119,9 @@ export default function Cadastro() {
   // 👁️ Estados para mostrar/ocultar senha
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // ✅ Estado para declaração de maioridade
+  const [ageDeclarationAccepted, setAgeDeclarationAccepted] = useState(false);
   
   // 🔐 SEGURANÇA: Hash do documento (usado internamente, sem exibição de status)
   const [documentoHash, setDocumentoHash] = useState<string>('');
@@ -442,6 +446,11 @@ export default function Cadastro() {
     
     if (!selfieUrl) {
       setError('Selfie é obrigatória');
+      return false;
+    }
+    
+    if (!ageDeclarationAccepted) {
+      setError('Você deve aceitar a declaração de maioridade para continuar');
       return false;
     }
     
@@ -905,6 +914,29 @@ export default function Cadastro() {
                     )}
                   </div>
                   
+                  {/* ✅ Declaração de Maioridade */}
+                  <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="ageDeclaration"
+                        checked={ageDeclarationAccepted}
+                        onCheckedChange={(checked) => setAgeDeclarationAccepted(checked === true)}
+                        className="mt-1"
+                      />
+                      <div className="space-y-2">
+                        <Label 
+                          htmlFor="ageDeclaration" 
+                          className="text-sm font-semibold text-amber-900 cursor-pointer"
+                        >
+                          Declaração do Usuário *
+                        </Label>
+                        <p className="text-xs text-amber-800 leading-relaxed">
+                          Declaro, sob as penas da lei, que sou maior de 18 (dezoito) anos e estou ciente de que é estritamente proibido publicar, compartilhar ou divulgar qualquer conteúdo que envolva menores de idade neste site. Comprometo‑me a não enviar, submeter ou disponibilizar imagens, vídeos, textos ou quaisquer materiais que exponham, explorem ou coloquem em risco a integridade física, psíquica ou moral de menores de 18 anos.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
@@ -916,6 +948,7 @@ export default function Cadastro() {
                     <Button 
                       onClick={handleNextStep} 
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                      disabled={!ageDeclarationAccepted}
                     >
                       Próximo
                     </Button>
