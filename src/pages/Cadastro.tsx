@@ -13,6 +13,7 @@ import {
   getCurrentUser,
   checkCpfCnpjExists,
   checkEmailExists,
+  AgeDeclarationData,
 } from '@/lib/supabase-auth';
 import { supabase } from '@/lib/supabase';
 import { isValidPassword } from '@/lib/password-validator';
@@ -541,13 +542,22 @@ export default function Cadastro() {
         email: sanitizedData.email,
       });
       
+      // Prepara dados de compliance da declaração de maioridade
+      const ageDeclaration: AgeDeclarationData = {
+        accepted: ageDeclarationAccepted,
+        userAgent: navigator.userAgent,
+      };
+      
+      console.log('📋 Declaração de maioridade:', ageDeclaration.accepted ? 'ACEITA' : 'NÃO ACEITA');
+      
       const result = await registerUser(
         {
           ...sanitizedData,
           documentoUrl,
           selfieUrl,
         },
-        senha
+        senha,
+        ageDeclaration
       );
       
       if (!result.success) {

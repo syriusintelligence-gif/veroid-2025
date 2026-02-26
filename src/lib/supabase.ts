@@ -65,6 +65,11 @@ export interface Database {
           is_admin: boolean;
           blocked: boolean;
           social_links: SocialLinks | null;
+          // Campos de Declaração de Maioridade (Compliance)
+          age_declaration_accepted: boolean;
+          age_declaration_accepted_at: string | null;
+          age_declaration_ip: string | null;
+          age_declaration_user_agent: string | null;
         };
         Insert: {
           id?: string;
@@ -80,6 +85,11 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
+          // Campos de Declaração de Maioridade (Compliance)
+          age_declaration_accepted?: boolean;
+          age_declaration_accepted_at?: string | null;
+          age_declaration_ip?: string | null;
+          age_declaration_user_agent?: string | null;
         };
         Update: {
           id?: string;
@@ -95,6 +105,11 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
+          // Campos de Declaração de Maioridade (Compliance)
+          age_declaration_accepted?: boolean;
+          age_declaration_accepted_at?: string | null;
+          age_declaration_ip?: string | null;
+          age_declaration_user_agent?: string | null;
         };
       };
       signed_contents: {

@@ -190,11 +190,23 @@ async function syncUserData(authUserId: string, email: string): Promise<User | n
 }
 
 /**
+ * Interface para dados de compliance da declaração de maioridade
+ */
+export interface AgeDeclarationData {
+  accepted: boolean;
+  userAgent?: string;
+}
+
+/**
  * Registra um novo usuário no Supabase usando Edge Function
+ * @param user Dados do usuário
+ * @param senha Senha do usuário
+ * @param ageDeclaration Dados da declaração de maioridade (opcional para compatibilidade)
  */
 export async function registerUser(
   user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'>,
-  senha: string
+  senha: string,
+  ageDeclaration?: AgeDeclarationData
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     console.log('🔐 [REGISTRO] Iniciando registro de usuário...');
@@ -279,6 +291,7 @@ export async function registerUser(
                     user.email.toLowerCase() === 'marcelo@vsparticipacoes.com';
     
     console.log('💾 Chamando Edge Function para inserir dados na tabela users...');
+    console.log('📋 Declaração de maioridade:', ageDeclaration?.accepted ? 'ACEITA' : 'NÃO INFORMADA');
     
     // Chama Edge Function para inserir dados usando SERVICE ROLE KEY
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -301,6 +314,9 @@ export async function registerUser(
         selfie_url: user.selfieUrl,
         verified: true,
         is_admin: isAdmin,
+        // Dados de Compliance - Declaração de Maioridade
+        age_declaration_accepted: ageDeclaration?.accepted ?? false,
+        age_declaration_user_agent: ageDeclaration?.userAgent || navigator.userAgent,
       }),
     });
     
