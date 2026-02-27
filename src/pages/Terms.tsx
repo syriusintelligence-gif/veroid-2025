@@ -1,320 +1,281 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, AlertTriangle, Scale, Ban, RefreshCw, Shield } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Terms() {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </Button>
-          <div className="flex items-center gap-2">
-            <FileText className="h-6 w-6 text-blue-600" />
-            <span className="font-bold text-xl">Vero iD</span>
-          </div>
-          <div className="w-20" /> {/* Spacer for centering */}
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+      <div className="container mx-auto px-4 py-8">
+        <Link
+          to="/"
+          className="inline-flex items-center text-blue-400 hover:text-blue-300 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar para o início
+        </Link>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8 shadow-xl">
+          <h1 className="text-3xl font-bold text-white mb-6">
             Termos de Uso
           </h1>
-          <p className="text-gray-600 text-lg">
-            Última atualização: {new Date().toLocaleDateString('pt-BR')}
+          <p className="text-gray-300 mb-4">
+            VERO iD – Plataforma de Assinatura Digital e Certificação de Conteúdo
           </p>
-        </div>
+          <p className="text-gray-300 mb-8">
+            <strong>Última atualização: 27/02/2026</strong>
+          </p>
 
-        <div className="space-y-6">
-          {/* Aceitação */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
+          <div className="space-y-6 text-gray-200">
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
                 1. Aceitação dos Termos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
+              </h2>
               <p>
-                Bem-vindo ao <strong>Vero iD</strong>, uma plataforma de assinatura digital e certificação de conteúdo. Ao acessar ou utilizar nossos serviços, você concorda em cumprir e estar vinculado a estes Termos de Uso.
+                Ao acessar e usar o Vero iD, você concorda em cumprir e estar vinculado a estes Termos de Uso. Se você não concordar com qualquer parte destes termos, não utilize nossos serviços.
               </p>
-              <p className="font-semibold text-blue-600">
-                Se você não concordar com qualquer parte destes termos, não utilize nossos serviços.
-              </p>
-              <p>
-                Ao criar uma conta, você declara que:
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Tem pelo menos 18 anos de idade ou possui consentimento dos pais/responsáveis</li>
-                <li>Forneceu informações verdadeiras, precisas e completas</li>
-                <li>Manterá suas informações atualizadas</li>
-                <li>É responsável por manter a confidencialidade de sua senha</li>
-              </ul>
-            </CardContent>
-          </Card>
+            </section>
 
-          {/* Descrição do Serviço */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-purple-600" />
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
                 2. Descrição do Serviço
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <p>
-                O Vero iD oferece os seguintes serviços:
+              </h2>
+              <p className="mb-2">
+                O Vero iD é uma plataforma de assinatura digital que permite:
               </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Assinatura Digital:</strong> Criação de assinaturas digitais criptografadas para textos, imagens e documentos</li>
-                <li><strong>Certificação de Conteúdo:</strong> Geração de certificados digitais que comprovam autoria e integridade</li>
-                <li><strong>Verificação:</strong> Validação de certificados digitais através de códigos de verificação únicos</li>
-                <li><strong>Gerenciamento de Chaves:</strong> Armazenamento seguro de pares de chaves criptográficas (pública/privada)</li>
-                <li><strong>Histórico:</strong> Acesso ao histórico de conteúdos assinados e certificados gerados</li>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li>Criar assinaturas digitais criptográficas para conteúdo</li>
+                <li>Verificar a autenticidade de conteúdo assinado</li>
+                <li>Gerar certificados de autenticidade</li>
+                <li>Armazenar e gerenciar chaves criptográficas</li>
               </ul>
-              <p className="font-semibold text-purple-600">
-                O Vero iD utiliza criptografia assimétrica (RSA-OAEP) e hashing (SHA-256) para garantir a segurança e integridade das assinaturas.
-              </p>
-            </CardContent>
-          </Card>
+            </section>
 
-          {/* Uso Aceitável */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Scale className="h-5 w-5 text-green-600" />
-                3. Uso Aceitável
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <p>Você concorda em utilizar o Vero iD apenas para fins legais e de acordo com estes Termos. É proibido:</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Conteúdo Ilegal:</strong> Assinar ou certificar conteúdo que viole leis aplicáveis (difamação, pornografia infantil, incitação ao ódio, etc.)</li>
-                <li><strong>Fraude:</strong> Falsificar identidade, criar contas falsas ou tentar enganar outros usuários</li>
-                <li><strong>Violação de Propriedade Intelectual:</strong> Assinar conteúdo que infrinja direitos autorais, marcas registradas ou patentes de terceiros</li>
-                <li><strong>Abuso do Sistema:</strong> Tentar hackear, sobrecarregar ou comprometer a segurança da plataforma</li>
-                <li><strong>Spam:</strong> Enviar mensagens não solicitadas ou usar a plataforma para fins de marketing não autorizado</li>
-                <li><strong>Compartilhamento de Credenciais:</strong> Compartilhar sua senha ou chave privada com terceiros</li>
-              </ul>
-              <p className="font-semibold text-red-600">
-                Violações destes termos podem resultar na suspensão ou exclusão permanente de sua conta.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Propriedade Intelectual */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-orange-600" />
-                4. Propriedade Intelectual
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <div>
-                <h3 className="font-semibold mb-2">4.1. Propriedade do Vero iD</h3>
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                3. Cadastro e Conta
+              </h2>
+              <div className="space-y-3">
                 <p>
-                  Todos os direitos de propriedade intelectual relacionados à plataforma Vero iD (código-fonte, design, logotipos, marcas) são de propriedade exclusiva do Vero iD ou de seus licenciadores.
+                  <strong>3.1. Elegibilidade:</strong> Você deve ter pelo menos 18 anos para usar o Vero iD.
+                </p>
+                <p>
+                  <strong>3.2. Informações Precisas:</strong> Você concorda em fornecer informações verdadeiras, precisas e atualizadas durante o cadastro.
+                </p>
+                <p>
+                  <strong>3.3. Segurança da Conta:</strong> Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorram em sua conta.
+                </p>
+                <p>
+                  <strong>3.4. Notificação de Uso Não Autorizado:</strong> Você deve notificar imediatamente o Vero iD sobre qualquer uso não autorizado de sua conta.
                 </p>
               </div>
-              <div>
-                <h3 className="font-semibold mb-2">4.2. Seu Conteúdo</h3>
-                <p>
-                  Você mantém todos os direitos sobre o conteúdo que assina digitalmente. Ao usar o Vero iD, você nos concede uma licença limitada, não exclusiva e revogável para:
-                </p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Armazenar e processar seu conteúdo para fornecer o serviço</li>
-                  <li>Gerar hashes criptográficos e assinaturas digitais</li>
-                  <li>Exibir certificados públicos (quando você escolhe torná-los públicos)</li>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                4. Uso Aceitável
+              </h2>
+              <div className="space-y-3">
+                <p>Você concorda em NÃO usar o Vero iD para:</p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li>Violar qualquer lei local, estadual, nacional ou internacional</li>
+                  <li>Infringir direitos de propriedade intelectual de terceiros</li>
+                  <li>Transmitir conteúdo ilegal, ofensivo, difamatório ou prejudicial</li>
+                  <li>Assinar digitalmente conteúdo que você não possui ou não tem autorização para usar</li>
+                  <li>Tentar comprometer a segurança da plataforma ou acessar contas de outros usuários</li>
+                  <li>Usar o serviço para fins fraudulentos ou enganosos</li>
+                  <li>Fazer upload de vírus, malware ou código malicioso</li>
                 </ul>
               </div>
-              <div>
-                <h3 className="font-semibold mb-2">4.3. Responsabilidade pelo Conteúdo</h3>
-                <p className="font-semibold text-orange-600">
-                  Você é o único responsável pelo conteúdo que assina. O Vero iD não revisa, aprova ou endossa o conteúdo dos usuários.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            </section>
 
-          {/* Limitações de Responsabilidade */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                5. Limitações de Responsabilidade
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <p>
-                O Vero iD é fornecido "como está" e "conforme disponível". Não garantimos que:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>O serviço será ininterrupto, livre de erros ou totalmente seguro</li>
-                <li>Os resultados obtidos serão precisos ou confiáveis em todas as circunstâncias</li>
-                <li>Defeitos serão corrigidos imediatamente</li>
-              </ul>
-              <p className="font-semibold text-red-600 mt-4">
-                IMPORTANTE: O Vero iD não se responsabiliza por:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Perda de dados devido a falhas técnicas, ataques cibernéticos ou erros do usuário</li>
-                <li>Uso indevido de certificados digitais por terceiros</li>
-                <li>Danos indiretos, incidentais ou consequenciais decorrentes do uso da plataforma</li>
-                <li>Disputas legais relacionadas ao conteúdo assinado pelos usuários</li>
-              </ul>
-              <p className="mt-4">
-                <strong>Recomendação:</strong> Faça backup de seus conteúdos importantes e mantenha suas chaves privadas em local seguro.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Segurança da Conta */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                6. Segurança da Conta
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <p>Você é responsável por:</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Manter a confidencialidade de sua senha e chave privada</li>
-                <li>Notificar-nos imediatamente sobre qualquer uso não autorizado de sua conta</li>
-                <li>Garantir que sua conta não seja acessada por menores de idade sem supervisão</li>
-                <li>Fazer logout ao usar dispositivos compartilhados</li>
-              </ul>
-              <p className="font-semibold text-blue-600">
-                Não nos responsabilizamos por perdas decorrentes do uso não autorizado de sua conta, a menos que seja devido a negligência nossa.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Suspensão e Cancelamento */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Ban className="h-5 w-5 text-red-600" />
-                7. Suspensão e Cancelamento
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <div>
-                <h3 className="font-semibold mb-2">7.1. Suspensão pela Plataforma</h3>
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                5. Propriedade Intelectual
+              </h2>
+              <div className="space-y-3">
                 <p>
-                  Reservamo-nos o direito de suspender ou encerrar sua conta imediatamente, sem aviso prévio, se:
+                  <strong>5.1. Propriedade do Vero iD:</strong> Todo o conteúdo, recursos e funcionalidades do Vero iD (incluindo, mas não se limitando a, texto, gráficos, logotipos, ícones, imagens, clipes de áudio, downloads digitais e software) são de propriedade do Vero iD ou de seus licenciadores.
                 </p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Você violar estes Termos de Uso</li>
-                  <li>Houver suspeita de atividade fraudulenta ou ilegal</li>
-                  <li>Recebermos ordem judicial ou solicitação de autoridades competentes</li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2">7.2. Cancelamento pelo Usuário</h3>
                 <p>
-                  Você pode cancelar sua conta a qualquer momento através das configurações da plataforma ou entrando em contato conosco. Após o cancelamento:
+                  <strong>5.2. Seu Conteúdo:</strong> Você mantém todos os direitos sobre o conteúdo que assina digitalmente. Ao usar o Vero iD, você nos concede uma licença limitada para processar, armazenar e exibir seu conteúdo conforme necessário para fornecer o serviço.
                 </p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Seus dados pessoais serão excluídos conforme nossa Política de Privacidade</li>
-                  <li>Certificados públicos já emitidos permanecerão verificáveis (para manter a integridade do sistema)</li>
-                  <li>Você não terá mais acesso ao histórico de conteúdos assinados</li>
-                </ul>
+                <p>
+                  <strong>5.3. Licença de Uso:</strong> Concedemos a você uma licença limitada, não exclusiva, intransferível e revogável para usar o Vero iD de acordo com estes Termos.
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </section>
 
-          {/* Modificações */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 text-purple-600" />
-                8. Modificações nos Termos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                6. Assinaturas Digitais e Certificados
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>6.1. Natureza Técnica:</strong> As assinaturas digitais fornecidas pelo Vero iD são baseadas em criptografia assimétrica (RSA-OAEP) e servem para verificar a integridade e autoria do conteúdo.
+                </p>
+                <p>
+                  <strong>6.2. Não é Certificação Legal:</strong> O Vero iD não é uma Autoridade Certificadora da ICP-Brasil. Nossas assinaturas digitais têm valor técnico, mas podem não ter o mesmo valor legal que certificados digitais emitidos por autoridades certificadoras reconhecidas.
+                </p>
+                <p>
+                  <strong>6.3. Responsabilidade pelo Conteúdo:</strong> Você é o único responsável pelo conteúdo que assina digitalmente. O Vero iD não verifica a veracidade, legalidade ou adequação do conteúdo assinado.
+                </p>
+                <p>
+                  <strong>6.4. Verificação Pública:</strong> Certificados marcados como "públicos" podem ser verificados por qualquer pessoa através do código de verificação.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                7. Privacidade e Proteção de Dados
+              </h2>
               <p>
-                Podemos modificar estes Termos de Uso a qualquer momento. Notificaremos você sobre alterações significativas através de:
+                O uso de suas informações pessoais é regido por nossa{' '}
+                <Link to="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+                  Política de Privacidade
+                </Link>
+                . Ao usar o Vero iD, você concorda com a coleta e uso de informações conforme descrito na Política de Privacidade.
               </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>E-mail enviado para o endereço cadastrado</li>
-                <li>Aviso destacado na plataforma</li>
-                <li>Atualização da data no topo desta página</li>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                8. Planos e Pagamentos
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>8.1. Planos Disponíveis:</strong> O Vero iD oferece diferentes planos de assinatura (Gratuito, Básico, Premium, Enterprise) com recursos e limites variados.
+                </p>
+                <p>
+                  <strong>8.2. Pagamentos:</strong> Os pagamentos são processados através do Stripe. Ao assinar um plano pago, você concorda com os termos de pagamento do Stripe.
+                </p>
+                <p>
+                  <strong>8.3. Renovação Automática:</strong> Planos pagos são renovados automaticamente, a menos que você cancele antes do final do período de cobrança.
+                </p>
+                <p>
+                  <strong>8.4. Cancelamento:</strong> Você pode cancelar sua assinatura a qualquer momento através das configurações da conta. O cancelamento entrará em vigor no final do período de cobrança atual.
+                </p>
+                <p>
+                  <strong>8.5. Reembolsos:</strong> Não oferecemos reembolsos para períodos de assinatura já pagos, exceto quando exigido por lei.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                9. Limitação de Responsabilidade
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>9.1. Serviço "Como Está":</strong> O Vero iD é fornecido "como está" e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas.
+                </p>
+                <p>
+                  <strong>9.2. Exclusão de Garantias:</strong> Não garantimos que o serviço será ininterrupto, seguro ou livre de erros.
+                </p>
+                <p>
+                  <strong>9.3. Limitação de Danos:</strong> Em nenhuma circunstância o Vero iD será responsável por danos indiretos, incidentais, especiais, consequenciais ou punitivos, incluindo perda de lucros, dados, uso, boa vontade ou outras perdas intangíveis.
+                </p>
+                <p>
+                  <strong>9.4. Limite Máximo:</strong> Nossa responsabilidade total não excederá o valor pago por você ao Vero iD nos últimos 12 meses.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                10. Indenização
+              </h2>
+              <p>
+                Você concorda em indenizar, defender e isentar o Vero iD, seus diretores, funcionários e agentes de todas as reivindicações, responsabilidades, danos, perdas e despesas (incluindo honorários advocatícios) decorrentes de:
+              </p>
+              <ul className="list-disc list-inside ml-4 space-y-1 mt-2">
+                <li>Seu uso do serviço</li>
+                <li>Violação destes Termos</li>
+                <li>Violação de direitos de terceiros</li>
+                <li>Conteúdo que você assina digitalmente</li>
               </ul>
-              <p className="font-semibold text-purple-600">
-                O uso continuado da plataforma após as alterações constitui sua aceitação dos novos termos.
-              </p>
-            </CardContent>
-          </Card>
+            </section>
 
-          {/* Lei Aplicável */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Scale className="h-5 w-5 text-green-600" />
-                9. Lei Aplicável e Jurisdição
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
-              <p>
-                Estes Termos de Uso são regidos pelas leis da República Federativa do Brasil. Qualquer disputa relacionada a estes termos será resolvida nos tribunais brasileiros, com foro na cidade de [CIDADE], [ESTADO].
-              </p>
-              <p>
-                Antes de iniciar qualquer ação judicial, as partes concordam em tentar resolver disputas através de mediação ou arbitragem.
-              </p>
-            </CardContent>
-          </Card>
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                11. Modificações do Serviço e dos Termos
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>11.1. Alterações no Serviço:</strong> Reservamo-nos o direito de modificar ou descontinuar o serviço (ou qualquer parte dele) a qualquer momento, com ou sem aviso prévio.
+                </p>
+                <p>
+                  <strong>11.2. Alterações nos Termos:</strong> Podemos revisar estes Termos de Uso periodicamente. Notificaremos você sobre alterações significativas através de e-mail ou aviso na plataforma.
+                </p>
+                <p>
+                  <strong>11.3. Aceitação de Alterações:</strong> Seu uso continuado do serviço após alterações constitui aceitação dos novos termos.
+                </p>
+              </div>
+            </section>
 
-          {/* Contato */}
-          <Card>
-            <CardHeader>
-              <CardTitle>10. Contato</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-gray-700">
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                12. Rescisão
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>12.1. Rescisão por Você:</strong> Você pode encerrar sua conta a qualquer momento através das configurações da conta.
+                </p>
+                <p>
+                  <strong>12.2. Rescisão por Nós:</strong> Podemos suspender ou encerrar sua conta imediatamente, sem aviso prévio, se você violar estes Termos ou por qualquer outro motivo, a nosso exclusivo critério.
+                </p>
+                <p>
+                  <strong>12.3. Efeitos da Rescisão:</strong> Após a rescisão, seu direito de usar o serviço cessará imediatamente. Podemos reter certas informações conforme exigido por lei ou para fins legítimos de negócios.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                13. Lei Aplicável e Jurisdição
+              </h2>
               <p>
+                Estes Termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa decorrente destes Termos será submetida à jurisdição exclusiva dos tribunais brasileiros.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                14. Disposições Gerais
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>14.1. Acordo Integral:</strong> Estes Termos, juntamente com a Política de Privacidade, constituem o acordo integral entre você e o Vero iD.
+                </p>
+                <p>
+                  <strong>14.2. Renúncia:</strong> A falha em fazer cumprir qualquer direito ou disposição destes Termos não constituirá uma renúncia a esse direito ou disposição.
+                </p>
+                <p>
+                  <strong>14.3. Divisibilidade:</strong> Se qualquer disposição destes Termos for considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.
+                </p>
+                <p>
+                  <strong>14.4. Cessão:</strong> Você não pode ceder ou transferir estes Termos sem nosso consentimento prévio por escrito. Podemos ceder estes Termos sem restrições.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                15. Contato
+              </h2>
+              <p className="mb-2">
                 Se você tiver dúvidas sobre estes Termos de Uso, entre em contato conosco:
               </p>
-              <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                <p><strong>E-mail:</strong> <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline">contato@veroid.com.br</a></p>
-              </div>
-            </CardContent>
-          </Card>
+              <p className="font-semibold">E-mail: contato@veroid.com.br</p>
+            </section>
 
-          {/* Aceitação Final */}
-          <Card className="border-2 border-blue-600">
-            <CardContent className="pt-6">
-              <p className="text-center text-lg font-semibold text-blue-600">
-                Ao utilizar o Vero iD, você reconhece que leu, compreendeu e concorda com estes Termos de Uso e nossa Política de Privacidade.
+            <section className="border-t border-gray-600 pt-6 mt-8">
+              <p className="text-sm text-gray-400">
+                Ao usar o Vero iD, você reconhece que leu, compreendeu e concorda em estar vinculado a estes Termos de Uso e à nossa Política de Privacidade.
               </p>
-            </CardContent>
-          </Card>
+            </section>
+          </div>
         </div>
-
-        {/* Footer */}
-        <div className="mt-12 text-center space-y-4">
-          <Button onClick={() => navigate(-1)} size="lg">
-            Voltar para o Vero iD
-          </Button>
-          <p className="text-sm text-gray-600">
-            Tem dúvidas? <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline">Entre em contato conosco</a>
-          </p>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
