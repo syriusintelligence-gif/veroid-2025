@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react';
-import { getCurrentUser, logout, deleteSelfAccount, User } from '@/lib/supabase-auth';
+import { getCurrentUser, logout, deleteSelfAccount, resetPassword, User } from '@/lib/supabase-auth';
 import { SubscriptionSettings } from '@/components/SubscriptionSettings';
 
 export default function Settings() {
@@ -40,7 +40,7 @@ export default function Settings() {
     setCurrentUser(user);
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       alert('Preencha todos os campos de senha');
       return;
@@ -56,11 +56,24 @@ export default function Settings() {
       return;
     }
 
-    // Simulação de mudança de senha
-    alert('Senha alterada com sucesso!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    try {
+      console.log('🔐 Iniciando alteração de senha...');
+      
+      // Chama a função de reset de senha do Supabase
+      const result = await resetPassword(newPassword);
+      
+      if (result.success) {
+        alert('Senha alterada com sucesso!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        alert(`Erro ao alterar senha: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao alterar senha:', error);
+      alert('Erro ao alterar senha. Por favor, tente novamente.');
+    }
   };
 
   const handleExportData = () => {
