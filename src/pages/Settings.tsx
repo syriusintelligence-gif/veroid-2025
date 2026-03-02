@@ -88,10 +88,22 @@ export default function Settings() {
       );
       
       if (doubleConfirm) {
-        // Logout and redirect
-        await logout();
-        alert('Conta excluída com sucesso');
-        navigate('/');
+        try {
+          console.log('🗑️ Iniciando exclusão de conta...');
+          
+          // Chama a função de auto-exclusão
+          const result = await deleteSelfAccount();
+          
+          if (result.success) {
+            alert('Conta excluída com sucesso. Você será redirecionado para a página inicial.');
+            navigate('/');
+          } else {
+            alert(`Erro ao excluir conta: ${result.error || 'Erro desconhecido'}`);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao excluir conta:', error);
+          alert('Erro ao excluir conta. Por favor, tente novamente ou entre em contato com o suporte.');
+        }
       }
     }
   };

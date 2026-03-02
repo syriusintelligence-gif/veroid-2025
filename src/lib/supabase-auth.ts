@@ -190,23 +190,11 @@ async function syncUserData(authUserId: string, email: string): Promise<User | n
 }
 
 /**
- * Interface para dados de compliance da declaração de maioridade
- */
-export interface AgeDeclarationData {
-  accepted: boolean;
-  userAgent?: string;
-}
-
-/**
  * Registra um novo usuário no Supabase usando Edge Function
- * @param user Dados do usuário
- * @param senha Senha do usuário
- * @param ageDeclaration Dados da declaração de maioridade (opcional para compatibilidade)
  */
 export async function registerUser(
   user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'>,
-  senha: string,
-  ageDeclaration?: AgeDeclarationData
+  senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     console.log('🔐 [REGISTRO] Iniciando registro de usuário...');
@@ -291,7 +279,6 @@ export async function registerUser(
                     user.email.toLowerCase() === 'marcelo@vsparticipacoes.com';
     
     console.log('💾 Chamando Edge Function para inserir dados na tabela users...');
-    console.log('📋 Declaração de maioridade:', ageDeclaration?.accepted ? 'ACEITA' : 'NÃO INFORMADA');
     
     // Chama Edge Function para inserir dados usando SERVICE ROLE KEY
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -314,9 +301,6 @@ export async function registerUser(
         selfie_url: user.selfieUrl,
         verified: true,
         is_admin: isAdmin,
-        // Dados de Compliance - Declaração de Maioridade
-        age_declaration_accepted: ageDeclaration?.accepted ?? false,
-        age_declaration_user_agent: ageDeclaration?.userAgent || navigator.userAgent,
       }),
     });
     
@@ -936,6 +920,94 @@ export async function deleteUser(
     };
   }
 }
+
+/**
+ * Permite que um usuário exclua sua própria conta (auto-exclusão)
+ */
+export async function deleteSelfAccount(): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('🗑️ [DELETE SELF ACCOUNT] Iniciando auto-exclusão...');
+    
+    // Obtém o usuário atual
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+    
+    const userId = currentUser.id;
+    console.log('👤 Usuário a ser excluído:', userId, currentUser.email);
+    
+    // 📊 Log de auditoria ANTES da exclusão
+    await logAuditEvent(AuditAction.USER_DELETED, {
+      success: true,
+      selfDeletion: true,
+      email: currentUser.email,
+    }, userId);
+    
+    // Exclui dados relacionados (chaves criptográficas, certificados, etc.)
+    console.log('🔑 Excluindo chaves criptográficas...');
+    const { error: keysError } = await supabase
+      .from('crypto_keys')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (keysError) {
+      console.warn('⚠️ Erro ao excluir chaves criptográficas:', keysError);
+    }
+    
+    console.log('📜 Excluindo certificados...');
+    const { error: certsError } = await supabase
+      .from('certificates')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (certsError) {
+      console.warn('⚠️ Erro ao excluir certificados:', certsError);
+    }
+    
+    // Exclui o usuário da tabela users
+    console.log('👤 Excluindo usuário da tabela users...');
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    
+    if (deleteError) {
+      console.error('❌ Erro ao excluir usuário da tabela:', deleteError);
+      return { success: false, error: 'Erro ao excluir conta. Por favor, tente novamente.' };
+    }
+    
+    console.log('✅ Usuário excluído da tabela users');
+    
+    // Limpa contexto do usuário no Sentry
+    clearUserContext();
+    
+    // Faz logout do Supabase Auth
+    console.log('🚪 Fazendo logout...');
+    await supabase.auth.signOut();
+    
+    console.log('✅ Conta excluída com sucesso');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erro crítico ao excluir conta:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao excluir conta',
+    };
+  }
+}
+</to_replace>
+</Editor.edit_file_by_replace>
+
+<Editor.edit_file_by_replace>
+<file_name>
+/workspace/github-deploy/src/pages/Settings.tsx
+</file_name>
+<to_replace>
+import { getCurrentUser, logout, User } from '@/lib/supabase-auth';</to_replace>
+<new_content>
+import { getCurrentUser, logout, deleteSelfAccount, User } from '@/lib/supabase-auth';
 
 /**
  * Verifica se um email já existe na tabela users
