@@ -653,7 +653,7 @@ export async function requestPasswordReset(
 }
 
 /**
- * Reseta a senha do usuário
+ * Reseta a senha do usuário (usado no fluxo de recuperação de senha via email)
  */
 export async function resetPassword(
   newPassword: string
@@ -705,6 +705,96 @@ export async function resetPassword(
     };
   } catch (error) {
     console.error('❌ Erro crítico ao resetar senha:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Erro desconhecido' 
+    };
+  }
+}
+
+/**
+ * Altera a senha do usuário logado (usado nas configurações)
+ * Requer a senha atual para validação
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log('🔐 [CHANGE PASSWORD] Iniciando alteração de senha...');
+    
+    // Valida nova senha
+    if (!isValidPassword(newPassword)) {
+      return {
+        success: false,
+        message: 'A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial',
+      };
+    }
+    
+    // Obtém usuário atual
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return {
+        success: false,
+        message: 'Usuário não autenticado',
+      };
+    }
+    
+    console.log('🔑 Verificando senha atual...');
+    
+    // Verifica senha atual fazendo um re-login temporário
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: currentUser.email,
+      password: currentPassword,
+    });
+    
+    if (signInError) {
+      console.error('❌ Senha atual incorreta:', signInError.message);
+      return {
+        success: false,
+        message: 'Senha atual incorreta',
+      };
+    }
+    
+    console.log('✅ Senha atual verificada, atualizando para nova senha...');
+    
+    // Atualiza para nova senha
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    
+    console.log('📊 Resposta do updateUser:', { data, error });
+    
+    if (error) {
+      console.error('❌ Erro ao alterar senha:', error);
+      console.error('❌ Detalhes do erro:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
+      
+      return { 
+        success: false, 
+        message: `Erro ao alterar senha: ${error.message}` 
+      };
+    }
+    
+    console.log('✅ Senha alterada com sucesso');
+    
+    // 📊 Log de auditoria
+    if (data.user) {
+      await logAuditEvent(AuditAction.PASSWORD_RESET_COMPLETE, {
+        success: true,
+        changedInSettings: true,
+      }, data.user.id);
+    }
+    
+    return {
+      success: true,
+      message: 'Senha alterada com sucesso',
+    };
+  } catch (error) {
+    console.error('❌ Erro crítico ao alterar senha:', error);
     return { 
       success: false, 
       message: error instanceof Error ? error.message : 'Erro desconhecido' 

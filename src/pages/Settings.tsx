@@ -59,8 +59,8 @@ export default function Settings() {
     try {
       console.log('🔐 Iniciando alteração de senha...');
       
-      // Chama a função de reset de senha do Supabase
-      const result = await resetPassword(newPassword);
+      // Chama a função de alteração de senha com verificação da senha atual
+      const result = await changePassword(currentPassword, newPassword);
       
       if (result.success) {
         alert('Senha alterada com sucesso!');
