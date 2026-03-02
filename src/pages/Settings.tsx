@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react';
-import { getCurrentUser, logout, deleteSelfAccount, resetPassword, User } from '@/lib/supabase-auth';
+import { getCurrentUser, logout, deleteSelfAccount, changePassword, User } from '@/lib/supabase-auth';
 import { SubscriptionSettings } from '@/components/SubscriptionSettings';
 
 export default function Settings() {
