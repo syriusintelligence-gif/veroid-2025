@@ -938,31 +938,43 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
     console.log('👤 Usuário a ser excluído:', userId, currentUser.email);
     
     // 📊 Log de auditoria ANTES da exclusão
-    await logAuditEvent(AuditAction.USER_DELETED, {
-      success: true,
-      selfDeletion: true,
-      email: currentUser.email,
-    }, userId);
+    try {
+      await logAuditEvent(AuditAction.USER_DELETED, {
+        success: true,
+        selfDeletion: true,
+        email: currentUser.email,
+      }, userId);
+    } catch (auditError) {
+      console.warn('⚠️ Erro ao registrar log de auditoria:', auditError);
+    }
     
     // Exclui dados relacionados (chaves criptográficas, certificados, etc.)
     console.log('🔑 Excluindo chaves criptográficas...');
-    const { error: keysError } = await supabase
-      .from('crypto_keys')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (keysError) {
-      console.warn('⚠️ Erro ao excluir chaves criptográficas:', keysError);
+    try {
+      const { error: keysError } = await supabase
+        .from('crypto_keys')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (keysError) {
+        console.warn('⚠️ Erro ao excluir chaves:', keysError);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao excluir chaves:', error);
     }
     
     console.log('📜 Excluindo certificados...');
-    const { error: certsError } = await supabase
-      .from('certificates')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (certsError) {
-      console.warn('⚠️ Erro ao excluir certificados:', certsError);
+    try {
+      const { error: certsError } = await supabase
+        .from('certificates')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (certsError) {
+        console.warn('⚠️ Erro ao excluir certificados:', certsError);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao excluir certificados:', error);
     }
     
     // Exclui o usuário da tabela users
@@ -997,17 +1009,6 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
     };
   }
 }
-</to_replace>
-</Editor.edit_file_by_replace>
-
-<Editor.edit_file_by_replace>
-<file_name>
-/workspace/github-deploy/src/pages/Settings.tsx
-</file_name>
-<to_replace>
-import { getCurrentUser, logout, User } from '@/lib/supabase-auth';</to_replace>
-<new_content>
-import { getCurrentUser, logout, deleteSelfAccount, User } from '@/lib/supabase-auth';
 
 /**
  * Verifica se um email já existe na tabela users
