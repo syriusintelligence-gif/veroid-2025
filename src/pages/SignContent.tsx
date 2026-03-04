@@ -1217,15 +1217,15 @@ ${content}
                   id="content"
                   placeholder="Digite informações adicionais, descrição, legenda, ou o texto completo do conteúdo..."
                   value={content}
-                  onChange={(e) => setContent(e.target.value.slice(0, 500))}
-                  maxLength={500}
-                  rows={8}
+                  onChange={(e) => setContent(e.target.value.slice(0, 1200))}
+                  maxLength={1200}
+                  rows={10}
                   className="resize-none"
                   disabled={isBlocked || isProcessingVideo || isUploadingFile}
                 />
-                <p className={`text-xs ${content.length >= 450 ? (content.length >= 500 ? 'text-red-500 font-medium' : 'text-yellow-600') : 'text-muted-foreground'}`}>
-                  {content.length}/500 caracteres
-                  {content.length >= 500 && ' (limite atingido)'}
+                <p className={`text-xs ${content.length >= 1100 ? (content.length >= 1200 ? 'text-red-500 font-medium' : 'text-yellow-600') : 'text-muted-foreground'}`}>
+                  {content.length}/1200 caracteres
+                  {content.length >= 1200 && ' (limite atingido)'}
                 </p>
               </div>
               
