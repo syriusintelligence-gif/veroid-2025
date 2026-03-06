@@ -13,6 +13,7 @@ import Certificate from './pages/Certificate';
 import Verify from './pages/Verify';
 import AdminUsers from './pages/AdminUsers';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminSetup from './pages/AdminSetup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -210,6 +211,10 @@ function App() {
           <Route
             path="/admin/dashboard"
             element={user?.isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" />}
+          />
+          <Route
+            path="/admin/audit-logs"
+            element={user?.isAdmin ? <AdminAuditLogs /> : <Navigate to="/dashboard" />}
           />
           <Route
             path="/admin"
