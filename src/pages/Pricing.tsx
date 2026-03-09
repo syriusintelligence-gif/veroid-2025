@@ -35,7 +35,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'creator',
     name: 'Vero iD Creator',
-    priceId: 'price_1T4gcAJc1p4mhrHNwOvzI8D8',
+    priceId: 'price_1T9AunJc1p4mhrHNQ3rfZhLa',
     price: 'R$ 129,90',
     pricePerMonth: '/mês',
     description: 'Plano básico com 50 autenticações mensais',
@@ -46,7 +46,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'creator-pro',
     name: 'Vero iD Creator Pro',
-    priceId: 'price_1T4gijJc1p4mhrHNW3h3Ajzl',
+    priceId: 'price_1T9AvvJc1p4mhrHNJkTRLWcU',
     price: 'R$ 329,90',
     pricePerMonth: '/mês',
     description: 'Plano intermediário com 150 autenticações mensais',
@@ -56,7 +56,7 @@ const subscriptionPlans: Plan[] = [
   {
     id: 'creator-elite',
     name: 'Vero iD Creator Elite',
-    priceId: 'price_1T4gmTJc1p4mhrHNuHS9xGN2',
+    priceId: 'price_1T9Ax3Jc1p4mhrHNriVXetzj',
     price: 'R$ 589,90',
     pricePerMonth: '/mês',
     description: 'Plano premium com 350 autenticações mensais',
@@ -79,7 +79,7 @@ const oneTimePlans: Plan[] = [
   {
     id: 'package-20',
     name: 'Vero iD Pacote 20',
-    priceId: 'price_1T4grUJc1p4mhrHNFJAl6Y4T',
+    priceId: 'price_1T9AruJc1p4mhrHNjnzpniQM',
     price: 'R$ 69,90',
     description: 'Pacote intermediário - compra única',
     validations: '20 autenticações avulsas (válido por 30 dias)',
@@ -89,7 +89,7 @@ const oneTimePlans: Plan[] = [
   {
     id: 'package-50',
     name: 'Vero iD Pacote 50',
-    priceId: 'price_1T4gu0Jc1p4mhrHNg8LhOIrJ',
+    priceId: 'price_1T9AtJJc1p4mhrHNqXqdOCoh',
     price: 'R$ 159,90',
     description: 'Pacote premium - compra única',
     validations: '50 autenticações avulsas (válido por 30 dias)',
