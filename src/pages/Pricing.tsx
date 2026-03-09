@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, Shield, AlertCircle } from 'lucide-react';
+import { Check, Shield, AlertCircle, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ interface Plan {
   name: string;
   priceId: string;
   price: string;
+  originalPrice?: string;
   pricePerMonth?: string;
   description: string;
   validations: string;
@@ -20,23 +21,24 @@ interface Plan {
   type: 'subscription' | 'one-time';
 }
 
+// Planos de assinatura mensal recorrente
 const subscriptionPlans: Plan[] = [
   {
     id: 'free',
     name: 'Vero iD Free',
     priceId: '',
     price: 'Grátis',
-    description: 'Plano gratuito para começar',
-    validations: '5 autenticações por mês',
+    description: '10 assinaturas únicas para teste',
+    validations: '10 autenticações únicas (primeiro cadastro)',
     type: 'subscription'
   },
   {
     id: 'creator',
     name: 'Vero iD Creator',
     priceId: 'price_1T4gcAJc1p4mhrHNwOvzI8D8',
-    price: 'R$ 29,90',
+    price: 'R$ 129,90',
     pricePerMonth: '/mês',
-    description: 'Ideal para criadores de conteúdo',
+    description: 'Plano básico com 50 autenticações mensais',
     validations: '50 autenticações de conteúdo por mês',
     popular: true,
     type: 'subscription'
@@ -45,9 +47,9 @@ const subscriptionPlans: Plan[] = [
     id: 'creator-pro',
     name: 'Vero iD Creator Pro',
     priceId: 'price_1T4gijJc1p4mhrHNW3h3Ajzl',
-    price: 'R$ 79,90',
+    price: 'R$ 329,90',
     pricePerMonth: '/mês',
-    description: 'Para profissionais que precisam de mais',
+    description: 'Plano intermediário com 150 autenticações mensais',
     validations: '150 autenticações de conteúdo por mês',
     type: 'subscription'
   },
@@ -55,40 +57,41 @@ const subscriptionPlans: Plan[] = [
     id: 'creator-elite',
     name: 'Vero iD Creator Elite',
     priceId: 'price_1T4gmTJc1p4mhrHNuHS9xGN2',
-    price: 'R$ 139,90',
+    price: 'R$ 589,90',
     pricePerMonth: '/mês',
-    description: 'O melhor para empresas e influencers',
+    description: 'Plano premium com 350 autenticações mensais',
     validations: '350 autenticações de conteúdo por mês',
     type: 'subscription'
   }
 ];
 
+// Pacotes avulsos - compra única com validade de 30 dias
 const oneTimePlans: Plan[] = [
   {
     id: 'package-10',
-    name: 'Pacote 10',
-    priceId: 'price_1T4gpIJc1p4mhrHNJL1tt3UY',
-    price: 'R$ 9,90',
-    description: 'Compra única',
+    name: 'Vero iD Pacote 10',
+    priceId: 'price_1T9AqmJc1p4mhrHNAA8QJKlc',
+    price: 'R$ 39,90',
+    description: 'Pacote básico - compra única',
     validations: '10 autenticações avulsas (válido por 30 dias)',
     type: 'one-time'
   },
   {
     id: 'package-20',
-    name: 'Pacote 20',
+    name: 'Vero iD Pacote 20',
     priceId: 'price_1T4grUJc1p4mhrHNFJAl6Y4T',
-    price: 'R$ 19,90',
-    description: 'Compra única',
+    price: 'R$ 69,90',
+    description: 'Pacote intermediário - compra única',
     validations: '20 autenticações avulsas (válido por 30 dias)',
     popular: true,
     type: 'one-time'
   },
   {
     id: 'package-50',
-    name: 'Pacote 50',
+    name: 'Vero iD Pacote 50',
     priceId: 'price_1T4gu0Jc1p4mhrHNg8LhOIrJ',
-    price: 'R$ 49,90',
-    description: 'Compra única',
+    price: 'R$ 159,90',
+    description: 'Pacote premium - compra única',
     validations: '50 autenticações avulsas (válido por 30 dias)',
     type: 'one-time'
   }
@@ -220,7 +223,7 @@ export default function Pricing() {
     }
   };
 
-  // Filtrar planos para exibição (remover Free)
+  // Filtrar planos para exibição (remover Free da lista principal)
   const displaySubscriptionPlans = subscriptionPlans.filter(plan => plan.id !== 'free');
 
   return (
@@ -263,8 +266,16 @@ export default function Pricing() {
             Proteja seu conteúdo com autenticações verificadas. Escolha um plano mensal ou compre pacotes avulsos conforme sua necessidade.
           </p>
           
+          {/* Aviso sobre plano Free para novos usuários */}
+          <Alert className="mt-6 max-w-2xl mx-auto bg-green-900/50 border-green-500/50">
+            <Gift className="h-4 w-4 text-green-400" />
+            <AlertDescription className="text-green-200">
+              <strong>Novos usuários:</strong> Ao criar sua conta, você recebe <strong>10 autenticações gratuitas</strong> para testar o produto!
+            </AlertDescription>
+          </Alert>
+          
           {!user && (
-            <Alert className="mt-6 max-w-2xl mx-auto bg-blue-900/50 border-blue-500/50">
+            <Alert className="mt-4 max-w-2xl mx-auto bg-blue-900/50 border-blue-500/50">
               <AlertCircle className="h-4 w-4 text-blue-400" />
               <AlertDescription className="text-blue-200">
                 Faça login para assinar um plano ou comprar pacotes
@@ -273,7 +284,7 @@ export default function Pricing() {
           )}
 
           {error && (
-            <Alert className="mt-6 max-w-2xl mx-auto bg-red-900/50 border-red-500/50">
+            <Alert className="mt-4 max-w-2xl mx-auto bg-red-900/50 border-red-500/50">
               <AlertCircle className="h-4 w-4 text-red-400" />
               <AlertDescription className="text-red-200">
                 {error}
@@ -401,6 +412,14 @@ export default function Pricing() {
               </Card>
             ))}
           </div>
+        </div>
+
+        {/* Informação adicional */}
+        <div className="mt-16 text-center">
+          <p className="text-gray-400 text-sm">
+            Após utilizar suas 10 autenticações gratuitas de primeiro cadastro, 
+            você deverá assinar um plano mensal ou adquirir um pacote avulso para continuar autenticando seu conteúdo.
+          </p>
         </div>
       </div>
     </div>
