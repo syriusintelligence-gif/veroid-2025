@@ -116,6 +116,7 @@ export default function Empresas() {
 
     try {
       // Salvar no banco de dados Supabase
+      console.log('📝 [B2B] Salvando lead no banco de dados...');
       const { error } = await supabase
         .from('business_leads')
         .insert({
@@ -128,8 +129,37 @@ export default function Empresas() {
         });
 
       if (error) {
-        console.error('Erro ao salvar lead:', error);
+        console.error('❌ [B2B] Erro ao salvar lead:', error);
         throw new Error('Erro ao enviar formulário. Tente novamente.');
+      }
+      console.log('✅ [B2B] Lead salvo com sucesso!');
+
+      // Enviar email via Edge Function
+      console.log('📧 [B2B] Iniciando chamada da Edge Function send-business-lead-email...');
+      const emailPayload = {
+        companyName: formData.nomeEmpresa,
+        contactName: formData.nomeCompleto,
+        email: formData.emailCorporativo,
+        phone: formData.telefone,
+        quantity: formData.qtdAutenticacoes,
+        message: '',
+      };
+      console.log('📦 [B2B] Payload:', emailPayload);
+
+      const { data: emailData, error: emailError } = await supabase.functions.invoke(
+        'send-business-lead-email',
+        {
+          body: emailPayload,
+        }
+      );
+
+      console.log('📬 [B2B] Resposta da Edge Function:', { data: emailData, error: emailError });
+
+      if (emailError) {
+        console.error('❌ [B2B] Erro ao enviar email:', emailError);
+        // Não bloqueia o sucesso se o email falhar, pois o lead já foi salvo
+      } else {
+        console.log('✅ [B2B] Email enviado com sucesso:', emailData);
       }
 
       // Sucesso
@@ -143,7 +173,7 @@ export default function Empresas() {
       });
 
     } catch (err) {
-      console.error('Erro ao enviar formulário:', err);
+      console.error('❌ [B2B] Erro ao enviar formulário:', err);
       setSubmitError(err instanceof Error ? err.message : 'Erro ao enviar formulário. Tente novamente.');
     } finally {
       setIsSubmitting(false);
