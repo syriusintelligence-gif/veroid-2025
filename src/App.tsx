@@ -24,6 +24,7 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
+import Empresas from './pages/Empresas';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
@@ -183,6 +184,7 @@ function App() {
           {/* Páginas Institucionais */}
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/empresas" element={<Empresas />} />
           
           {/* Rotas protegidas */}
           <Route
