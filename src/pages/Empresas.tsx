@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Building2, Users, Shield, CheckCircle, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle, Send, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,38 +178,7 @@ export default function Empresas() {
           </p>
         </div>
 
-        {/* Benefits Section */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-cyan-500/20 rounded-full mb-4">
-              <Shield className="w-6 h-6 text-cyan-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Proteção em Escala</h3>
-            <p className="text-gray-400 text-sm">
-              Autentique milhares de conteúdos por mês com preços diferenciados para alto volume.
-            </p>
-          </div>
 
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-500/20 rounded-full mb-4">
-              <Users className="w-6 h-6 text-blue-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Suporte Dedicado</h3>
-            <p className="text-gray-400 text-sm">
-              Atendimento prioritário com gerente de conta exclusivo para sua empresa.
-            </p>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/20 rounded-full mb-4">
-              <CheckCircle className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Integração API</h3>
-            <p className="text-gray-400 text-sm">
-              Integre o Vero iD diretamente nos seus sistemas com nossa API robusta.
-            </p>
-          </div>
-        </div>
 
         {/* Form Section */}
         <div className="max-w-2xl mx-auto">
@@ -336,20 +305,20 @@ export default function Empresas() {
                       onValueChange={(value) => handleInputChange('qtdAutenticacoes', value)}
                     >
                       <SelectTrigger
-                        className={`bg-white/5 border-white/20 text-white focus:border-cyan-500 ${
+                        className={`bg-white/5 border-white/20 text-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 data-[state=open]:border-cyan-400 data-[state=open]:ring-2 data-[state=open]:ring-cyan-400/50 ${
                           errors.qtdAutenticacoes ? 'border-red-500' : ''
-                        }`}
+                        } ${formData.qtdAutenticacoes ? 'border-cyan-400 text-cyan-300' : ''}`}
                       >
-                        <SelectValue placeholder="Selecione uma opção" />
+                        <SelectValue placeholder="Selecione uma opção" className="text-gray-400" />
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="500-1000" className="text-white hover:bg-gray-700">
+                      <SelectContent className="bg-gray-900 border-cyan-500/50 border-2">
+                        <SelectItem value="500-1000" className="text-white hover:bg-cyan-500/20 focus:bg-cyan-500/30 focus:text-cyan-300 cursor-pointer">
                           500 a 1.000 autenticações/mês
                         </SelectItem>
-                        <SelectItem value="1000-5000" className="text-white hover:bg-gray-700">
+                        <SelectItem value="1000-5000" className="text-white hover:bg-cyan-500/20 focus:bg-cyan-500/30 focus:text-cyan-300 cursor-pointer">
                           1.000 a 5.000 autenticações/mês
                         </SelectItem>
-                        <SelectItem value="5000+" className="text-white hover:bg-gray-700">
+                        <SelectItem value="5000+" className="text-white hover:bg-cyan-500/20 focus:bg-cyan-500/30 focus:text-cyan-300 cursor-pointer">
                           Mais de 5.000 autenticações/mês
                         </SelectItem>
                       </SelectContent>
