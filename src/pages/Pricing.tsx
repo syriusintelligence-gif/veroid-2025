@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, Shield, AlertCircle, Gift } from 'lucide-react';
+import { Check, Shield, AlertCircle, Gift, Building2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -420,6 +420,36 @@ export default function Pricing() {
             Após utilizar suas 10 autenticações gratuitas de primeiro cadastro, 
             você deverá assinar um plano mensal ou adquirir um pacote avulso para continuar autenticando seu conteúdo.
           </p>
+        </div>
+
+        {/* CTA para Empresas */}
+        <div className="mt-16 max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 p-[2px]">
+            <div className="relative bg-slate-900/95 backdrop-blur-xl rounded-2xl p-8 md:p-12">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Building2 className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                      Precisa de mais volume?
+                    </h3>
+                    <p className="text-gray-300 text-lg">
+                      Planos personalizados para <span className="text-cyan-400 font-semibold">empresas e agências</span> com preços especiais para alto volume.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => navigate('/empresas')}
+                  className="flex-shrink-0 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold px-8 py-6 text-lg rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 group"
+                >
+                  Falar com Comercial
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
