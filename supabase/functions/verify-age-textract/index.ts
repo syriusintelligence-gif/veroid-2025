@@ -7,6 +7,7 @@
 // se o usuário tem 18 anos ou mais.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { decode as base64Decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,27 @@ interface VerifyAgeResponse {
   extractedText?: string;
   error?: string;
   confidence?: number;
+}
+
+/**
+ * Converte base64 para Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+  // Remove prefixo data:image/... se existir
+  const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+  return base64Decode(cleanBase64);
+}
+
+/**
+ * Converte Uint8Array para base64 (para envio ao Textract)
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 /**
@@ -125,19 +147,40 @@ async function callTextract(imageBase64: string): Promise<any> {
   const host = `textract.${AWS_REGION}.amazonaws.com`;
   const endpoint = `https://${host}`;
   
-  // Remove prefixo data:image/... se existir
-  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  // Remove prefixo data:image/... se existir e converte para bytes
+  const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
   
+  // Valida se o base64 é válido
+  try {
+    // Testa se o base64 é decodificável
+    const testDecode = base64Decode(cleanBase64);
+    console.log(`📊 [TEXTRACT] Tamanho da imagem: ${testDecode.length} bytes`);
+    
+    if (testDecode.length < 1000) {
+      throw new Error('Imagem muito pequena ou inválida');
+    }
+    
+    if (testDecode.length > 5 * 1024 * 1024) {
+      throw new Error('Imagem muito grande. Máximo 5MB.');
+    }
+  } catch (e) {
+    console.error('❌ [TEXTRACT] Erro ao validar base64:', e);
+    throw new Error('Formato de imagem inválido');
+  }
+  
+  // O Textract aceita base64 diretamente no campo Bytes
   const requestBody = JSON.stringify({
     Document: {
-      Bytes: base64Data
+      Bytes: cleanBase64
     }
   });
   
   // Gera timestamp
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const amzDate = now.toISOString().replace(/[:-]|\.\\d{3}/g, '').replace(/\.\d{3}/, '');
   const dateStamp = amzDate.substring(0, 8);
+  
+  console.log(`🕐 [TEXTRACT] Timestamp: ${amzDate}`);
   
   // Gera assinatura
   const { authorizationHeader } = await generateAWSSignature(
@@ -151,6 +194,8 @@ async function callTextract(imageBase64: string): Promise<any> {
   );
   
   console.log('🔍 [TEXTRACT] Chamando AWS Textract...');
+  console.log(`📡 [TEXTRACT] Endpoint: ${endpoint}`);
+  console.log(`🔑 [TEXTRACT] Access Key ID: ${AWS_ACCESS_KEY_ID.substring(0, 8)}...`);
   
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -158,8 +203,7 @@ async function callTextract(imageBase64: string): Promise<any> {
       'Content-Type': 'application/x-amz-json-1.1',
       'X-Amz-Date': amzDate,
       'X-Amz-Target': 'Textract.DetectDocumentText',
-      'Authorization': authorizationHeader,
-      'Host': host
+      'Authorization': authorizationHeader
     },
     body: requestBody
   });
@@ -167,11 +211,32 @@ async function callTextract(imageBase64: string): Promise<any> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('❌ [TEXTRACT] Erro na resposta:', response.status, errorText);
+    
+    // Parse do erro para mensagem mais amigável
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.__type?.includes('InvalidParameterException')) {
+        throw new Error('Documento inválido ou ilegível. Tente com uma imagem mais clara.');
+      }
+      if (errorJson.__type?.includes('UnsupportedDocumentException')) {
+        throw new Error('Formato de documento não suportado. Use JPG, PNG ou PDF.');
+      }
+      if (errorJson.__type?.includes('AccessDeniedException')) {
+        throw new Error('Erro de autenticação AWS. Verifique as credenciais.');
+      }
+      if (errorJson.__type?.includes('ThrottlingException')) {
+        throw new Error('Muitas requisições. Tente novamente em alguns segundos.');
+      }
+    } catch (parseError) {
+      // Se não conseguir parsear, usa o erro original
+    }
+    
     throw new Error(`AWS Textract error: ${response.status} - ${errorText}`);
   }
   
   const result = await response.json();
   console.log('✅ [TEXTRACT] Resposta recebida com sucesso');
+  console.log(`📊 [TEXTRACT] Blocos encontrados: ${result.Blocks?.length || 0}`);
   
   return result;
 }
@@ -197,6 +262,7 @@ function extractAllText(textractResult: any): string {
  */
 function extractBirthDate(text: string): { date: Date | null; confidence: number; rawMatch: string | null } {
   console.log('🔍 [EXTRACT] Procurando data de nascimento no texto...');
+  console.log('📝 [EXTRACT] Texto completo:', text);
   
   // Normaliza o texto
   const normalizedText = text.toUpperCase();
@@ -313,8 +379,13 @@ serve(async (req) => {
     // Verifica se as credenciais AWS estão configuradas
     if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
       console.error('❌ [VERIFY-AGE] Credenciais AWS não configuradas');
+      console.error('AWS_ACCESS_KEY_ID presente:', !!AWS_ACCESS_KEY_ID);
+      console.error('AWS_SECRET_ACCESS_KEY presente:', !!AWS_SECRET_ACCESS_KEY);
       throw new Error('Serviço de verificação não configurado. Contate o suporte.');
     }
+    
+    console.log('✅ [VERIFY-AGE] Credenciais AWS configuradas');
+    console.log(`🌎 [VERIFY-AGE] Região: ${AWS_REGION}`);
 
     // Parse do body
     const body: VerifyAgeRequest = await req.json();
@@ -324,6 +395,7 @@ serve(async (req) => {
     }
 
     console.log('📄 [VERIFY-AGE] Documento recebido, tipo:', body.documentType || 'não especificado');
+    console.log(`📊 [VERIFY-AGE] Tamanho do base64: ${body.documentBase64.length} caracteres`);
 
     // Chama AWS Textract
     const textractResult = await callTextract(body.documentBase64);
