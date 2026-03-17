@@ -7,7 +7,6 @@
 // se o usuário tem 18 anos ou mais.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { decode as base64Decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +20,7 @@ const AWS_SECRET_ACCESS_KEY = Deno.env.get('AWS_SECRET_ACCESS_KEY') ?? '';
 const AWS_REGION = Deno.env.get('AWS_REGION') ?? 'us-east-1';
 
 interface VerifyAgeRequest {
-  documentBase64: string; // Imagem do documento em base64
+  documentBase64: string; // Imagem/PDF do documento em base64
   documentType?: 'CNH' | 'RG' | 'PASSAPORTE';
 }
 
@@ -36,24 +35,51 @@ interface VerifyAgeResponse {
 }
 
 /**
- * Converte base64 para Uint8Array
+ * Limpa e valida o base64
  */
-function base64ToUint8Array(base64: string): Uint8Array {
-  // Remove prefixo data:image/... se existir
-  const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
-  return base64Decode(cleanBase64);
+function cleanBase64(base64String: string): { cleanedBase64: string; mimeType: string } {
+  let cleanedBase64 = base64String;
+  let mimeType = 'image/jpeg'; // default
+  
+  // Remove prefixo data:xxx;base64, se existir
+  const dataUrlMatch = base64String.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUrlMatch) {
+    mimeType = dataUrlMatch[1];
+    cleanedBase64 = dataUrlMatch[2];
+    console.log(`📎 [CLEAN-BASE64] Detectado prefixo data URL, mime type: ${mimeType}`);
+  }
+  
+  // Remove espaços em branco e quebras de linha
+  cleanedBase64 = cleanedBase64.replace(/\s/g, '');
+  
+  // Remove caracteres inválidos para base64
+  cleanedBase64 = cleanedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+  
+  // Adiciona padding se necessário
+  while (cleanedBase64.length % 4 !== 0) {
+    cleanedBase64 += '=';
+  }
+  
+  console.log(`📊 [CLEAN-BASE64] Base64 limpo, tamanho: ${cleanedBase64.length} caracteres`);
+  
+  return { cleanedBase64, mimeType };
 }
 
 /**
- * Converte Uint8Array para base64 (para envio ao Textract)
+ * Decodifica base64 para Uint8Array de forma segura
  */
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+function safeBase64Decode(base64: string): Uint8Array {
+  try {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  } catch (e) {
+    console.error('❌ [DECODE] Erro ao decodificar base64:', e);
+    throw new Error('Formato de arquivo inválido');
   }
-  return btoa(binary);
 }
 
 /**
@@ -70,7 +96,6 @@ async function generateAWSSignature(
 ): Promise<{ authorizationHeader: string; signedHeaders: string }> {
   const encoder = new TextEncoder();
   
-  // Função para criar HMAC-SHA256
   async function hmacSha256(key: ArrayBuffer | Uint8Array, message: string): Promise<ArrayBuffer> {
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
@@ -82,7 +107,6 @@ async function generateAWSSignature(
     return await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
   }
   
-  // Função para criar hash SHA256
   async function sha256(message: string): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(message));
     return Array.from(new Uint8Array(hashBuffer))
@@ -90,7 +114,6 @@ async function generateAWSSignature(
       .join('');
   }
   
-  // Função para converter ArrayBuffer para hex
   function toHex(buffer: ArrayBuffer): string {
     return Array.from(new Uint8Array(buffer))
       .map(b => b.toString(16).padStart(2, '0'))
@@ -101,7 +124,6 @@ async function generateAWSSignature(
   const signedHeaders = 'content-type;host;x-amz-date;x-amz-target';
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   
-  // Canonical Request
   const payloadHash = await sha256(requestPayload);
   const canonicalRequest = [
     method,
@@ -116,7 +138,6 @@ async function generateAWSSignature(
     payloadHash
   ].join('\n');
   
-  // String to Sign
   const canonicalRequestHash = await sha256(canonicalRequest);
   const stringToSign = [
     algorithm,
@@ -125,16 +146,13 @@ async function generateAWSSignature(
     canonicalRequestHash
   ].join('\n');
   
-  // Signing Key
   const kDate = await hmacSha256(encoder.encode('AWS4' + AWS_SECRET_ACCESS_KEY), dateStamp);
   const kRegion = await hmacSha256(kDate, region);
   const kService = await hmacSha256(kRegion, service);
   const kSigning = await hmacSha256(kService, 'aws4_request');
   
-  // Signature
   const signature = toHex(await hmacSha256(kSigning, stringToSign));
   
-  // Authorization Header
   const authorizationHeader = `${algorithm} Credential=${AWS_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   
   return { authorizationHeader, signedHeaders };
@@ -143,41 +161,53 @@ async function generateAWSSignature(
 /**
  * Chama AWS Textract para extrair texto do documento
  */
-async function callTextract(imageBase64: string): Promise<any> {
+async function callTextract(documentBase64: string): Promise<any> {
   const host = `textract.${AWS_REGION}.amazonaws.com`;
   const endpoint = `https://${host}`;
   
-  // Remove prefixo data:image/... se existir e converte para bytes
-  const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  // Limpa o base64
+  const { cleanedBase64, mimeType } = cleanBase64(documentBase64);
   
-  // Valida se o base64 é válido
+  // Valida o base64
+  let bytes: Uint8Array;
   try {
-    // Testa se o base64 é decodificável
-    const testDecode = base64Decode(cleanBase64);
-    console.log(`📊 [TEXTRACT] Tamanho da imagem: ${testDecode.length} bytes`);
+    bytes = safeBase64Decode(cleanedBase64);
+    console.log(`📊 [TEXTRACT] Documento decodificado: ${bytes.length} bytes`);
+    console.log(`📎 [TEXTRACT] Tipo MIME detectado: ${mimeType}`);
     
-    if (testDecode.length < 1000) {
-      throw new Error('Imagem muito pequena ou inválida');
+    if (bytes.length < 1000) {
+      throw new Error('Documento muito pequeno ou inválido');
     }
     
-    if (testDecode.length > 5 * 1024 * 1024) {
-      throw new Error('Imagem muito grande. Máximo 5MB.');
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw new Error('Documento muito grande. Máximo 5MB.');
+    }
+    
+    // Verifica magic bytes para identificar o tipo de arquivo
+    const isPDF = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46; // %PDF
+    const isJPEG = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+    const isPNG = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+    
+    console.log(`🔍 [TEXTRACT] Tipo detectado por magic bytes: PDF=${isPDF}, JPEG=${isJPEG}, PNG=${isPNG}`);
+    
+    if (!isPDF && !isJPEG && !isPNG) {
+      console.warn('⚠️ [TEXTRACT] Tipo de arquivo não reconhecido pelos magic bytes, tentando mesmo assim...');
     }
   } catch (e) {
-    console.error('❌ [TEXTRACT] Erro ao validar base64:', e);
-    throw new Error('Formato de imagem inválido');
+    console.error('❌ [TEXTRACT] Erro ao validar documento:', e);
+    throw e;
   }
   
   // O Textract aceita base64 diretamente no campo Bytes
   const requestBody = JSON.stringify({
     Document: {
-      Bytes: cleanBase64
+      Bytes: cleanedBase64
     }
   });
   
   // Gera timestamp
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\\d{3}/g, '').replace(/\.\d{3}/, '');
+  const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
   const dateStamp = amzDate.substring(0, 8);
   
   console.log(`🕐 [TEXTRACT] Timestamp: ${amzDate}`);
@@ -195,7 +225,6 @@ async function callTextract(imageBase64: string): Promise<any> {
   
   console.log('🔍 [TEXTRACT] Chamando AWS Textract...');
   console.log(`📡 [TEXTRACT] Endpoint: ${endpoint}`);
-  console.log(`🔑 [TEXTRACT] Access Key ID: ${AWS_ACCESS_KEY_ID.substring(0, 8)}...`);
   
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -212,7 +241,6 @@ async function callTextract(imageBase64: string): Promise<any> {
     const errorText = await response.text();
     console.error('❌ [TEXTRACT] Erro na resposta:', response.status, errorText);
     
-    // Parse do erro para mensagem mais amigável
     try {
       const errorJson = JSON.parse(errorText);
       if (errorJson.__type?.includes('InvalidParameterException')) {
@@ -227,11 +255,19 @@ async function callTextract(imageBase64: string): Promise<any> {
       if (errorJson.__type?.includes('ThrottlingException')) {
         throw new Error('Muitas requisições. Tente novamente em alguns segundos.');
       }
+      if (errorJson.__type?.includes('SerializationException')) {
+        throw new Error('Erro no formato do documento. Tente fazer upload novamente.');
+      }
+      if (errorJson.Message) {
+        throw new Error(errorJson.Message);
+      }
     } catch (parseError) {
-      // Se não conseguir parsear, usa o erro original
+      if (parseError instanceof Error && parseError.message !== errorText) {
+        throw parseError;
+      }
     }
     
-    throw new Error(`AWS Textract error: ${response.status} - ${errorText}`);
+    throw new Error(`AWS Textract error: ${response.status}`);
   }
   
   const result = await response.json();
@@ -262,7 +298,6 @@ function extractAllText(textractResult: any): string {
  */
 function extractBirthDate(text: string): { date: Date | null; confidence: number; rawMatch: string | null } {
   console.log('🔍 [EXTRACT] Procurando data de nascimento no texto...');
-  console.log('📝 [EXTRACT] Texto completo:', text);
   
   // Normaliza o texto
   const normalizedText = text.toUpperCase();
@@ -281,7 +316,7 @@ function extractBirthDate(text: string): { date: Date | null; confidence: number
     // Formato genérico com label
     /(?:NASCIMENTO|NASC\.?|BIRTH)\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i,
     
-    // Data após "FILIAÇÃO" (comum em RGs) - próxima linha geralmente tem data
+    // Data após "FILIAÇÃO" (comum em RGs)
     /FILIA[CÇ][AÃ]O[\s\S]{0,100}?(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i,
   ];
   
@@ -301,7 +336,6 @@ function extractBirthDate(text: string): { date: Date | null; confidence: number
       if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2020) {
         const date = new Date(year, month - 1, day);
         
-        // Verifica se a data é válida
         if (date.getDate() === day && date.getMonth() === month - 1) {
           console.log(`✅ [EXTRACT] Data encontrada: ${day}/${month}/${year}`);
           return {
@@ -314,7 +348,7 @@ function extractBirthDate(text: string): { date: Date | null; confidence: number
     }
   }
   
-  // Tenta encontrar qualquer data que pareça ser de nascimento (pessoa entre 18-100 anos)
+  // Tenta encontrar qualquer data que pareça ser de nascimento
   const genericDatePattern = /(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/g;
   let genericMatch;
   const possibleDates: { date: Date; rawMatch: string }[] = [];
@@ -332,7 +366,6 @@ function extractBirthDate(text: string): { date: Date | null; confidence: number
     }
   }
   
-  // Se encontrou datas possíveis, retorna a mais antiga (mais provável ser nascimento)
   if (possibleDates.length > 0) {
     possibleDates.sort((a, b) => a.date.getTime() - b.date.getTime());
     console.log(`⚠️ [EXTRACT] Data encontrada por heurística: ${possibleDates[0].rawMatch}`);
@@ -371,23 +404,18 @@ serve(async (req) => {
   try {
     console.log('🔐 [VERIFY-AGE] Iniciando verificação de idade via AWS Textract...');
 
-    // Valida método HTTP
     if (req.method !== 'POST') {
       throw new Error('Método não permitido. Use POST.');
     }
 
-    // Verifica se as credenciais AWS estão configuradas
     if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
       console.error('❌ [VERIFY-AGE] Credenciais AWS não configuradas');
-      console.error('AWS_ACCESS_KEY_ID presente:', !!AWS_ACCESS_KEY_ID);
-      console.error('AWS_SECRET_ACCESS_KEY presente:', !!AWS_SECRET_ACCESS_KEY);
       throw new Error('Serviço de verificação não configurado. Contate o suporte.');
     }
     
     console.log('✅ [VERIFY-AGE] Credenciais AWS configuradas');
     console.log(`🌎 [VERIFY-AGE] Região: ${AWS_REGION}`);
 
-    // Parse do body
     const body: VerifyAgeRequest = await req.json();
     
     if (!body.documentBase64) {
@@ -405,7 +433,7 @@ serve(async (req) => {
     console.log('📝 [VERIFY-AGE] Texto extraído:', extractedText.substring(0, 500) + '...');
     
     // Extrai data de nascimento
-    const { date: birthDate, confidence, rawMatch } = extractBirthDate(extractedText);
+    const { date: birthDate, confidence } = extractBirthDate(extractedText);
     
     if (!birthDate) {
       console.log('❌ [VERIFY-AGE] Não foi possível extrair data de nascimento');
@@ -437,7 +465,7 @@ serve(async (req) => {
       age,
       birthDate: birthDate.toISOString().split('T')[0],
       confidence,
-      extractedText: extractedText.substring(0, 500) // Limita para não expor dados sensíveis
+      extractedText: extractedText.substring(0, 500)
     };
 
     return new Response(
