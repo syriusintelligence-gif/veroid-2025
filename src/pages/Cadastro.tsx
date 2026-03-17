@@ -13,7 +13,6 @@ import {
   getCurrentUser,
   checkCpfCnpjExists,
   checkEmailExists,
-  AgeDeclarationData,
 } from '@/lib/supabase-auth';
 import { supabase } from '@/lib/supabase';
 import { isValidPassword } from '@/lib/password-validator';
@@ -39,6 +38,8 @@ import {
   getDocumentExtensionDescription,
   getMaxDocumentSizeMB 
 } from '@/lib/document-validator';
+// 🔐 AWS Textract: Verificação de idade via documento
+import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -129,6 +130,11 @@ export default function Cadastro() {
   
   // Validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
+  
+  // 🔐 AWS Textract: Estados para verificação de idade
+  const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
+  const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
+  const [verifiedBirthDate, setVerifiedBirthDate] = useState<string | null>(null);
   
   // Webcam
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -486,12 +492,94 @@ export default function Cadastro() {
         setStep(2);
       }
     } else if (step === 2 && validateStep2()) {
-      // Comparação facial
-      const comparison = compareFaces(documentoUrl, selfieUrl);
-      if (comparison.match) {
-        setStep(3);
-      } else {
-        setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
+      // 🔐 AWS Textract: Verificação de idade via documento
+      setIsLoading(true);
+      setError('');
+      setAgeVerificationStatus('verifying');
+      
+      try {
+        console.log('🔍 [CADASTRO] Iniciando verificação de idade via AWS Textract...');
+        
+        // Verifica idade usando AWS Textract
+        const ageResult = await verifyAgeFromDocument(documentoUrl);
+        
+        if (!ageResult.success) {
+          console.error('❌ [CADASTRO] Falha na verificação de idade:', ageResult.error);
+          setAgeVerificationStatus('failed');
+          
+          // Se não conseguiu extrair a data, permite continuar com a declaração manual
+          toast({
+            title: '⚠️ Verificação automática indisponível',
+            description: 'Não foi possível verificar a idade automaticamente. Sua declaração de maioridade será considerada.',
+            variant: 'default',
+          });
+          
+          // Comparação facial (simulada)
+          const comparison = compareFaces(documentoUrl, selfieUrl);
+          if (comparison.match) {
+            setStep(3);
+          } else {
+            setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
+          }
+          return;
+        }
+        
+        // Verificação bem-sucedida
+        setVerifiedAge(ageResult.age || null);
+        setVerifiedBirthDate(ageResult.birthDate || null);
+        
+        if (!ageResult.isAdult) {
+          // MENOR DE IDADE - BLOQUEIA CADASTRO
+          console.warn('🚫 [CADASTRO] Usuário menor de idade detectado:', ageResult.age);
+          setAgeVerificationStatus('failed');
+          setError(`Cadastro não permitido. De acordo com o documento, você tem ${ageResult.age} anos. É necessário ter 18 anos ou mais para se cadastrar.`);
+          
+          toast({
+            title: '🚫 Cadastro Bloqueado',
+            description: `Idade verificada: ${ageResult.age} anos. Apenas maiores de 18 anos podem se cadastrar.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // MAIOR DE IDADE - PERMITE CONTINUAR
+        console.log('✅ [CADASTRO] Usuário maior de idade confirmado:', ageResult.age, 'anos');
+        setAgeVerificationStatus('verified');
+        
+        toast({
+          title: '✅ Idade Verificada',
+          description: `Idade confirmada: ${ageResult.age} anos (nascido em ${formatBirthDate(ageResult.birthDate!)})`,
+          variant: 'default',
+        });
+        
+        // Comparação facial (simulada)
+        const comparison = compareFaces(documentoUrl, selfieUrl);
+        if (comparison.match) {
+          setStep(3);
+        } else {
+          setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
+        }
+        
+      } catch (err) {
+        console.error('❌ [CADASTRO] Erro na verificação de idade:', err);
+        setAgeVerificationStatus('failed');
+        
+        // Em caso de erro, permite continuar com a declaração manual
+        toast({
+          title: '⚠️ Verificação automática indisponível',
+          description: 'Erro ao verificar idade. Sua declaração de maioridade será considerada.',
+          variant: 'default',
+        });
+        
+        // Comparação facial (simulada)
+        const comparison = compareFaces(documentoUrl, selfieUrl);
+        if (comparison.match) {
+          setStep(3);
+        } else {
+          setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
+        }
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -542,22 +630,13 @@ export default function Cadastro() {
         email: sanitizedData.email,
       });
       
-      // Prepara dados de compliance da declaração de maioridade
-      const ageDeclaration: AgeDeclarationData = {
-        accepted: ageDeclarationAccepted,
-        userAgent: navigator.userAgent,
-      };
-      
-      console.log('📋 Declaração de maioridade:', ageDeclaration.accepted ? 'ACEITA' : 'NÃO ACEITA');
-      
       const result = await registerUser(
         {
           ...sanitizedData,
           documentoUrl,
           selfieUrl,
         },
-        senha,
-        ageDeclaration
+        senha
       );
       
       if (!result.success) {
@@ -952,15 +1031,23 @@ export default function Cadastro() {
                       variant="outline" 
                       onClick={() => setStep(1)} 
                       className="flex-1"
+                      disabled={isLoading}
                     >
                       Voltar
                     </Button>
                     <Button 
                       onClick={handleNextStep} 
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                      disabled={!ageDeclarationAccepted}
+                      disabled={!ageDeclarationAccepted || isLoading}
                     >
-                      Próximo
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verificando idade...
+                        </>
+                      ) : (
+                        'Próximo'
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -969,12 +1056,23 @@ export default function Cadastro() {
               {/* Step 3: Senha */}
               {step === 3 && (
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertDescription>
-                      Verificação concluída com sucesso! Agora crie sua senha.
-                    </AlertDescription>
-                  </Alert>
+                  {/* Alerta de verificação de idade */}
+                  {ageVerificationStatus === 'verified' && verifiedAge && verifiedBirthDate ? (
+                    <Alert className="border-green-500 bg-green-50">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertTitle className="text-green-900 font-semibold">Idade Verificada via Documento</AlertTitle>
+                      <AlertDescription className="text-green-800">
+                        ✅ Idade confirmada: <strong>{verifiedAge} anos</strong> (nascido em {formatBirthDate(verifiedBirthDate)})
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>
+                        Verificação concluída com sucesso! Agora crie sua senha.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="senha">Senha *</Label>
