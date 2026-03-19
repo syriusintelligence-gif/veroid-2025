@@ -17,17 +17,29 @@ const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 
 // Mapeamento de Price IDs para plan_type (planos recorrentes)
+// IMPORTANTE: Manter ambos os Price IDs (antigos e novos) para compatibilidade
 const PRICE_TO_PLAN: Record<string, string> = {
+  // Price IDs antigos (podem ainda existir em assinaturas ativas)
   'price_1T4gcAJc1p4mhrHNwOvzI8D8': 'creator',
   'price_1T4gijJc1p4mhrHNW3h3Ajzl': 'creator_pro',
   'price_1T4gmTJc1p4mhrHNuHS9xGN2': 'creator_elite',
+  // Price IDs novos (usados atualmente no Pricing.tsx)
+  'price_1T9AunJc1p4mhrHNQ3rfZhLa': 'creator',
+  'price_1T9AvvJc1p4mhrHNJkTRLWcU': 'creator_pro',
+  'price_1T9Ax3Jc1p4mhrHNriVXetzj': 'creator_elite',
 };
 
 // Mapeamento de Price IDs para pacotes avulsos (one-time payments)
+// IMPORTANTE: Manter ambos os Price IDs (antigos e novos) para compatibilidade
 const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
+  // Price IDs antigos (podem ainda existir em compras anteriores)
   'price_1T4gpIJc1p4mhrHNJL1tt3UY': { credits: 10, name: 'Pacote 10' },
   'price_1T4grUJc1p4mhrHNFJAl6Y4T': { credits: 20, name: 'Pacote 20' },
   'price_1T4gu0Jc1p4mhrHNg8LhOIrJ': { credits: 50, name: 'Pacote 50' },
+  // Price IDs novos (usados atualmente no Pricing.tsx)
+  'price_1T9AqmJc1p4mhrHNAA8QJKlc': { credits: 10, name: 'Pacote 10' },
+  'price_1T9AruJc1p4mhrHNjnzpniQM': { credits: 20, name: 'Pacote 20' },
+  'price_1T9AtJJc1p4mhrHNqXqdOCoh': { credits: 50, name: 'Pacote 50' },
 };
 
 // Limites de assinaturas por plano
