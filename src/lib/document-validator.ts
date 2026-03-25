@@ -9,15 +9,18 @@
  * - Passaporte
  * 
  * SEGURANÇA:
- * - Validação rigorosa de extensão (.pdf, .jpg, .jpeg, .png)
+ * - Validação rigorosa de extensão (.jpg, .jpeg, .png)
  * - Validação de MIME type
  * - Validação de Magic Numbers
  * - Limite de tamanho: 5MB
  * - Mensagens claras para o usuário
  * 
+ * ⚠️ IMPORTANTE: PDFs NÃO são suportados pelo AWS Textract (API síncrona)
+ * O usuário deve enviar uma FOTO (JPEG ou PNG) do documento.
+ * 
  * @author VeroID Security Team
- * @version 1.0.0
- * @date 2026-01-28
+ * @version 1.1.0
+ * @date 2026-03-25
  */
 
 import { validateFile, FileValidationResult } from './file-validator';
@@ -28,14 +31,15 @@ import { validateFile, FileValidationResult } from './file-validator';
 
 /**
  * Extensões permitidas para documentos de identidade
+ * ⚠️ PDF REMOVIDO - AWS Textract DetectDocumentText não suporta PDF
  */
-const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
+const ALLOWED_DOCUMENT_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 
 /**
  * MIME types permitidos para documentos de identidade
+ * ⚠️ PDF REMOVIDO - AWS Textract DetectDocumentText não suporta PDF
  */
 const ALLOWED_DOCUMENT_MIME_TYPES = [
-  'application/pdf',
   'image/jpeg',
   'image/jpg',
   'image/png'
@@ -52,7 +56,7 @@ const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 
 export interface DocumentValidationResult extends FileValidationResult {
   isDocument?: boolean;
-  documentType?: 'pdf' | 'image';
+  documentType?: 'image';
 }
 
 // =====================================================
@@ -87,10 +91,12 @@ function getFileExtension(fileName: string): string {
  * VALIDAÇÕES REALIZADAS:
  * 1. ✅ Verifica se arquivo existe
  * 2. ✅ Verifica tamanho máximo (5MB)
- * 3. ✅ Verifica se extensão é permitida (.pdf, .jpg, .jpeg, .png)
+ * 3. ✅ Verifica se extensão é permitida (.jpg, .jpeg, .png)
  * 4. ✅ Verifica se MIME type é permitido
  * 5. ✅ Valida Magic Numbers (assinatura de arquivo)
  * 6. ✅ Mensagens específicas para documentos de identidade
+ * 
+ * ⚠️ IMPORTANTE: PDFs NÃO são aceitos - apenas fotos (JPEG/PNG)
  * 
  * @param file - Objeto File do navegador
  * @returns Resultado da validação com detalhes
@@ -160,14 +166,33 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   }
   
   // =====================================================
-  // VALIDAÇÃO 3: Extensão permitida
+  // VALIDAÇÃO 3: Rejeitar PDFs explicitamente
+  // =====================================================
+  if (extension === '.pdf' || mimeType === 'application/pdf') {
+    console.error('❌ [DOCUMENT VALIDATOR] PDF não suportado:', extension);
+    
+    return {
+      valid: false,
+      message: '📷 PDFs não são aceitos. Por favor, tire uma FOTO (JPG ou PNG) do seu documento (CNH, RG ou Passaporte) e envie a imagem.',
+      isDocument: false,
+      details: {
+        fileName,
+        fileSize,
+        fileType: mimeType,
+        extension
+      }
+    };
+  }
+  
+  // =====================================================
+  // VALIDAÇÃO 4: Extensão permitida
   // =====================================================
   if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension)) {
     console.error('❌ [DOCUMENT VALIDATOR] Extensão não permitida:', extension);
     
     return {
       valid: false,
-      message: `Formato de arquivo não aceito. Por favor, envie seu documento (CNH, RG ou Passaporte) em um dos seguintes formatos: PDF, JPG ou PNG.`,
+      message: `Formato de arquivo não aceito. Por favor, envie uma FOTO do seu documento (CNH, RG ou Passaporte) nos formatos: JPG ou PNG.`,
       isDocument: false,
       details: {
         fileName,
@@ -179,14 +204,14 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   }
   
   // =====================================================
-  // VALIDAÇÃO 4: MIME type permitido
+  // VALIDAÇÃO 5: MIME type permitido
   // =====================================================
   if (mimeType && !ALLOWED_DOCUMENT_MIME_TYPES.includes(mimeType.toLowerCase())) {
     console.error('❌ [DOCUMENT VALIDATOR] MIME type não permitido:', mimeType);
     
     return {
       valid: false,
-      message: `Tipo de arquivo não reconhecido. Por favor, envie uma foto ou PDF do seu documento de identidade (CNH, RG ou Passaporte).`,
+      message: `Tipo de arquivo não reconhecido. Por favor, envie uma FOTO (JPG ou PNG) do seu documento de identidade (CNH, RG ou Passaporte).`,
       isDocument: false,
       details: {
         fileName,
@@ -198,12 +223,12 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   }
   
   // =====================================================
-  // VALIDAÇÃO 5: Validação completa com file-validator
+  // VALIDAÇÃO 6: Validação completa com file-validator
   // (inclui validação de Magic Numbers)
   // =====================================================
   const validationResult = await validateFile(file, {
     maxSizeBytes: MAX_DOCUMENT_SIZE_BYTES,
-    allowedCategories: ['image', 'document'],
+    allowedCategories: ['image'],
     strictMode: true,
     validateMagicNumbers: true
   });
@@ -215,7 +240,7 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
     let customMessage = validationResult.message;
     
     if (validationResult.message.includes('suspeito') || validationResult.message.includes('falsificação')) {
-      customMessage = 'Arquivo suspeito detectado. Por favor, tire uma foto direta do seu documento ou escaneie-o em PDF. Não envie capturas de tela ou arquivos editados.';
+      customMessage = 'Arquivo suspeito detectado. Por favor, tire uma foto direta do seu documento. Não envie capturas de tela ou arquivos editados.';
     }
     
     return {
@@ -229,12 +254,9 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   // =====================================================
   // ✅ DOCUMENTO VÁLIDO
   // =====================================================
-  const isPdf = extension === '.pdf';
-  const documentType: 'pdf' | 'image' = isPdf ? 'pdf' : 'image';
-  
   console.log('✅ [DOCUMENT VALIDATOR] Documento validado com sucesso:', {
     fileName,
-    documentType,
+    documentType: 'image',
     size: formatFileSize(fileSize)
   });
   
@@ -242,7 +264,7 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
     valid: true,
     message: 'Documento válido.',
     isDocument: true,
-    documentType,
+    documentType: 'image',
     details: {
       fileName,
       fileSize,
@@ -258,18 +280,17 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
 
 /**
  * Retorna string de extensões permitidas para atributo accept do input
+ * ⚠️ PDF REMOVIDO - apenas imagens são aceitas
  */
 export function getDocumentAcceptString(): string {
-  return ALLOWED_DOCUMENT_EXTENSIONS.join(',');
+  return ALLOWED_DOCUMENT_EXTENSIONS.join(',') + ',image/jpeg,image/png';
 }
 
 /**
  * Retorna descrição legível das extensões permitidas
  */
 export function getDocumentExtensionDescription(): string {
-  return ALLOWED_DOCUMENT_EXTENSIONS
-    .map(ext => ext.substring(1).toUpperCase())
-    .join(', ');
+  return 'JPG, PNG (apenas fotos, PDF não aceito)';
 }
 
 /**

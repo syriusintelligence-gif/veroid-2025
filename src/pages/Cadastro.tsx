@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, FileText, Image, AlertCircle, XCircle, Eye, EyeOff, Mail } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, Image, AlertCircle, XCircle, Eye, EyeOff, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
@@ -115,7 +115,7 @@ export default function Cadastro() {
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [documentoFile, setDocumentoFile] = useState<File | null>(null);
   const [documentoUrl, setDocumentoUrl] = useState('');
-  const [documentoType, setDocumentoType] = useState<'image' | 'pdf'>('image');
+  const [documentoType, setDocumentoType] = useState<'image'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
   
   // 👁️ Estados para mostrar/ocultar senha
@@ -273,9 +273,8 @@ export default function Cadastro() {
     
     setDocumentoFile(file);
     
-    // Determina o tipo do arquivo
-    const isPdf = file.type === 'application/pdf';
-    setDocumentoType(isPdf ? 'pdf' : 'image');
+    // Tipo sempre é imagem (PDF não é mais aceito)
+    setDocumentoType('image');
     
     // Converte para base64
     const base64 = await fileToBase64(file);
@@ -859,10 +858,13 @@ export default function Cadastro() {
                   <div className="space-y-2">
                     <Label>Documento de Identificação com Foto *</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      📄 Envie apenas: <strong>CNH, RG ou Passaporte</strong>
+                      📷 Envie uma <strong>FOTO</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
                     </p>
                     <p className="text-xs text-muted-foreground mb-2">
                       Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
+                    </p>
+                    <p className="text-xs text-amber-600 mb-2">
+                      ⚠️ <strong>PDFs não são aceitos</strong> - tire uma foto do documento com seu celular
                     </p>
                     {!documentoUrl ? (
                       <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -888,37 +890,17 @@ export default function Cadastro() {
                       </div>
                     ) : (
                       <div className="relative">
-                        {documentoType === 'pdf' ? (
-                          <div className="border rounded-lg p-8 bg-muted/50">
-                            <div className="flex items-center justify-center gap-3">
-                              <FileText className="h-16 w-16 text-blue-600" />
-                              <div className="text-left">
-                                <p className="font-medium">Documento PDF</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {documentoFile ? sanitizeFileName(documentoFile.name) : 'documento.pdf'}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {((documentoFile?.size || 0) / 1024 / 1024).toFixed(2)} MB
-                                </p>
-                                <p className="text-xs text-green-600 mt-1">
-                                  ✓ Documento validado com sucesso
-                                </p>
-                              </div>
-                            </div>
+                        <div className="relative group">
+                          <img
+                            src={documentoUrl}
+                            alt="Documento"
+                            className="w-full rounded-lg"
+                          />
+                          <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                            <Image className="h-3 w-3" />
+                            Documento Validado
                           </div>
-                        ) : (
-                          <div className="relative group">
-                            <img
-                              src={documentoUrl}
-                              alt="Documento"
-                              className="w-full rounded-lg"
-                            />
-                            <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <Image className="h-3 w-3" />
-                              Documento Validado
-                            </div>
-                          </div>
-                        )}
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"

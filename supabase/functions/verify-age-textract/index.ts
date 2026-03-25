@@ -5,6 +5,9 @@
 // Esta função extrai a data de nascimento de documentos
 // (CNH, RG, Passaporte) usando AWS Textract e verifica
 // se o usuário tem 18 anos ou mais.
+// 
+// IMPORTANTE: AWS Textract DetectDocumentText (API síncrona)
+// suporta apenas IMAGENS (JPEG, PNG). PDFs requerem API assíncrona.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
@@ -20,7 +23,7 @@ const AWS_SECRET_ACCESS_KEY = Deno.env.get('AWS_SECRET_ACCESS_KEY') ?? '';
 const AWS_REGION = Deno.env.get('AWS_REGION') ?? 'us-east-1';
 
 interface VerifyAgeRequest {
-  documentBase64: string; // Imagem/PDF do documento em base64
+  documentBase64: string; // Imagem do documento em base64 (JPEG ou PNG)
   documentType?: 'CNH' | 'RG' | 'PASSAPORTE';
 }
 
@@ -78,7 +81,7 @@ function safeBase64Decode(base64: string): Uint8Array {
     return bytes;
   } catch (e) {
     console.error('❌ [DECODE] Erro ao decodificar base64:', e);
-    throw new Error('Formato de arquivo inválido');
+    throw new Error('Formato de arquivo inválido. Certifique-se de enviar uma imagem válida.');
   }
 }
 
@@ -165,6 +168,8 @@ async function callTextract(documentBase64: string): Promise<any> {
   const host = `textract.${AWS_REGION}.amazonaws.com`;
   const endpoint = `https://${host}`;
   
+  console.log(`🌐 [TEXTRACT] Preparando chamada para: ${endpoint}`);
+  
   // Limpa o base64
   const { cleanedBase64, mimeType } = cleanBase64(documentBase64);
   
@@ -176,7 +181,7 @@ async function callTextract(documentBase64: string): Promise<any> {
     console.log(`📎 [TEXTRACT] Tipo MIME detectado: ${mimeType}`);
     
     if (bytes.length < 1000) {
-      throw new Error('Documento muito pequeno ou inválido');
+      throw new Error('Documento muito pequeno ou inválido. Envie uma foto clara do documento.');
     }
     
     if (bytes.length > 5 * 1024 * 1024) {
@@ -190,8 +195,14 @@ async function callTextract(documentBase64: string): Promise<any> {
     
     console.log(`🔍 [TEXTRACT] Tipo detectado por magic bytes: PDF=${isPDF}, JPEG=${isJPEG}, PNG=${isPNG}`);
     
-    if (!isPDF && !isJPEG && !isPNG) {
-      console.warn('⚠️ [TEXTRACT] Tipo de arquivo não reconhecido pelos magic bytes, tentando mesmo assim...');
+    // IMPORTANTE: AWS Textract DetectDocumentText NÃO suporta PDFs na API síncrona
+    if (isPDF) {
+      console.error('❌ [TEXTRACT] PDF detectado - não suportado pela API síncrona');
+      throw new Error('PDFs não são suportados. Por favor, envie uma FOTO (JPG ou PNG) do seu documento.');
+    }
+    
+    if (!isJPEG && !isPNG) {
+      console.warn('⚠️ [TEXTRACT] Tipo de arquivo não reconhecido, tentando mesmo assim...');
     }
   } catch (e) {
     console.error('❌ [TEXTRACT] Erro ao validar documento:', e);
@@ -205,6 +216,8 @@ async function callTextract(documentBase64: string): Promise<any> {
     }
   });
   
+  console.log(`📦 [TEXTRACT] Payload preparado, tamanho: ${requestBody.length} caracteres`);
+  
   // Gera timestamp
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
@@ -213,6 +226,7 @@ async function callTextract(documentBase64: string): Promise<any> {
   console.log(`🕐 [TEXTRACT] Timestamp: ${amzDate}`);
   
   // Gera assinatura
+  console.log('🔐 [TEXTRACT] Gerando assinatura AWS v4...');
   const { authorizationHeader } = await generateAWSSignature(
     'POST',
     'textract',
@@ -223,58 +237,80 @@ async function callTextract(documentBase64: string): Promise<any> {
     dateStamp
   );
   
+  console.log('✅ [TEXTRACT] Assinatura gerada com sucesso');
   console.log('🔍 [TEXTRACT] Chamando AWS Textract...');
   console.log(`📡 [TEXTRACT] Endpoint: ${endpoint}`);
   
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Date': amzDate,
-      'X-Amz-Target': 'Textract.DetectDocumentText',
-      'Authorization': authorizationHeader
-    },
-    body: requestBody
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ [TEXTRACT] Erro na resposta:', response.status, errorText);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Date': amzDate,
+        'X-Amz-Target': 'Textract.DetectDocumentText',
+        'Authorization': authorizationHeader
+      },
+      body: requestBody
+    });
     
-    try {
-      const errorJson = JSON.parse(errorText);
-      if (errorJson.__type?.includes('InvalidParameterException')) {
-        throw new Error('Documento inválido ou ilegível. Tente com uma imagem mais clara.');
+    console.log(`📨 [TEXTRACT] Resposta recebida, status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [TEXTRACT] Erro na resposta:', response.status, errorText);
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('❌ [TEXTRACT] Erro JSON:', JSON.stringify(errorJson));
+        
+        if (errorJson.__type?.includes('InvalidParameterException')) {
+          throw new Error('Documento inválido ou ilegível. Tente com uma foto mais clara e bem iluminada.');
+        }
+        if (errorJson.__type?.includes('UnsupportedDocumentException')) {
+          throw new Error('Formato de documento não suportado. Use uma foto JPG ou PNG do documento.');
+        }
+        if (errorJson.__type?.includes('AccessDeniedException')) {
+          console.error('❌ [TEXTRACT] Acesso negado - verificar credenciais IAM');
+          throw new Error('Erro de autenticação com o serviço. Contate o suporte.');
+        }
+        if (errorJson.__type?.includes('ThrottlingException')) {
+          throw new Error('Serviço temporariamente indisponível. Tente novamente em alguns segundos.');
+        }
+        if (errorJson.__type?.includes('SerializationException')) {
+          throw new Error('Erro no formato do documento. Tente fazer upload novamente.');
+        }
+        if (errorJson.__type?.includes('InvalidSignatureException') || errorJson.__type?.includes('SignatureDoesNotMatch')) {
+          console.error('❌ [TEXTRACT] Assinatura inválida - verificar AWS_SECRET_ACCESS_KEY');
+          throw new Error('Erro de autenticação com o serviço. Contate o suporte.');
+        }
+        if (errorJson.__type?.includes('UnrecognizedClientException')) {
+          console.error('❌ [TEXTRACT] Cliente não reconhecido - verificar AWS_ACCESS_KEY_ID');
+          throw new Error('Erro de autenticação com o serviço. Contate o suporte.');
+        }
+        if (errorJson.Message) {
+          throw new Error(errorJson.Message);
+        }
+      } catch (parseError) {
+        if (parseError instanceof Error && !parseError.message.includes('JSON')) {
+          throw parseError;
+        }
       }
-      if (errorJson.__type?.includes('UnsupportedDocumentException')) {
-        throw new Error('Formato de documento não suportado. Use JPG, PNG ou PDF.');
-      }
-      if (errorJson.__type?.includes('AccessDeniedException')) {
-        throw new Error('Erro de autenticação AWS. Verifique as credenciais.');
-      }
-      if (errorJson.__type?.includes('ThrottlingException')) {
-        throw new Error('Muitas requisições. Tente novamente em alguns segundos.');
-      }
-      if (errorJson.__type?.includes('SerializationException')) {
-        throw new Error('Erro no formato do documento. Tente fazer upload novamente.');
-      }
-      if (errorJson.Message) {
-        throw new Error(errorJson.Message);
-      }
-    } catch (parseError) {
-      if (parseError instanceof Error && parseError.message !== errorText) {
-        throw parseError;
-      }
+      
+      throw new Error(`Erro ao processar documento. Código: ${response.status}`);
     }
     
-    throw new Error(`AWS Textract error: ${response.status}`);
+    const result = await response.json();
+    console.log('✅ [TEXTRACT] Resposta recebida com sucesso');
+    console.log(`📊 [TEXTRACT] Blocos encontrados: ${result.Blocks?.length || 0}`);
+    
+    return result;
+  } catch (fetchError) {
+    console.error('❌ [TEXTRACT] Erro na requisição fetch:', fetchError);
+    if (fetchError instanceof Error) {
+      throw fetchError;
+    }
+    throw new Error('Erro de conexão com o serviço de verificação.');
   }
-  
-  const result = await response.json();
-  console.log('✅ [TEXTRACT] Resposta recebida com sucesso');
-  console.log(`📊 [TEXTRACT] Blocos encontrados: ${result.Blocks?.length || 0}`);
-  
-  return result;
 }
 
 /**
@@ -403,23 +439,28 @@ serve(async (req) => {
 
   try {
     console.log('🔐 [VERIFY-AGE] Iniciando verificação de idade via AWS Textract...');
+    console.log(`📅 [VERIFY-AGE] Data/hora: ${new Date().toISOString()}`);
 
     if (req.method !== 'POST') {
       throw new Error('Método não permitido. Use POST.');
     }
 
+    // Verifica credenciais AWS
     if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
       console.error('❌ [VERIFY-AGE] Credenciais AWS não configuradas');
+      console.error(`❌ [VERIFY-AGE] AWS_ACCESS_KEY_ID presente: ${!!AWS_ACCESS_KEY_ID}`);
+      console.error(`❌ [VERIFY-AGE] AWS_SECRET_ACCESS_KEY presente: ${!!AWS_SECRET_ACCESS_KEY}`);
       throw new Error('Serviço de verificação não configurado. Contate o suporte.');
     }
     
     console.log('✅ [VERIFY-AGE] Credenciais AWS configuradas');
     console.log(`🌎 [VERIFY-AGE] Região: ${AWS_REGION}`);
+    console.log(`🔑 [VERIFY-AGE] Access Key ID (primeiros 4 chars): ${AWS_ACCESS_KEY_ID.substring(0, 4)}...`);
 
     const body: VerifyAgeRequest = await req.json();
     
     if (!body.documentBase64) {
-      throw new Error('Imagem do documento é obrigatória');
+      throw new Error('Imagem do documento é obrigatória. Envie uma foto do seu documento.');
     }
 
     console.log('📄 [VERIFY-AGE] Documento recebido, tipo:', body.documentType || 'não especificado');
@@ -441,7 +482,7 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           isAdult: false,
-          error: 'Não foi possível identificar a data de nascimento no documento. Certifique-se de que a imagem está clara e legível.',
+          error: 'Não foi possível identificar a data de nascimento no documento. Certifique-se de que a foto está clara, bem iluminada e mostra a data de nascimento.',
           extractedText: extractedText.substring(0, 1000)
         } as VerifyAgeResponse),
         {
@@ -477,12 +518,15 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('❌ [VERIFY-AGE] Erro na Edge Function:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao verificar documento';
+    console.error(`❌ [VERIFY-AGE] Mensagem de erro: ${errorMessage}`);
 
     return new Response(
       JSON.stringify({
         success: false,
         isAdult: false,
-        error: error instanceof Error ? error.message : 'Erro desconhecido ao verificar documento',
+        error: errorMessage,
       } as VerifyAgeResponse),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
