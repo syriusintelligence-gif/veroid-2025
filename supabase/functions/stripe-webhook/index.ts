@@ -144,6 +144,30 @@ async function getUserIdByEmail(email: string): Promise<string | null> {
   }
 }
 
+// Buscar user_id pelo stripe_customer_id
+async function getUserIdByStripeCustomerId(stripeCustomerId: string): Promise<string | null> {
+  console.log('🔍 [getUserIdByStripeCustomerId] Buscando user_id para customer:', stripeCustomerId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('user_id')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .single();
+    
+    if (error || !data) {
+      console.error('❌ [getUserIdByStripeCustomerId] Assinatura não encontrada:', error);
+      return null;
+    }
+
+    console.log('✅ [getUserIdByStripeCustomerId] user_id encontrado:', data.user_id);
+    return data.user_id;
+  } catch (error) {
+    console.error('❌ [getUserIdByStripeCustomerId] Exceção:', error);
+    return null;
+  }
+}
+
 async function handleCheckoutSessionCompleted(session: Record<string, unknown>) {
   console.log('🎉 [handleCheckoutSessionCompleted] Checkout concluído:', session.id);
   console.log('📋 [handleCheckoutSessionCompleted] Session mode:', session.mode);
@@ -318,9 +342,11 @@ async function handlePackageCheckout(session: Record<string, unknown>, userId: s
 
   // Verificar se esta compra já foi processada (idempotência)
   const metadata = subscription.metadata || {};
-  const lastPurchase = metadata.last_package_purchase as { stripe_session_id?: string } | undefined;
+  const packagePurchases = metadata.package_purchases as Array<{ stripe_session_id?: string }> || [];
   
-  if (lastPurchase && lastPurchase.stripe_session_id === session.id) {
+  // Verificar se já processamos esta sessão
+  const alreadyProcessed = packagePurchases.some(p => p.stripe_session_id === session.id);
+  if (alreadyProcessed) {
     console.log('⚠️ [handlePackageCheckout] Compra já processada anteriormente, ignorando...');
     return;
   }
@@ -343,20 +369,28 @@ async function handlePackageCheckout(session: Record<string, unknown>, userId: s
   console.log('📅 [handlePackageCheckout] Data de compra (session.created):', purchaseDate.toISOString());
   console.log('📅 [handlePackageCheckout] Data de expiração do pacote:', expirationDate.toISOString());
 
+  // Criar registro do novo pacote comprado
+  const newPurchase = {
+    package_name: packageInfo.name,
+    credits_added: packageInfo.credits,
+    credits_remaining: packageInfo.credits, // Créditos restantes deste pacote específico
+    purchase_date: purchaseDate.toISOString(),
+    expiration_date: expirationDate.toISOString(),
+    stripe_session_id: session.id,
+    stripe_price_id: priceId,
+    stripe_payment_intent: session.payment_intent,
+    processed_by: 'webhook',
+  };
+
+  // Adicionar ao array de compras (mantendo histórico)
+  const updatedPackagePurchases = [...packagePurchases, newPurchase];
+
   const updateData = {
     overage_signatures_available: newOverageCredits,
     metadata: {
       ...metadata,
-      last_package_purchase: {
-        package_name: packageInfo.name,
-        credits_added: packageInfo.credits,
-        purchase_date: purchaseDate.toISOString(),
-        expiration_date: expirationDate.toISOString(),
-        stripe_session_id: session.id,
-        stripe_price_id: priceId,
-        stripe_payment_intent: session.payment_intent,
-        processed_by: 'webhook',
-      },
+      package_purchases: updatedPackagePurchases,
+      last_package_purchase: newPurchase, // Manter para compatibilidade
     },
     updated_at: new Date().toISOString(),
   };
@@ -374,6 +408,147 @@ async function handlePackageCheckout(session: Record<string, unknown>, userId: s
   }
 
   console.log(`✅ [handlePackageCheckout] ${packageInfo.credits} créditos extras adicionados! Total: ${newOverageCredits}`);
+}
+
+// =====================================================
+// NOVO: Tratamento de invoice.paid para renovação de assinaturas
+// =====================================================
+async function handleInvoicePaid(invoice: Record<string, unknown>) {
+  console.log('💰 [handleInvoicePaid] Invoice paga:', invoice.id);
+  console.log('📋 [handleInvoicePaid] Billing reason:', invoice.billing_reason);
+  
+  const billingReason = invoice.billing_reason as string;
+  const subscriptionId = invoice.subscription as string;
+  const customerId = invoice.customer as string;
+  
+  // Só processar renovações de assinatura (não a primeira cobrança)
+  // billing_reason pode ser: subscription_create, subscription_cycle, subscription_update, manual, etc.
+  if (billingReason !== 'subscription_cycle') {
+    console.log('ℹ️ [handleInvoicePaid] Não é renovação de ciclo, ignorando. Reason:', billingReason);
+    return;
+  }
+  
+  if (!subscriptionId) {
+    console.log('⚠️ [handleInvoicePaid] Invoice sem subscription_id, ignorando');
+    return;
+  }
+  
+  console.log('🔄 [handleInvoicePaid] Processando RENOVAÇÃO de assinatura:', subscriptionId);
+  
+  // Buscar a assinatura no banco de dados
+  const { data: subscription, error: fetchError } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('stripe_subscription_id', subscriptionId)
+    .single();
+  
+  if (fetchError || !subscription) {
+    console.error('❌ [handleInvoicePaid] Assinatura não encontrada:', fetchError);
+    
+    // Tentar buscar pelo customer_id
+    if (customerId) {
+      const userId = await getUserIdByStripeCustomerId(customerId);
+      if (userId) {
+        console.log('🔍 [handleInvoicePaid] Tentando buscar por user_id:', userId);
+        const { data: subByUser } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        
+        if (subByUser) {
+          await processSubscriptionRenewal(subByUser, invoice);
+          return;
+        }
+      }
+    }
+    return;
+  }
+  
+  await processSubscriptionRenewal(subscription, invoice);
+}
+
+async function processSubscriptionRenewal(subscription: Record<string, unknown>, invoice: Record<string, unknown>) {
+  console.log('🔄 [processSubscriptionRenewal] Renovando assinatura:', subscription.id);
+  console.log('📋 [processSubscriptionRenewal] Plano:', subscription.plan_type);
+  console.log('📋 [processSubscriptionRenewal] Créditos usados antes da renovação:', subscription.signatures_used);
+  
+  // Buscar dados atualizados da subscription no Stripe
+  const stripeSubscriptionId = subscription.stripe_subscription_id as string;
+  const subResponse = await stripeRequest(`/subscriptions/${stripeSubscriptionId}`);
+  const stripeSubscription = await subResponse.json();
+  
+  if (!subResponse.ok) {
+    console.error('❌ [processSubscriptionRenewal] Erro ao buscar subscription no Stripe:', stripeSubscription);
+    return;
+  }
+  
+  const newPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
+  const newPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+  
+  console.log('📅 [processSubscriptionRenewal] Novo período:', newPeriodStart.toISOString(), 'até', newPeriodEnd.toISOString());
+  
+  // Verificar e expirar pacotes avulsos vencidos
+  const metadata = subscription.metadata as Record<string, unknown> || {};
+  const packagePurchases = metadata.package_purchases as Array<Record<string, unknown>> || [];
+  
+  let expiredCredits = 0;
+  const now = new Date();
+  
+  // Filtrar pacotes não expirados e calcular créditos expirados
+  const validPackages = packagePurchases.filter(pkg => {
+    const expirationDate = new Date(pkg.expiration_date as string);
+    const creditsRemaining = (pkg.credits_remaining as number) || 0;
+    
+    if (expirationDate < now) {
+      console.log(`⏰ [processSubscriptionRenewal] Pacote expirado: ${pkg.package_name}, créditos perdidos: ${creditsRemaining}`);
+      expiredCredits += creditsRemaining;
+      return false; // Remover pacote expirado
+    }
+    return true; // Manter pacote válido
+  });
+  
+  // Calcular novo total de créditos avulsos (apenas dos pacotes válidos)
+  const newOverageTotal = validPackages.reduce((sum, pkg) => {
+    return sum + ((pkg.credits_remaining as number) || 0);
+  }, 0);
+  
+  console.log('📊 [processSubscriptionRenewal] Créditos avulsos expirados:', expiredCredits);
+  console.log('📊 [processSubscriptionRenewal] Créditos avulsos válidos restantes:', newOverageTotal);
+  
+  // Atualizar a assinatura: resetar créditos do plano e atualizar período
+  const updateData = {
+    signatures_used: 0, // RESETAR créditos usados do plano
+    current_period_start: newPeriodStart.toISOString(),
+    current_period_end: newPeriodEnd.toISOString(),
+    status: stripeSubscription.status,
+    overage_signatures_available: newOverageTotal, // Atualizar com pacotes válidos
+    metadata: {
+      ...metadata,
+      package_purchases: validPackages, // Manter apenas pacotes válidos
+      last_renewal: {
+        date: now.toISOString(),
+        invoice_id: invoice.id,
+        previous_signatures_used: subscription.signatures_used,
+        expired_overage_credits: expiredCredits,
+      },
+    },
+    updated_at: now.toISOString(),
+  };
+  
+  const { error: updateError } = await supabase
+    .from('subscriptions')
+    .update(updateData)
+    .eq('id', subscription.id);
+  
+  if (updateError) {
+    console.error('❌ [processSubscriptionRenewal] Erro ao atualizar assinatura:', updateError);
+    throw updateError;
+  }
+  
+  console.log('✅ [processSubscriptionRenewal] Assinatura renovada com sucesso!');
+  console.log('📊 [processSubscriptionRenewal] Créditos do plano resetados de', subscription.signatures_used, 'para 0');
+  console.log('📊 [processSubscriptionRenewal] Limite do plano:', subscription.signatures_limit);
 }
 
 async function handleSubscriptionUpdated(subscription: Record<string, unknown>) {
@@ -492,6 +667,17 @@ serve(async (req) => {
       case 'checkout.session.completed':
         console.log('🎯 [serve] Processando checkout.session.completed');
         await handleCheckoutSessionCompleted(event.data.object);
+        break;
+
+      case 'invoice.paid':
+        console.log('🎯 [serve] Processando invoice.paid');
+        await handleInvoicePaid(event.data.object);
+        break;
+
+      case 'invoice.payment_succeeded':
+        console.log('🎯 [serve] Processando invoice.payment_succeeded');
+        // Também tratar este evento para garantir que renovações sejam capturadas
+        await handleInvoicePaid(event.data.object);
         break;
 
       case 'customer.subscription.updated':
