@@ -9,6 +9,9 @@ import {
   getStatusColor,
   getStatusLabel,
   formatDate,
+  formatDateShort,
+  getValidPackages,
+  getDaysUntilRenewal,
 } from '@/hooks/useSubscription';
 
 export const SubscriptionCard = () => {
@@ -69,11 +72,9 @@ export const SubscriptionCard = () => {
   // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
 
-  // 🆕 Extrai data de expiração dos créditos extras do metadata
-  const packageExpirationDate = subscription.metadata?.last_package_purchase?.expiration_date;
-  const packageExpirationFormatted = packageExpirationDate 
-    ? formatDate(packageExpirationDate)
-    : null;
+  // 🆕 Obtém pacotes válidos (não expirados e com créditos)
+  const validPackages = getValidPackages(subscription.metadata?.package_purchases);
+  const hasValidPackages = validPackages.length > 0;
 
   return (
     <Card>
@@ -108,6 +109,11 @@ export const SubscriptionCard = () => {
             <span className={isCanceled ? "text-red-600" : "text-gray-600"}>
               {/* ✅ Texto condicional baseado em cancelamento - apenas data */}
               {isCanceled ? 'Expira em' : 'Renova em'} {formatDate(subscription.current_period_end)}
+              {!isCanceled && (
+                <span className="text-gray-400 ml-1">
+                  ({getDaysUntilRenewal(subscription.current_period_end)} dias)
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -138,9 +144,9 @@ export const SubscriptionCard = () => {
               </span>
             </div>
             
-            {/* 🆕 NOVO: Mostra créditos extras COM data de expiração */}
-            {overageAvailable > 0 && (
-              <div className="flex flex-col gap-1 p-2 bg-green-50 rounded border border-green-200">
+            {/* 🆕 ATUALIZADO: Mostra todos os pacotes válidos com suas datas */}
+            {hasValidPackages && (
+              <div className="flex flex-col gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <div className="flex justify-between items-center">
                   <span className="text-green-700 flex items-center gap-1">
                     <Package className="h-4 w-4" />
@@ -150,13 +156,21 @@ export const SubscriptionCard = () => {
                     +{overageAvailable}
                   </span>
                 </div>
-                {/* 🆕 NOVO: Data de expiração dos créditos extras */}
-                {packageExpirationFormatted && (
-                  <div className="flex items-center gap-1 text-xs text-green-600">
-                    <Clock className="h-3 w-3" />
-                    <span>Válidos até {packageExpirationFormatted}</span>
-                  </div>
-                )}
+                
+                {/* 🆕 Lista de pacotes com datas individuais */}
+                <div className="space-y-1 mt-1">
+                  {validPackages.map((pkg, index) => (
+                    <div key={index} className="flex items-center justify-between text-xs text-green-600 bg-green-100/50 rounded px-2 py-1">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {pkg.package_name}: {pkg.credits_remaining} créditos
+                      </span>
+                      <span className="font-medium">
+                        até {formatDateShort(pkg.expiration_date)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

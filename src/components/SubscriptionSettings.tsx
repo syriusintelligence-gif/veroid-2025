@@ -31,6 +31,9 @@ import {
   getStatusColor,
   getStatusLabel,
   formatDate,
+  formatDateShort,
+  getValidPackages,
+  getDaysUntilRenewal,
 } from '@/hooks/useSubscription';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -98,11 +101,10 @@ export const SubscriptionSettings = () => {
   // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
 
-  // 🆕 Extrai data de expiração dos créditos extras do metadata
-  const packageExpirationDate = subscription.metadata?.last_package_purchase?.expiration_date;
-  const packageExpirationFormatted = packageExpirationDate 
-    ? formatDate(packageExpirationDate)
-    : null;
+  // 🆕 Obtém pacotes válidos (não expirados e com créditos)
+  const validPackages = getValidPackages(subscription.metadata?.package_purchases);
+  const hasValidPackages = validPackages.length > 0;
+  const totalValidCredits = validPackages.reduce((sum, pkg) => sum + pkg.credits_remaining, 0);
 
   // ✅ Função de cancelamento que chama a Edge Function
   const handleCancelSubscription = async () => {
@@ -212,7 +214,12 @@ export const SubscriptionSettings = () => {
                 <p className="text-sm text-gray-500 mb-1">Próxima Renovação</p>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
-                  <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
+                  <p className="font-medium">
+                    {formatDate(subscription.current_period_end)}
+                    <span className="text-gray-400 text-sm ml-1">
+                      ({getDaysUntilRenewal(subscription.current_period_end)} dias)
+                    </span>
+                  </p>
                 </div>
               </div>
             )}
@@ -264,7 +271,7 @@ export const SubscriptionSettings = () => {
                   Cancelamento Agendado
                 </p>
                 <p className="text-xs text-red-700">
-                  Sua assinatura será cancelada em {formatDate(subscription.current_period_end)}. Você continuará tendo acesso até essa data. Seus créditos extras (se houver) serão preservados até a data de expiração.
+                  Sua assinatura será cancelada em {formatDate(subscription.current_period_end)}. Você continuará tendo acesso até essa data. Seus créditos extras (se houver) serão preservados até a data de expiração individual de cada pacote.
                 </p>
               </div>
             </div>
@@ -321,11 +328,11 @@ export const SubscriptionSettings = () => {
             </div>
           </div>
 
-          {/* 🆕 NOVO: Créditos extras COM data de expiração */}
-          {subscription.overage_signatures_available > 0 && (
+          {/* 🆕 ATUALIZADO: Créditos extras COM lista de pacotes e datas individuais */}
+          {hasValidPackages && (
             <>
               <Separator />
-              <div className="flex flex-col gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex flex-col gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Package className="h-5 w-5 text-green-600" />
@@ -334,21 +341,60 @@ export const SubscriptionSettings = () => {
                         Autenticações Extras Disponíveis
                       </p>
                       <p className="text-xs text-green-700">
-                        Você tem {subscription.overage_signatures_available} autenticações extras de pacotes adicionais
+                        Total de {totalValidCredits} autenticações extras de {validPackages.length} pacote(s)
                       </p>
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-green-700">
-                    +{subscription.overage_signatures_available}
+                    +{totalValidCredits}
                   </span>
                 </div>
-                {/* 🆕 NOVO: Data de expiração dos créditos extras */}
-                {packageExpirationFormatted && (
-                  <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Válidos até {packageExpirationFormatted}</span>
-                  </div>
-                )}
+                
+                {/* 🆕 Lista detalhada de pacotes com datas individuais */}
+                <div className="space-y-2 mt-2">
+                  <p className="text-xs font-medium text-green-800">Detalhes dos pacotes:</p>
+                  {validPackages.map((pkg, index) => {
+                    const daysUntilExpiration = getDaysUntilRenewal(pkg.expiration_date);
+                    const isExpiringSoon = daysUntilExpiration <= 7;
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`flex items-center justify-between text-sm p-2 rounded ${
+                          isExpiringSoon 
+                            ? 'bg-yellow-100 border border-yellow-300' 
+                            : 'bg-green-100/50 border border-green-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Package className={`h-4 w-4 ${isExpiringSoon ? 'text-yellow-600' : 'text-green-600'}`} />
+                          <div>
+                            <p className={`font-medium ${isExpiringSoon ? 'text-yellow-800' : 'text-green-800'}`}>
+                              {pkg.package_name}
+                            </p>
+                            <p className={`text-xs ${isExpiringSoon ? 'text-yellow-600' : 'text-green-600'}`}>
+                              Comprado em {formatDateShort(pkg.purchase_date)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold ${isExpiringSoon ? 'text-yellow-700' : 'text-green-700'}`}>
+                            {pkg.credits_remaining} créditos
+                          </p>
+                          <div className={`flex items-center gap-1 text-xs ${isExpiringSoon ? 'text-yellow-600' : 'text-green-600'}`}>
+                            <Clock className="h-3 w-3" />
+                            <span>
+                              {isExpiringSoon 
+                                ? `Expira em ${daysUntilExpiration} dia(s)!` 
+                                : `Válido até ${formatDateShort(pkg.expiration_date)}`
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}
@@ -411,7 +457,7 @@ export const SubscriptionSettings = () => {
                         </p>
                         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-sm text-blue-900">
-                            ✅ <strong>Seus créditos extras (pacotes avulsos) serão preservados</strong> até a data de expiração deles, mesmo após o cancelamento.
+                            ✅ <strong>Seus créditos extras (pacotes avulsos) serão preservados</strong> até a data de expiração individual de cada pacote, mesmo após o cancelamento.
                           </p>
                         </div>
                         <p className="text-sm text-gray-600">

@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Interface para compras de pacotes avulsos
+ */
+export interface PackagePurchase {
+  package_name: string;
+  credits_added: number;
+  credits_remaining: number;
+  purchase_date: string;
+  expiration_date: string;
+  stripe_session_id?: string;
+  stripe_price_id?: string;
+  stripe_payment_intent?: string;
+  processed_by?: string;
+}
+
 export interface Subscription {
   id: string;
   plan_type: string;
@@ -17,13 +32,13 @@ export interface Subscription {
   canceled_at: string | null;
   trial_end: string | null;
   metadata?: {
-    last_package_purchase?: {
-      package_name?: string;
-      credits_added?: number;
-      purchase_date?: string;
-      expiration_date?: string;
-      stripe_price_id?: string;
-      stripe_session_id?: string;
+    package_purchases?: PackagePurchase[];
+    last_package_purchase?: PackagePurchase;
+    last_renewal?: {
+      date: string;
+      invoice_id: string;
+      previous_signatures_used: number;
+      expired_overage_credits: number;
     };
     [key: string]: unknown;
   };
@@ -253,7 +268,7 @@ export async function consumeSignature(userId: string): Promise<{
 }
 
 // ========================================
-// 🔧 FUNÇÕES AUXILIARES (MANTIDAS DO CÓDIGO ORIGINAL)
+// 🔧 FUNÇÕES AUXILIARES
 // ========================================
 
 /**
@@ -314,6 +329,18 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Formata uma data de forma curta (DD/MM/YYYY)
+ */
+export function formatDateShort(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/**
  * Calcula quantos dias faltam até a renovação
  */
 export function getDaysUntilRenewal(endDate: string): number {
@@ -322,4 +349,39 @@ export function getDaysUntilRenewal(endDate: string): number {
   const diffTime = end.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
+}
+
+/**
+ * Filtra pacotes válidos (não expirados e com créditos)
+ */
+export function getValidPackages(packages: PackagePurchase[] | undefined): PackagePurchase[] {
+  if (!packages || !Array.isArray(packages)) return [];
+  
+  const now = new Date();
+  return packages
+    .filter(pkg => {
+      const expirationDate = new Date(pkg.expiration_date);
+      return expirationDate > now && pkg.credits_remaining > 0;
+    })
+    .sort((a, b) => {
+      // Ordenar por data de expiração (mais próximo primeiro)
+      return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
+    });
+}
+
+/**
+ * Calcula o total de créditos válidos de pacotes
+ */
+export function getTotalValidCredits(packages: PackagePurchase[] | undefined): number {
+  const validPackages = getValidPackages(packages);
+  return validPackages.reduce((sum, pkg) => sum + pkg.credits_remaining, 0);
+}
+
+/**
+ * Retorna a data de expiração mais próxima dos pacotes válidos
+ */
+export function getNextExpirationDate(packages: PackagePurchase[] | undefined): string | null {
+  const validPackages = getValidPackages(packages);
+  if (validPackages.length === 0) return null;
+  return validPackages[0].expiration_date;
 }
