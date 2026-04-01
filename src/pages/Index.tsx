@@ -243,9 +243,10 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2 whitespace-nowrap"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <span className="text-white">Conteúdo Digital Falso em Seu Nome? </span>
+            <span className="text-white">Conteúdo Digital Falso em Seu Nome?</span>
+            <br />
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
               animate={shouldReduceMotion ? {} : {
