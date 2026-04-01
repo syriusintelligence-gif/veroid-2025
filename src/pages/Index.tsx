@@ -523,8 +523,8 @@ export default function Index() {
               >
                 <Card className="glass-card glass-noise border-2 border-red-500/30 h-full overflow-hidden relative">
                   <CardHeader className="text-center pb-4">
-                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-red-500/30">
-                      <span className="text-3xl">❌</span>
+                    <div className="mx-auto w-16 h-16 border-4 border-red-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-red-500/30 bg-transparent">
+                      <span className="text-4xl font-bold text-red-500">✕</span>
                     </div>
                     <CardTitle className="text-2xl md:text-3xl font-black text-red-400 mb-2">SEM Vero iD</CardTitle>
                   </CardHeader>
@@ -543,7 +543,7 @@ export default function Index() {
                         transition={{ duration: shouldReduceMotion ? 0.01 : 0.5, delay: shouldReduceMotion ? 0 : 0.9 + (index * 0.1) }}
                         className="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/20"
                       >
-                        <span className="text-white text-xl flex-shrink-0 mt-0.5">✗</span>
+                        <span className="text-red-400 text-xl flex-shrink-0 mt-0.5">✗</span>
                         <span className="text-gray-300 text-sm md:text-base">{item}</span>
                       </motion.div>
                     ))}
