@@ -243,9 +243,9 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <div className="whitespace-nowrap mb-2">
+            <div className="mb-2">
               <span className="text-white">Conteúdo Digital Falso em Seu Nome?</span>
             </div>
             <div>
