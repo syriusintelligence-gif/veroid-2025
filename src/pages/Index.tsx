@@ -243,10 +243,9 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
+            className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <span className="text-white">Conteúdo Digital Falso em Seu Nome?</span>
-            <br />
+            <span className="text-white">Conteúdo Digital Falso em Seu Nome? </span>
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
               animate={shouldReduceMotion ? {} : {
@@ -267,7 +266,7 @@ export default function Index() {
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Assine digitalmente todo seu conteúdo. <strong className="text-white">Certificação instantânea</strong>, autoria comprovada, reputação protegida contra <strong className="text-white">falsificações</strong>.
+              Assine digitalmente todo seu conteúdo. <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Certificação instantânea</strong>, autoria comprovada, Mantenha a sua reputação protegida contra <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">falsificações</strong>.
             </p>
           </motion.div>
           
