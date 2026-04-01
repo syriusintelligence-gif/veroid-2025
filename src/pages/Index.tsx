@@ -245,7 +245,7 @@ export default function Index() {
             variants={itemVariants}
             className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <span className="text-white">O Fim da Desinformação</span>
+            <span className="text-white">Conteúdo Digital Falso em Seu Nome?</span>
             <br />
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
@@ -261,13 +261,13 @@ export default function Index() {
                 backgroundSize: '200% 200%'
               }}
             >
-              Começa com a Sua Assinatura.
+              Nunca Mais!
             </motion.span>
           </motion.h1>
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Assine seu conteúdo com <strong className="text-white">criptografia avançada</strong>, comprove a autoria de cada publicação e blinde sua reputação contra <strong className="text-white">deepfakes</strong> e <strong className="text-white">FAKENEWS</strong>.
+              Assine digitalmente todo seu conteúdo. <strong className="text-white">Certificação instantânea</strong>, autoria comprovada, reputação protegida contra <strong className="text-white">falsificações</strong>.
             </p>
           </motion.div>
           
