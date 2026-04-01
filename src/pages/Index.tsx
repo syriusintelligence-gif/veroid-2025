@@ -245,27 +245,23 @@ export default function Index() {
             variants={itemVariants}
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <div className="mb-2">
-              <span className="text-white">Conteúdo Digital Falso em Seu Nome?</span>
-            </div>
-            <div>
-              <motion.span 
-                className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
-                animate={shouldReduceMotion ? {} : {
-                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
-                }}
-                transition={shouldReduceMotion ? {} : {
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-                style={{
-                  backgroundSize: '200% 200%'
-                }}
-              >
-                Nunca Mais!
-              </motion.span>
-            </div>
+            <span className="text-white">Conteúdo Digital Falso em Seu Nome? </span>
+            <motion.span 
+              className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
+              animate={shouldReduceMotion ? {} : {
+                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+              }}
+              transition={shouldReduceMotion ? {} : {
+                duration: 5,
+                repeat: Infinity,
+                ease: "linear"
+              }}
+              style={{
+                backgroundSize: '200% 200%'
+              }}
+            >
+              Nunca Mais!
+            </motion.span>
           </motion.h1>
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
