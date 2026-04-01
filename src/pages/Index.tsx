@@ -270,7 +270,7 @@ export default function Index() {
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Assine digitalmente todo seu conteúdo. <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Certificação instantânea</strong>, autoria comprovada, Mantenha a sua reputação protegida contra <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">falsificações</strong>.
+              Assine digitalmente todo seu conteúdo. Certificação instantânea, autoria comprovada, <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Mantenha a sua reputação</strong> protegida contra falsificações.
             </p>
           </motion.div>
           
