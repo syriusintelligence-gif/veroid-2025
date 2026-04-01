@@ -266,7 +266,7 @@ export default function Index() {
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Mantenha a sua reputação</strong> protegida contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea.
+              Mantenha a sua <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">reputação protegida</strong> contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea.
             </p>
           </motion.div>
           
