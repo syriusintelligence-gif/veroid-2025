@@ -421,6 +421,86 @@ export default function Index() {
             <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
           </motion.div>
           
+          {/* Comparison Section */}
+          <motion.div 
+            className="max-w-5xl mx-auto mb-12 md:mb-16"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            animate={benefitsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+              {/* SEM Vero iD */}
+              <motion.div
+                whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="glass-card glass-noise border-2 border-red-500/30 h-full">
+                  <CardHeader className="text-center pb-4">
+                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-red-500/30">
+                      <span className="text-3xl">❌</span>
+                    </div>
+                    <CardTitle className="text-2xl md:text-3xl font-black text-red-400 mb-2">SEM Vero iD</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {[
+                      "Sem prova de Autoria",
+                      "Vulnerável a Deepfakes",
+                      "Conteúdo pode ser alterado",
+                      "Reputação em Risco",
+                      "Marcas não Confiam"
+                    ].map((item, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -20 }}
+                        animate={benefitsInView ? { opacity: 1, x: 0 } : { opacity: 0, x: shouldReduceMotion ? 0 : -20 }}
+                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.5, delay: shouldReduceMotion ? 0 : 0.3 + (index * 0.1) }}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/20"
+                      >
+                        <span className="text-red-400 text-xl flex-shrink-0 mt-0.5">✗</span>
+                        <span className="text-gray-300 text-sm md:text-base">{item}</span>
+                      </motion.div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* COM Vero iD */}
+              <motion.div
+                whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="glass-card glass-noise border-2 border-cyan-500/50 h-full shadow-lg shadow-cyan-500/20">
+                  <CardHeader className="text-center pb-4">
+                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/40">
+                      <Shield className="h-8 w-8 text-white" />
+                    </div>
+                    <CardTitle className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2">COM Vero iD</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {[
+                      "Autoria Comprovada",
+                      "Protegido de Manipulação",
+                      "Credibilidade Aumentada",
+                      "Alterações são Detectadas",
+                      "Reputação Blindada"
+                    ].map((item, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 20 }}
+                        animate={benefitsInView ? { opacity: 1, x: 0 } : { opacity: 0, x: shouldReduceMotion ? 0 : 20 }}
+                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.5, delay: shouldReduceMotion ? 0 : 0.3 + (index * 0.1) }}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30"
+                      >
+                        <span className="text-cyan-400 text-xl flex-shrink-0 mt-0.5">✓</span>
+                        <span className="text-gray-200 font-medium text-sm md:text-base">{item}</span>
+                      </motion.div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </motion.div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto auto-rows-fr">
             {[
               {
