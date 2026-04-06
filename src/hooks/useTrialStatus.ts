@@ -62,6 +62,25 @@ function calculateTrialStatus(
 ): TrialStatus {
   const now = new Date();
   
+  // 🆕 CORREÇÃO: Verifica se é assinante ANTES de qualquer cálculo
+  // Assinantes premium/pro/basic não devem ver avisos de trial
+  if (subscriptionTier && subscriptionTier !== 'free') {
+    console.log('ℹ️ Usuário é assinante:', subscriptionTier, '- Não exibir avisos de trial');
+    return {
+      isActive: false,
+      isExpired: false,
+      hasNoTrial: true,  // Assinantes não têm trial
+      trialStartsAt,
+      trialEndsAt,
+      daysRemaining: Infinity,
+      daysTotal: 0,
+      percentageUsed: 0,
+      subscriptionTier,
+      isWarningPeriod: false,
+      isCriticalPeriod: false,
+    };
+  }
+  
   // Se não tem trial_ends_at, é usuário grandfathered (acesso vitalício)
   if (!trialEndsAt) {
     return {
@@ -99,6 +118,15 @@ function calculateTrialStatus(
   const isActive = !isExpired;
   const isWarningPeriod = daysRemaining <= 3 && daysRemaining > 0;
   const isCriticalPeriod = daysRemaining <= 1 && daysRemaining > 0;
+  
+  console.log('📊 Trial calculado para usuário free:', {
+    daysRemaining,
+    daysTotal,
+    isActive,
+    isExpired,
+    isWarningPeriod,
+    isCriticalPeriod
+  });
   
   return {
     isActive,
