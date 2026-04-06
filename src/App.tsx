@@ -25,7 +25,9 @@ import PaymentCancel from './pages/PaymentCancel';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
 import Empresas from './pages/Empresas';
+import TrialExpired from './pages/TrialExpired';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
+import { TrialExpiredGuard } from './components/TrialExpiredGuard';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
 import { supabase } from './lib/supabase';
@@ -186,22 +188,57 @@ function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/empresas" element={<Empresas />} />
           
-          {/* Rotas protegidas */}
+          {/* 🔒 FASE 3: Página de Trial Expirado */}
+          <Route path="/trial-expired" element={user ? <TrialExpired /> : <Navigate to="/login" />} />
+          
+          {/* 🔒 FASE 3: Rotas protegidas com TrialExpiredGuard */}
           <Route
             path="/dashboard"
-            element={user ? <Dashboard /> : <Navigate to="/login" />}
+            element={
+              user ? (
+                <TrialExpiredGuard>
+                  <Dashboard />
+                </TrialExpiredGuard>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
           />
           <Route
             path="/sign"
-            element={user ? <SignContent /> : <Navigate to="/login" />}
+            element={
+              user ? (
+                <TrialExpiredGuard>
+                  <SignContent />
+                </TrialExpiredGuard>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
           />
           <Route
             path="/profile"
-            element={user ? <Profile /> : <Navigate to="/login" />}
+            element={
+              user ? (
+                <TrialExpiredGuard>
+                  <Profile />
+                </TrialExpiredGuard>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
           />
           <Route
             path="/settings"
-            element={user ? <Settings /> : <Navigate to="/login" />}
+            element={
+              user ? (
+                <TrialExpiredGuard>
+                  <Settings />
+                </TrialExpiredGuard>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
           />
           <Route path="/certificate" element={<Certificate />} />
           <Route path="/c" element={<Certificate />} />
