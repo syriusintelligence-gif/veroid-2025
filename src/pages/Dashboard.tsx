@@ -24,6 +24,7 @@ import { SubscriptionCard } from '@/components/SubscriptionCard';
 import TwoFactorAlert from '@/components/TwoFactorAlert';
 import { TrialBanner } from '@/components/TrialBanner';
 import { TrialModal } from '@/components/TrialModal';
+import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -435,6 +436,9 @@ export default function Dashboard() {
             Gerencie suas assinaturas digitais e proteja seu conteúdo
           </p>
         </div>
+        
+        {/* 🆕 AVISO DE PROBLEMAS DE PAGAMENTO */}
+        <PaymentFailureAlert className="mb-6" />
         
         {/* 🆕 FASE 2: Banner de Trial (aparece no topo do dashboard) */}
         <TrialBanner className="mb-6" />
