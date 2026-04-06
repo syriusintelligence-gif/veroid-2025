@@ -187,8 +187,8 @@ export default function TrialExpired() {
             <div className="text-center pt-4 border-t">
               <p className="text-sm text-muted-foreground">
                 Tem dúvidas? Entre em contato conosco pelo email{' '}
-                <a href="mailto:suporte@veroid.com.br" className="text-blue-600 hover:underline font-medium">
-                  suporte@veroid.com.br
+                <a href="mailto:contato@veroid.com.br" className="text-blue-600 hover:underline font-medium">
+                  contato@veroid.com.br
                 </a>
               </p>
             </div>
