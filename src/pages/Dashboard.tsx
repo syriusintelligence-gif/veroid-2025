@@ -22,6 +22,8 @@ import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
 import TwoFactorAlert from '@/components/TwoFactorAlert';
+import { TrialBanner } from '@/components/TrialBanner';
+import { TrialModal } from '@/components/TrialModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -285,6 +287,9 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* 🆕 FASE 2: Modal de Trial (aparece ao fazer login) */}
+      {currentUser && <TrialModal userId={currentUser.id} />}
+      
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -430,6 +435,9 @@ export default function Dashboard() {
             Gerencie suas assinaturas digitais e proteja seu conteúdo
           </p>
         </div>
+        
+        {/* 🆕 FASE 2: Banner de Trial (aparece no topo do dashboard) */}
+        <TrialBanner className="mb-6" />
         
         {/* 🔐 2FA Security Alert */}
         {currentUser && (
