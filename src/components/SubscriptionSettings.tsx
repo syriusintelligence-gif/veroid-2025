@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 export const SubscriptionSettings = () => {
   const { subscription, loading, refetch } = useSubscription();
   const [canceling, setCanceling] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
 
   if (loading) {
@@ -105,6 +106,67 @@ export const SubscriptionSettings = () => {
   const validPackages = getValidPackages(subscription.metadata?.package_purchases);
   const hasValidPackages = validPackages.length > 0;
   const totalValidCredits = validPackages.reduce((sum, pkg) => sum + pkg.credits_remaining, 0);
+
+  // 🆕 Função para abrir o Stripe Billing Portal
+  const handleOpenBillingPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      // Obter sessão atual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Erro de Autenticação",
+          description: "Você precisa estar logado para acessar o portal de pagamentos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Obter a URL da Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/create-billing-portal-session`;
+
+      console.log('🔗 Abrindo portal de pagamentos para userId:', session.user.id);
+
+      // Chamar a Edge Function
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao abrir portal de pagamentos');
+      }
+
+      console.log('✅ Portal URL obtida:', result.url);
+
+      // Abrir portal em nova aba
+      window.open(result.url, '_blank');
+
+      toast({
+        title: "Portal Aberto",
+        description: "O portal de gerenciamento de pagamentos foi aberto em uma nova aba.",
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao abrir portal:', error);
+      
+      toast({
+        title: "Erro ao Abrir Portal",
+        description: error instanceof Error ? error.message : 'Erro desconhecido ao abrir portal de pagamentos. Tente novamente.',
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
 
   // ✅ Função de cancelamento que chama a Edge Function
   const handleCancelSubscription = async () => {
@@ -425,13 +487,11 @@ export const SubscriptionSettings = () => {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => {
-                  // TODO: Implementar link para portal do Stripe
-                  alert('Portal de gerenciamento será implementado em breve.');
-                }}
+                onClick={handleOpenBillingPortal}
+                disabled={openingPortal}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Gerenciar Pagamentos no Stripe
+                {openingPortal ? 'Abrindo Portal...' : 'Gerenciar Pagamentos no Stripe'}
               </Button>
             )}
 
