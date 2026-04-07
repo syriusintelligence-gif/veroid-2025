@@ -4,6 +4,7 @@
  * Implementa regras de segurança para senhas:
  * - Expiração de senha (90 dias)
  * - Troca forçada no primeiro login
+ * - 🆕 EXCEÇÃO: Administradores são isentos da expiração
  */
 
 import { supabase } from './supabase';
@@ -21,10 +22,13 @@ export interface PasswordExpirationStatus {
   passwordChangedAt: Date | null;
   mustChangePassword: boolean;
   needsWarning: boolean; // true se faltam menos de 7 dias
+  isAdmin: boolean; // 🆕 Indica se é administrador
 }
 
 /**
  * Verifica se a senha do usuário está expirada ou precisa ser trocada
+ * 
+ * 🆕 IMPORTANTE: Administradores são ISENTOS da política de expiração
  * 
  * @param userId - ID do usuário
  * @returns Status de expiração da senha
@@ -37,13 +41,26 @@ export async function checkPasswordExpiration(
     
     const { data: user, error } = await supabase
       .from('users')
-      .select('password_changed_at, must_change_password')
+      .select('password_changed_at, must_change_password, is_admin')
       .eq('id', userId)
       .single();
     
     if (error) {
       console.error('❌ [PASSWORD POLICY] Erro ao buscar dados do usuário:', error);
       throw error;
+    }
+    
+    // 🆕 EXCEÇÃO PARA ADMINISTRADORES
+    if (user.is_admin === true) {
+      console.log('👑 [PASSWORD POLICY] Usuário é ADMINISTRADOR - ISENTO de expiração de senha');
+      return {
+        isExpired: false,
+        daysUntilExpiration: 999999, // Valor alto para indicar "sem expiração"
+        passwordChangedAt: user.password_changed_at ? new Date(user.password_changed_at) : null,
+        mustChangePassword: false,
+        needsWarning: false,
+        isAdmin: true,
+      };
     }
     
     // Se deve trocar senha obrigatoriamente
@@ -55,6 +72,7 @@ export async function checkPasswordExpiration(
         passwordChangedAt: user.password_changed_at ? new Date(user.password_changed_at) : null,
         mustChangePassword: true,
         needsWarning: false,
+        isAdmin: false,
       };
     }
     
@@ -67,6 +85,7 @@ export async function checkPasswordExpiration(
         passwordChangedAt: null,
         mustChangePassword: false,
         needsWarning: false,
+        isAdmin: false,
       };
     }
     
@@ -91,6 +110,7 @@ export async function checkPasswordExpiration(
       passwordChangedAt,
       mustChangePassword: false,
       needsWarning,
+      isAdmin: false,
     };
   } catch (error) {
     console.error('❌ [PASSWORD POLICY] Erro ao verificar expiração:', error);
@@ -163,6 +183,11 @@ export async function setMustChangePassword(userId: string): Promise<void> {
  * @returns Mensagem formatada
  */
 export function getExpirationMessage(status: PasswordExpirationStatus): string {
+  // 🆕 Administradores não recebem mensagens de expiração
+  if (status.isAdmin) {
+    return '';
+  }
+  
   if (status.mustChangePassword) {
     return 'Você deve trocar sua senha antes de continuar.';
   }
