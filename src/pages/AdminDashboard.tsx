@@ -561,6 +561,139 @@ export default function AdminDashboard() {
           </Card>
         </div>
         
+        {/* Novos Indicadores - Cadastros e Atividade */}
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          {/* Novos Cadastros Hoje */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cadastros Hoje</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {allUsers.filter(u => {
+                  const createdDate = new Date(u.createdAt);
+                  const today = new Date();
+                  return createdDate.toDateString() === today.toDateString();
+                }).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Novos usuários hoje</p>
+            </CardContent>
+          </Card>
+          
+          {/* Novos Cadastros Esta Semana */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cadastros (7 dias)</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {allUsers.filter(u => {
+                  const createdDate = new Date(u.createdAt);
+                  const weekAgo = new Date();
+                  weekAgo.setDate(weekAgo.getDate() - 7);
+                  return createdDate >= weekAgo;
+                }).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Últimos 7 dias</p>
+            </CardContent>
+          </Card>
+          
+          {/* Novos Cadastros Este Mês */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cadastros (30 dias)</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {allUsers.filter(u => {
+                  const createdDate = new Date(u.createdAt);
+                  const monthAgo = new Date();
+                  monthAgo.setDate(monthAgo.getDate() - 30);
+                  return createdDate >= monthAgo;
+                }).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Últimos 30 dias</p>
+            </CardContent>
+          </Card>
+          
+          {/* Usuários Bloqueados */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Usuários Bloqueados</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {allUsers.filter(u => u.blocked === true).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Contas bloqueadas</p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Novos Indicadores - Verificação e Engajamento */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {/* Taxa de Verificação de Email */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Taxa de Verificação</CardTitle>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {allUsers.length > 0 
+                  ? ((allUsers.filter(u => u.verified === true).length / allUsers.length) * 100).toFixed(1)
+                  : '0'}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {allUsers.filter(u => u.verified === true).length} de {allUsers.length} verificados
+              </p>
+            </CardContent>
+          </Card>
+          
+          {/* Conteúdos Nunca Verificados */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Nunca Verificados</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {allContents.filter(c => (c.verificationCount || 0) === 0).length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {allContents.length > 0 
+                  ? ((allContents.filter(c => (c.verificationCount || 0) === 0).length / allContents.length) * 100).toFixed(1)
+                  : '0'}% do total
+              </p>
+            </CardContent>
+          </Card>
+          
+          {/* Trials Expirando em Breve */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Trials Expirando</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {allUsers.filter(u => {
+                  if (!u.trial_ends_at) return false;
+                  const trialEnd = new Date(u.trial_ends_at);
+                  const now = new Date();
+                  const sevenDaysFromNow = new Date();
+                  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+                  return trialEnd > now && trialEnd <= sevenDaysFromNow;
+                }).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Próximos 7 dias</p>
+            </CardContent>
+          </Card>
+        </div>
+        
         {/* Estatísticas de Usuários - NOVO */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Contas Ativas/Inativas */}
@@ -684,6 +817,66 @@ export default function AdminDashboard() {
           </Card>
         </div>
         
+        {/* Top 5 Usuários Mais Ativos */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Top 5 Usuários Mais Ativos
+            </CardTitle>
+            <CardDescription>Usuários com mais conteúdos assinados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {(() => {
+                const userContentCount = new Map<string, { user: UserType; count: number }>();
+                
+                allContents.forEach(content => {
+                  const user = allUsers.find(u => u.id === content.userId);
+                  if (user) {
+                    const existing = userContentCount.get(user.id);
+                    if (existing) {
+                      existing.count += 1;
+                    } else {
+                      userContentCount.set(user.id, { user, count: 1 });
+                    }
+                  }
+                });
+                
+                const topUsers = Array.from(userContentCount.values())
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 5);
+                
+                if (topUsers.length === 0) {
+                  return (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhum usuário com conteúdos assinados ainda
+                    </p>
+                  );
+                }
+                
+                return topUsers.map((item, index) => (
+                  <div key={item.user.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.user.nomeCompleto}</p>
+                        <p className="text-xs text-muted-foreground">@{item.user.nomePublico}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-blue-600">{item.count}</p>
+                      <p className="text-xs text-muted-foreground">assinaturas</p>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+        
         {/* Gráficos de Desempenho */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Gráfico de Linha - Evolução Temporal */}
@@ -715,40 +908,86 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Distribuição por Plataforma
+                Plataformas Mais Usadas
               </CardTitle>
               <CardDescription>Conteúdos assinados por plataforma</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={platformData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {platformData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {platformData.length === 0 ? (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  Nenhuma plataforma registrada ainda
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={platformData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {platformData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
+        
+        {/* Horários de Pico - Análise por Hora do Dia */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Horários de Pico de Assinaturas
+            </CardTitle>
+            <CardDescription>Distribuição de assinaturas por hora do dia</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={(() => {
+                  const hourMap = new Map<number, number>();
+                  for (let i = 0; i < 24; i++) {
+                    hourMap.set(i, 0);
+                  }
+                  
+                  allContents.forEach(content => {
+                    const hour = new Date(content.createdAt).getHours();
+                    hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+                  });
+                  
+                  return Array.from(hourMap.entries()).map(([hour, count]) => ({
+                    hora: `${hour.toString().padStart(2, '0')}:00`,
+                    assinaturas: count,
+                  }));
+                })()}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hora" style={{ fontSize: '10px' }} />
+                <YAxis style={{ fontSize: '12px' }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="assinaturas" fill="#10b981" name="Assinaturas" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
         
         {/* Gráfico de Barras - Top 10 Usuários */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Top 10 Usuários Mais Ativos
+              Top 10 Usuários - Assinaturas e Verificações
             </CardTitle>
             <CardDescription>Usuários com mais assinaturas e verificações</CardDescription>
           </CardHeader>
