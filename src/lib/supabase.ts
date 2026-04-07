@@ -65,11 +65,12 @@ export interface Database {
           is_admin: boolean;
           blocked: boolean;
           social_links: SocialLinks | null;
-          // Campos de Declaração de Maioridade (Compliance)
-          age_declaration_accepted: boolean;
-          age_declaration_accepted_at: string | null;
-          age_declaration_ip: string | null;
-          age_declaration_user_agent: string | null;
+          last_login_at: string | null;
+          trial_starts_at: string | null;
+          trial_ends_at: string | null;
+          subscription_tier: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
         };
         Insert: {
           id?: string;
@@ -85,11 +86,12 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
-          // Campos de Declaração de Maioridade (Compliance)
-          age_declaration_accepted?: boolean;
-          age_declaration_accepted_at?: string | null;
-          age_declaration_ip?: string | null;
-          age_declaration_user_agent?: string | null;
+          last_login_at?: string | null;
+          trial_starts_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_tier?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
         };
         Update: {
           id?: string;
@@ -105,11 +107,12 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
-          // Campos de Declaração de Maioridade (Compliance)
-          age_declaration_accepted?: boolean;
-          age_declaration_accepted_at?: string | null;
-          age_declaration_ip?: string | null;
-          age_declaration_user_agent?: string | null;
+          last_login_at?: string | null;
+          trial_starts_at?: string | null;
+          trial_ends_at?: string | null;
+          subscription_tier?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
         };
       };
       signed_contents: {

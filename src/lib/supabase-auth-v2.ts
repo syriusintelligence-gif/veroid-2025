@@ -24,6 +24,12 @@ export interface User {
   verified: boolean;
   isAdmin: boolean;
   blocked?: boolean;
+  last_login_at?: string | null;
+  trial_starts_at?: string | null;
+  trial_ends_at?: string | null;
+  subscription_tier?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
 }
 
 interface DebugInfo {
@@ -69,6 +75,12 @@ function dbUserToAppUser(dbUser: UserRow): User {
     verified: dbUser.verified,
     isAdmin: dbUser.is_admin,
     blocked: dbUser.blocked || false,
+    last_login_at: dbUser.last_login_at,
+    trial_starts_at: dbUser.trial_starts_at,
+    trial_ends_at: dbUser.trial_ends_at,
+    subscription_tier: dbUser.subscription_tier,
+    stripe_customer_id: dbUser.stripe_customer_id,
+    stripe_subscription_id: dbUser.stripe_subscription_id,
   };
 }
 
@@ -471,6 +483,17 @@ export async function loginUser(
     
     console.log('✅ Login realizado com sucesso!');
     console.log('👤 Usuário:', userData.email, '| Admin:', userData.is_admin);
+    
+    // Atualiza last_login_at
+    try {
+      await supabase
+        .from('users')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', userData.id);
+      console.log('✅ last_login_at atualizado');
+    } catch (error) {
+      console.warn('⚠️ Erro ao atualizar last_login_at:', error);
+    }
     
     debugInfo.step = 'complete';
     debugInfo.userInfo = {

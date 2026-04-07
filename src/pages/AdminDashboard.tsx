@@ -526,7 +526,7 @@ export default function AdminDashboard() {
         </div>
         
         {/* Estatísticas Principais */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Conteúdos Assinados</CardTitle>
@@ -559,17 +559,127 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground">Total de usuários</p>
             </CardContent>
           </Card>
-          
+        </div>
+        
+        {/* Estatísticas de Usuários - NOVO */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Contas Ativas/Inativas */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Média de Verificações</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Contas Ativas vs Inativas
+              </CardTitle>
+              <CardDescription>Usuários ativos nos últimos 30 dias</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {allContents.length > 0 ? (getTotalVerifications() / allContents.length).toFixed(1) : '0'}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium">Contas Ativas</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {allUsers.filter(u => {
+                      if (!u.last_login_at) return false;
+                      const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
+                      return daysSinceLogin <= 30;
+                    }).length}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <span className="text-sm font-medium">Contas Inativas</span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-600">
+                    {allUsers.filter(u => {
+                      if (!u.last_login_at) return true;
+                      const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
+                      return daysSinceLogin > 30;
+                    }).length}
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { 
+                            name: 'Ativas', 
+                            value: allUsers.filter(u => {
+                              if (!u.last_login_at) return false;
+                              const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
+                              return daysSinceLogin <= 30;
+                            }).length 
+                          },
+                          { 
+                            name: 'Inativas', 
+                            value: allUsers.filter(u => {
+                              if (!u.last_login_at) return true;
+                              const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
+                              return daysSinceLogin > 30;
+                            }).length 
+                          },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        <Cell fill="#10b981" />
+                        <Cell fill="#9ca3af" />
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Por conteúdo</p>
+            </CardContent>
+          </Card>
+          
+          {/* Assinaturas por Tipo de Plano */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Assinaturas por Tipo de Plano
+              </CardTitle>
+              <CardDescription>Distribuição de usuários por plano</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={[
+                    { 
+                      plano: 'Free', 
+                      usuarios: allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length 
+                    },
+                    { 
+                      plano: 'Basic', 
+                      usuarios: allUsers.filter(u => u.subscription_tier === 'basic').length 
+                    },
+                    { 
+                      plano: 'Premium', 
+                      usuarios: allUsers.filter(u => u.subscription_tier === 'premium').length 
+                    },
+                    { 
+                      plano: 'Enterprise', 
+                      usuarios: allUsers.filter(u => u.subscription_tier === 'enterprise').length 
+                    },
+                  ]}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="plano" style={{ fontSize: '12px' }} />
+                  <YAxis style={{ fontSize: '12px' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="usuarios" fill="#3b82f6" name="Usuários" />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>
