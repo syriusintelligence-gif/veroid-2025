@@ -774,45 +774,134 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
           
-          {/* Assinaturas por Tipo de Plano */}
+          {/* Distribuição de Usuários por Plano */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Assinaturas por Tipo de Plano
+                Distribuição de Usuários por Plano
               </CardTitle>
-              <CardDescription>Distribuição de usuários por plano</CardDescription>
+              <CardDescription>Quantidade de usuários em cada plano de assinatura</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={[
-                    { 
-                      plano: 'Free', 
-                      usuarios: allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length 
-                    },
-                    { 
-                      plano: 'Basic', 
-                      usuarios: allUsers.filter(u => u.subscription_tier === 'basic').length 
-                    },
-                    { 
-                      plano: 'Premium', 
-                      usuarios: allUsers.filter(u => u.subscription_tier === 'premium').length 
-                    },
-                    { 
-                      plano: 'Enterprise', 
-                      usuarios: allUsers.filter(u => u.subscription_tier === 'enterprise').length 
-                    },
-                  ]}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="plano" style={{ fontSize: '12px' }} />
-                  <YAxis style={{ fontSize: '12px' }} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="usuarios" fill="#3b82f6" name="Usuários" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-4 mb-6">
+                {/* Free Plan */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold">
+                      F
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Free</p>
+                      <p className="text-xs text-gray-500">Plano gratuito</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-gray-700">
+                      {allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length}
+                    </p>
+                    <p className="text-xs text-gray-500">usuários</p>
+                  </div>
+                </div>
+
+                {/* Creator Plan */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                      C
+                    </div>
+                    <div>
+                      <p className="font-semibold text-blue-900">Creator</p>
+                      <p className="text-xs text-blue-600">Plano básico</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-700">
+                      {allUsers.filter(u => u.subscription_tier === 'basic').length}
+                    </p>
+                    <p className="text-xs text-blue-600">usuários</p>
+                  </div>
+                </div>
+
+                {/* Creator Pro Plan */}
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">
+                      P
+                    </div>
+                    <div>
+                      <p className="font-semibold text-purple-900">Creator Pro</p>
+                      <p className="text-xs text-purple-600">Plano premium</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-purple-700">
+                      {allUsers.filter(u => u.subscription_tier === 'premium').length}
+                    </p>
+                    <p className="text-xs text-purple-600">usuários</p>
+                  </div>
+                </div>
+
+                {/* Creator Elite Plan */}
+                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold">
+                      E
+                    </div>
+                    <div>
+                      <p className="font-semibold text-amber-900">Creator Elite</p>
+                      <p className="text-xs text-amber-600">Plano enterprise</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-amber-700">
+                      {allUsers.filter(u => u.subscription_tier === 'enterprise').length}
+                    </p>
+                    <p className="text-xs text-amber-600">usuários</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gráfico de Pizza para Visualização */}
+              <div className="pt-4 border-t">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { 
+                          name: 'Free', 
+                          value: allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length 
+                        },
+                        { 
+                          name: 'Creator', 
+                          value: allUsers.filter(u => u.subscription_tier === 'basic').length 
+                        },
+                        { 
+                          name: 'Creator Pro', 
+                          value: allUsers.filter(u => u.subscription_tier === 'premium').length 
+                        },
+                        { 
+                          name: 'Creator Elite', 
+                          value: allUsers.filter(u => u.subscription_tier === 'enterprise').length 
+                        },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      <Cell fill="#6b7280" />
+                      <Cell fill="#3b82f6" />
+                      <Cell fill="#8b5cf6" />
+                      <Cell fill="#f59e0b" />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         </div>
