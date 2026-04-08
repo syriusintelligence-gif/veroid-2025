@@ -38,6 +38,7 @@ import {
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { TrialInfoCard } from '@/components/TrialInfoCard';
 
 export const SubscriptionSettings = () => {
   const { subscription, loading, refetch } = useSubscription();
@@ -309,20 +310,8 @@ export const SubscriptionSettings = () => {
             )}
           </div>
 
-          {/* ✅ Aviso para planos FREE/trial */}
-          {isFreeOrTrial && (
-            <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-orange-900">
-                  Período de Teste Único
-                </p>
-                <p className="text-xs text-orange-700">
-                  Este é um teste gratuito de 10 assinaturas válido por 30 dias. Após esgotar as assinaturas ou expirar o período, será necessário assinar um plano pago ou comprar pacotes avulsos para continuar usando o Vero iD.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* ✅ Aviso para planos FREE/trial - ESPELHADO DO DASHBOARD */}
+          {isFreeOrTrial && <TrialInfoCard />}
 
           {/* ✅ Aviso de cancelamento agendado */}
           {subscription.cancel_at_period_end && (
