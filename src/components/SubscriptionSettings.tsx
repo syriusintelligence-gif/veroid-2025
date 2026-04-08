@@ -39,9 +39,11 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { TrialInfoCard } from '@/components/TrialInfoCard';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 
 export const SubscriptionSettings = () => {
   const { subscription, loading, refetch } = useSubscription();
+  const { trialStatus } = useTrialStatus(); // 🆕 Hook para obter data correta do trial
   const [canceling, setCanceling] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const { toast } = useToast();
@@ -298,13 +300,13 @@ export const SubscriptionSettings = () => {
               </div>
             )}
 
-            {/* ✅ Mostrar "Válido Até" para planos FREE/trial */}
-            {isActive && isFreeOrTrial && (
+            {/* ✅ Mostrar "Válido Até" para planos FREE/trial - USANDO TRIAL_ENDS_AT */}
+            {isActive && isFreeOrTrial && trialStatus?.trialEndsAt && (
               <div>
                 <p className="text-sm text-gray-500 mb-1">Válido Até</p>
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-orange-500" />
-                  <p className="font-medium text-orange-600">{formatDate(subscription.current_period_end)}</p>
+                  <p className="font-medium text-orange-600">{formatDate(trialStatus.trialEndsAt)}</p>
                 </div>
               </div>
             )}
