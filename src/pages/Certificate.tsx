@@ -379,8 +379,8 @@ export default function Certificate() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header - Modernized Banner */}
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-600 p-6 sm:p-8 md:p-10 text-white relative overflow-hidden">
+        {/* Header - Modernized Banner - Reduced Height */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-600 p-4 sm:p-5 md:p-6 text-white relative overflow-hidden">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-5">
             <div className="absolute inset-0" style={{
@@ -394,18 +394,18 @@ export default function Certificate() {
 
           {/* Content Container */}
           <div className="relative z-10">
-            {/* Vero iD Logo - Centered and Extra Large */}
-            <div className="flex items-center justify-center mb-3">
+            {/* Vero iD Logo - Extra Large and Very Close to Text */}
+            <div className="flex items-center justify-center mb-2">
               <img 
                 src="/assets/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-32 sm:h-40 md:h-48 w-auto object-contain drop-shadow-2xl"
+                className="h-36 sm:h-44 md:h-52 w-auto object-contain drop-shadow-2xl"
                 style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))' }}
               />
             </div>
 
             {/* Title Section */}
-            <div className="text-center space-y-2 sm:space-y-3 pb-4">
+            <div className="text-center space-y-2 sm:space-y-3 pb-2">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
                 Certificado Digital
               </h1>
