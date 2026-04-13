@@ -488,8 +488,32 @@ export default function Certificate() {
 
         {/* Content */}
         <div className="p-4 sm:p-6 md:p-8 lg:p-12">
-          <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold mb-6 sm:mb-8 text-sm sm:text-base">
-            ✓ Conteúdo Autenticado
+          {/* Badge de Autenticação - Destaque Premium com Logo Vero iD */}
+          <div className="relative mb-8 sm:mb-10">
+            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-green-500/50 transform hover:scale-105 transition-all duration-300 relative overflow-hidden">
+              {/* Efeito de brilho animado */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+              
+              {/* Ícone Shield com animação */}
+              <div className="relative z-10 bg-white/20 p-2 rounded-full animate-pulse">
+                <Shield className="h-6 w-6 sm:h-7 sm:w-7 text-white" strokeWidth={2.5} />
+              </div>
+              
+              {/* Texto */}
+              <span className="relative z-10 flex items-center gap-2">
+                <Check className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={3} />
+                Conteúdo Autenticado
+              </span>
+              
+              {/* Efeito de borda brilhante */}
+              <div className="absolute inset-0 rounded-2xl border-2 border-white/50 animate-pulse-slow"></div>
+            </div>
+            
+            {/* Texto explicativo abaixo */}
+            <p className="text-xs sm:text-sm text-gray-600 mt-3 ml-1 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Certificado verificado e protegido pela Vero iD
+            </p>
           </div>
 
           {/* 🆕 CORREÇÃO: Thumbnail com tratamento de erro */}
