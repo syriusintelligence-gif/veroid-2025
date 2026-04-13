@@ -379,17 +379,65 @@ export default function Certificate() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 md:p-12 text-center text-white relative">
-          <div className="absolute inset-0 opacity-10">
+        {/* Header - Modernized Banner */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-600 p-6 sm:p-8 md:p-10 text-white relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
             <div className="absolute inset-0" style={{
-              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'40\' fill=\'none\' stroke=\'white\' stroke-width=\'2\'/%3E%3C/svg%3E")',
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h60v60H0z\' fill=\'none\'/%3E%3Cpath d=\'M30 0L60 30L30 60L0 30z\' fill=\'white\' opacity=\'0.1\'/%3E%3C/svg%3E")',
+              backgroundSize: '60px 60px',
             }}></div>
           </div>
-          <div className="relative">
-            <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🛡️</div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
-            <p className="text-sm sm:text-base md:text-lg opacity-90">Sistema de Autenticação Vero iD</p>
+
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+
+          {/* Content Container */}
+          <div className="relative z-10">
+            {/* Logo and Shield Icon Row */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              {/* Shield Icon */}
+              <div className="flex-shrink-0">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/20 shadow-lg">
+                  <Shield className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+                </div>
+              </div>
+
+              {/* Vero iD Logo */}
+              <div className="flex-shrink-0">
+                <img 
+                  src="/assets/logo-veroid.png" 
+                  alt="Vero iD Logo" 
+                  className="h-12 sm:h-14 md:h-16 w-auto object-contain drop-shadow-2xl"
+                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))' }}
+                />
+              </div>
+            </div>
+
+            {/* Title Section */}
+            <div className="text-center space-y-2 sm:space-y-3">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
+                Certificado Digital
+              </h1>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm sm:text-base md:text-lg font-medium opacity-95">
+                  Sistema de Autenticação Vero iD
+                </p>
+                {/* Website Badge */}
+                <a
+                  href="https://www.veroid.com.br"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30 transition-all duration-300 hover:scale-105 shadow-lg group"
+                >
+                  <Globe className="h-4 w-4 text-white group-hover:rotate-12 transition-transform" />
+                  <span className="text-sm font-semibold">www.veroid.com.br</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Decorative Bottom Border */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent"></div>
           </div>
         </div>
 
