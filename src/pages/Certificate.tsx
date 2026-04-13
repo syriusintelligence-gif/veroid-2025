@@ -394,22 +394,22 @@ export default function Certificate() {
 
           {/* Content Container */}
           <div className="relative z-10">
-            {/* Vero iD Logo - Extra Large and Very Close to Text */}
-            <div className="flex items-center justify-center mb-2">
+            {/* Vero iD Logo - Following User's Example Design */}
+            <div className="flex items-center justify-center mb-1">
               <img 
                 src="/assets/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-36 sm:h-44 md:h-52 w-auto object-contain drop-shadow-2xl"
+                className="h-40 sm:h-48 md:h-56 w-auto object-contain drop-shadow-2xl"
                 style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))' }}
               />
             </div>
 
-            {/* Title Section */}
-            <div className="text-center space-y-2 sm:space-y-3 pb-2">
+            {/* Title Section - Closer to Logo */}
+            <div className="text-center space-y-1 sm:space-y-2 pb-2">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
                 Certificado Digital
               </h1>
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-2">
                 <p className="text-sm sm:text-base md:text-lg font-medium opacity-95">
                   Sistema de Autenticação Vero iD
                 </p>
