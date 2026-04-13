@@ -266,7 +266,7 @@ export default function Certificate() {
       return (
         <VerificationLoadingScreen 
           onComplete={() => setShowPromoLoading(false)}
-          duration={3000}
+          duration={5000}
         />
       );
     }
