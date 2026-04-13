@@ -151,6 +151,74 @@ export default function Certificate() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handleDownloadQRCode = () => {
+    if (!content) return;
+    
+    // Cria um canvas temporário
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Dimensões do canvas
+    const qrSize = 300;
+    const padding = 40;
+    const textHeight = 80;
+    const canvasWidth = qrSize + (padding * 2);
+    const canvasHeight = qrSize + textHeight + (padding * 2);
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // Fundo branco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Obtém o QR code SVG existente
+    const qrElement = document.querySelector('.qr-code-container svg') as SVGElement;
+    if (!qrElement) return;
+
+    // Converte SVG para imagem
+    const svgData = new XMLSerializer().serializeToString(qrElement);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      // Desenha o QR code
+      ctx.drawImage(img, padding, padding, qrSize, qrSize);
+
+      // Adiciona o texto abaixo do QR code
+      const textY = padding + qrSize + 30;
+      
+      // Texto principal
+      ctx.fillStyle = '#1e40af'; // Azul
+      ctx.font = 'bold 20px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Escaneie e confirme:', canvasWidth / 2, textY);
+      
+      // Texto secundário
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.fillText('conteúdo 100% autêntico', canvasWidth / 2, textY + 28);
+
+      // Converte canvas para blob e faz download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `veroId-qrcode-${content.verificationCode}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      URL.revokeObjectURL(svgUrl);
+    };
+
+    img.src = svgUrl;
+  };
   
   const handleCopyLink = async () => {
     try {
@@ -623,17 +691,28 @@ export default function Certificate() {
               QR Code de Verificação
             </div>
             <div className="bg-white p-4 sm:p-6 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center">
-              <QRCodeSVG
-                value={generateQRData(content)}
-                size={180}
-                level="M"
-                includeMargin={true}
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
+              <div className="qr-code-container">
+                <QRCodeSVG
+                  value={generateQRData(content)}
+                  size={180}
+                  level="M"
+                  includeMargin={true}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                />
+              </div>
               <p className="text-xs text-center text-gray-500 mt-4">
                 Escaneie para verificar a autenticidade
               </p>
+              <Button
+                onClick={handleDownloadQRCode}
+                variant="outline"
+                size="sm"
+                className="mt-4"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Baixar QR Code
+              </Button>
             </div>
           </div>
 
