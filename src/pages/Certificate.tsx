@@ -399,7 +399,7 @@ export default function Certificate() {
               <img 
                 src="/assets/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-2xl"
+                className="h-20 sm:h-28 md:h-32 w-auto object-contain drop-shadow-2xl"
                 style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))' }}
               />
             </div>
