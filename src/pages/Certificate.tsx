@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy, FileText, QrCode } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl, generateQRData } from '@/lib/qrcode';
 import { QRCodeSVG } from 'qrcode.react';
+import VerificationLoadingScreen from '@/components/VerificationLoadingScreen';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -51,6 +52,7 @@ export default function Certificate() {
   const navigate = useNavigate();
   const [content, setContent] = useState<SignedContent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPromoLoading, setShowPromoLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -245,15 +247,29 @@ export default function Certificate() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando certificado...</p>
+  // 🆕 Show promotional loading screen for 3 seconds, then show certificate
+  if (loading || showPromoLoading) {
+    // If still loading data, show simple loading
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando certificado...</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    
+    // If data loaded but still showing promo, show promotional loading screen
+    if (showPromoLoading) {
+      return (
+        <VerificationLoadingScreen 
+          onComplete={() => setShowPromoLoading(false)}
+          duration={3000}
+        />
+      );
+    }
   }
 
   if (!content) {
