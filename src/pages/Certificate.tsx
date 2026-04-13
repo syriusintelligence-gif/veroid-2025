@@ -394,12 +394,12 @@ export default function Certificate() {
 
           {/* Content Container */}
           <div className="relative z-10">
-            {/* Vero iD Logo - Centered and Larger */}
-            <div className="flex items-center justify-center mb-6">
+            {/* Vero iD Logo - Centered and Extra Large */}
+            <div className="flex items-center justify-center mb-3">
               <img 
                 src="/assets/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-20 sm:h-28 md:h-32 w-auto object-contain drop-shadow-2xl"
+                className="h-32 sm:h-40 md:h-48 w-auto object-contain drop-shadow-2xl"
                 style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))' }}
               />
             </div>
