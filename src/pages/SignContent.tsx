@@ -735,6 +735,14 @@ ${content}
       // FIM: PREPARAR METADADOS
       // ========================================
       
+      // ========================================
+      // 🆕 SOLUÇÃO DEFINITIVA: SEMPRE passa links sociais do criador
+      // Independente de ter arquivo ou não, os links sociais devem ser salvos
+      // ========================================
+      const creatorSocialLinks = currentUser.socialLinks || undefined;
+      console.log('🔗 [SOCIAL LINKS] Links que serão salvos no certificado:', creatorSocialLinks);
+      // ========================================
+      
       const result = await signContent(
         fullContent,
         keyPair.privateKey,
@@ -743,7 +751,8 @@ ${content}
         currentUser.id,
         finalThumbnail || undefined,
         selectedPlatforms,
-        fileMetadata // 🆕 Passa metadados de arquivo
+        fileMetadata, // 🆕 Passa metadados de arquivo
+        creatorSocialLinks // 🆕 SOLUÇÃO DEFINITIVA: Sempre passa links sociais do criador
       );
       
       if (!result.success) {
