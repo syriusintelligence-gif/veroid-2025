@@ -377,98 +377,137 @@ export default function Certificate() {
   // 🆕 CORREÇÃO: Extrai título e descrição do conteúdo
   const { title, description } = extractContentDescription(content.content);
 
-  // 🔒 SOLUÇÃO 5: LINK DIRETO PARA ORIGINAL - Renderização com Botão Destacado
+  /**
+   * 🆕 CORRELAÇÃO INTELIGENTE: Links Sociais + Plataformas de Publicação
+   * Mostra links sociais correlacionados com as plataformas onde o conteúdo foi publicado
+   */
   const renderSocialLinks = () => {
     console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
-    console.log('🔍 [DEBUG] content:', content);
+    console.log('🔍 [DEBUG] content.platforms:', content?.platforms);
     console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
     
-    if (!content?.creatorSocialLinks) {
-      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
+    if (!content?.creatorSocialLinks || !content?.platforms || content.platforms.length === 0) {
+      console.log('⚠️ [DEBUG] Sem links sociais ou plataformas disponíveis');
       return null;
     }
 
-    const relevantLinks: Array<{ platform: string; url: string }> = [];
     const socialLinks = content.creatorSocialLinks;
     
-    // Itera sobre todos os links sociais disponíveis
+    // 🆕 Correlaciona plataformas de publicação com links sociais disponíveis
+    const correlatedLinks: Array<{ platform: string; url: string }> = [];
+    const additionalLinks: Array<{ platform: string; url: string }> = [];
+    
+    // Normaliza nomes de plataformas para matching (case-insensitive)
+    const normalizeplatformName = (name: string): string => {
+      return name.toLowerCase().replace(/[^a-z]/g, '');
+    };
+    
+    // Primeiro, processa as plataformas de publicação
+    content.platforms.forEach((platform) => {
+      const normalizedPlatform = normalizePlatformName(platform);
+      
+      // Procura link social correspondente
+      Object.entries(socialLinks).forEach(([socialKey, url]) => {
+        const normalizedSocialKey = normalizePlatformName(socialKey);
+        
+        if (normalizedSocialKey === normalizedPlatform && url && typeof url === 'string' && url.trim() !== '') {
+          correlatedLinks.push({ platform: socialKey, url });
+        }
+      });
+    });
+    
+    // Depois, adiciona links sociais que NÃO estão nas plataformas de publicação
     Object.entries(socialLinks).forEach(([platform, url]) => {
-      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
       if (url && typeof url === 'string' && url.trim() !== '') {
-        relevantLinks.push({ platform, url });
+        const isCorrelated = correlatedLinks.some(link => 
+          normalizePlatformName(link.platform) === normalizePlatformName(platform)
+        );
+        
+        if (!isCorrelated) {
+          additionalLinks.push({ platform, url });
+        }
       }
     });
 
-    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
+    console.log(`✅ [DEBUG] Links correlacionados: ${correlatedLinks.length}`);
+    console.log(`✅ [DEBUG] Links adicionais: ${additionalLinks.length}`);
 
-    if (relevantLinks.length === 0) {
+    if (correlatedLinks.length === 0 && additionalLinks.length === 0) {
       console.log('⚠️ [DEBUG] Nenhum link válido encontrado');
       return null;
     }
 
-    // 🔒 SOLUÇÃO 5: Pega o primeiro link (geralmente o principal) para o botão grande
-    const primaryLink = relevantLinks[0];
+    // Se há pelo menos um link correlacionado, mostra botão grande
+    const primaryLink = correlatedLinks.length > 0 ? correlatedLinks[0] : additionalLinks[0];
 
     return (
-      <div 
-        className="mb-8 w-full"
-        style={{ 
-          display: 'block !important',
-          visibility: 'visible !important',
-          opacity: '1 !important',
-          position: 'relative',
-          zIndex: 10,
-          minHeight: '100px'
-        }}
-      >
-        <div className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Globe className="h-5 w-5" />
-          Perfis Oficiais do Criador
-        </div>
-        <div 
-          className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border-2 border-blue-300 shadow-lg"
-          style={{ 
-            display: 'block !important',
-            visibility: 'visible !important'
-          }}
-        >
-          <p className="text-base text-gray-800 mb-4 font-medium">
-            🔗 Conecte-se com <strong className="text-blue-600">{content.creatorName}</strong>:
-          </p>
-          
-          {/* 🔒 SOLUÇÃO 5: Botão GRANDE "Ver Original" - Destaque Principal */}
-          <a
-            href={ensureProtocol(primaryLink.url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-lg text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105"
-          >
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-2xl">🔗</span>
-              <span>VER CONTEÚDO ORIGINAL COMPLETO</span>
-              <LinkIcon className="h-6 w-6" />
+      <div className="mb-8 w-full">
+        {correlatedLinks.length > 0 && (
+          <>
+            <div className="text-sm font-bold text-green-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" />
+              🔗 Conteúdo Original nas Plataformas
             </div>
-            <p className="text-sm font-normal mt-2 opacity-90">
-              Clique para acessar o post original em {getPlatformLabel(primaryLink.platform)}
-            </p>
-          </a>
-          
-          {/* Links adicionais (se houver mais de um) */}
-          {relevantLinks.length > 1 && (
-            <>
-              <p className="text-sm text-gray-600 mb-3 font-medium">Outros perfis oficiais:</p>
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border-2 border-green-300 shadow-lg mb-6">
+              <p className="text-base text-gray-800 mb-4 font-medium">
+                ✅ Acesse o conteúdo original publicado por <strong className="text-green-600">{content.creatorName}</strong>:
+              </p>
+              
+              {/* Botão GRANDE "Ver Original" - Link para primeira plataforma */}
+              <a
+                href={ensureProtocol(primaryLink.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-lg text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105"
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">🔗</span>
+                  <span>VER CONTEÚDO ORIGINAL COMPLETO</span>
+                  {getSocialIcon(primaryLink.platform)}
+                </div>
+                <p className="text-sm font-normal mt-2 opacity-90">
+                  Clique para acessar o post original em {getPlatformLabel(primaryLink.platform)}
+                </p>
+              </a>
+              
+              {/* Links adicionais correlacionados (se houver mais de um) */}
+              {correlatedLinks.length > 1 && (
+                <div className="flex flex-wrap gap-3">
+                  {correlatedLinks.slice(1).map(({ platform, url }) => (
+                    <a
+                      key={platform}
+                      href={ensureProtocol(url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-white hover:bg-green-50 px-5 py-3 rounded-full border-2 border-green-400 hover:border-green-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
+                    >
+                      {getSocialIcon(platform)}
+                      <span className="text-gray-800">{getPlatformLabel(platform)}</span>
+                      <LinkIcon className="h-4 w-4 text-green-500" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        
+        {/* Seção adicional: Outros perfis oficiais (não correlacionados) */}
+        {additionalLinks.length > 0 && (
+          <>
+            <div className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Outros Perfis Oficiais
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border-2 border-blue-300 shadow-lg">
               <div className="flex flex-wrap gap-3">
-                {relevantLinks.slice(1).map(({ platform, url }) => (
+                {additionalLinks.map(({ platform, url }) => (
                   <a
                     key={platform}
                     href={ensureProtocol(url)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
-                    style={{ 
-                      display: 'inline-flex !important',
-                      visibility: 'visible !important'
-                    }}
+                    className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 py-2 rounded-full border-2 border-blue-400 hover:border-blue-600 text-sm font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
                   >
                     {getSocialIcon(platform)}
                     <span className="text-gray-800">{getPlatformLabel(platform)}</span>
@@ -476,9 +515,9 @@ export default function Certificate() {
                   </a>
                 ))}
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     );
   };
