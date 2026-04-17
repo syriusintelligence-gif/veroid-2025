@@ -453,37 +453,43 @@ export default function Certificate() {
                 ✅ Acesse o conteúdo original publicado por <strong className="text-green-600">{content.creatorName}</strong>:
               </p>
               
-              {/* Botão GRANDE "Ver Original" - Link para primeira plataforma */}
-              <a
-                href={ensureProtocol(primaryLink.url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-lg text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-2xl">🔗</span>
-                  <span>VER CONTEÚDO ORIGINAL COMPLETO</span>
-                  {getSocialIcon(primaryLink.platform)}
-                </div>
-                <p className="text-sm font-normal mt-2 opacity-90">
-                  Clique para acessar o post original em {getPlatformLabel(primaryLink.platform)}
-                </p>
-              </a>
-              
-              {/* Links adicionais correlacionados (se houver mais de um) */}
-              {correlatedLinks.length > 1 && (
-                <div className="flex flex-wrap gap-3">
-                  {correlatedLinks.slice(1).map(({ platform, url }) => (
+              {/* Grid de botões - Se apenas 1 plataforma, mostra botão grande. Se 2+, mostra grid de botões iguais */}
+              {correlatedLinks.length === 1 ? (
+                // Botão único GRANDE
+                <a
+                  href={ensureProtocol(correlatedLinks[0].url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-lg text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105"
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-2xl">🔗</span>
+                    <span>VER CONTEÚDO ORIGINAL COMPLETO</span>
+                    {getSocialIcon(correlatedLinks[0].platform)}
+                  </div>
+                  <p className="text-sm font-normal mt-2 opacity-90">
+                    Clique para acessar o post original em {getPlatformLabel(correlatedLinks[0].platform)}
+                  </p>
+                </a>
+              ) : (
+                // Grid de 2 ou mais botões - tamanhos iguais, lado a lado
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {correlatedLinks.map(({ platform, url }) => (
                     <a
                       key={platform}
                       href={ensureProtocol(url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-white hover:bg-green-50 px-5 py-3 rounded-full border-2 border-green-400 hover:border-green-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
+                      className="flex flex-col items-center justify-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-base text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 min-h-[120px]"
                     >
-                      {getSocialIcon(platform)}
-                      <span className="text-gray-800">{getPlatformLabel(platform)}</span>
-                      <LinkIcon className="h-4 w-4 text-green-500" />
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-2xl">🔗</span>
+                        {getSocialIcon(platform)}
+                      </div>
+                      <span className="mb-1">VER ORIGINAL</span>
+                      <span className="text-sm font-normal opacity-90">
+                        em {getPlatformLabel(platform)}
+                      </span>
                     </a>
                   ))}
                 </div>
