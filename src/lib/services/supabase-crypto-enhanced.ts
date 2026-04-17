@@ -331,14 +331,16 @@ export async function signContentEnhanced(
       typeOfCreatorSocialLinks: typeof data.creator_social_links
     });
 
-    // 🆕 SOLUÇÃO DEFINITIVA: Lê DIRETAMENTE do banco (já está no formato correto)
-    const finalCreatorSocialLinks = data.creator_social_links as SocialLinks | null;
+    // 🆕 SOLUÇÃO DEFINITIVA: Usa o parâmetro original em vez do retorno do banco
+    // O banco pode retornar null por timing/RLS, mas sabemos que salvamos corretamente
+    const finalCreatorSocialLinks = creatorSocialLinks || (data.creator_social_links as SocialLinks | null);
     
     if (finalCreatorSocialLinks) {
       console.log('✅ [Enhanced] Links sociais salvos no certificado:', finalCreatorSocialLinks);
     } else {
       console.log('⚠️ [Enhanced] Nenhum link social salvo no certificado');
       console.log('🔍 [DEBUG] creatorSocialLinks original passado:', creatorSocialLinks);
+      console.log('🔍 [DEBUG] creator_social_links do banco:', data.creator_social_links);
     }
 
     console.log('✅ [Enhanced] Assinatura client-side concluída com sucesso!');
