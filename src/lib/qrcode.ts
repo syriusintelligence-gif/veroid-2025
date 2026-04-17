@@ -510,6 +510,83 @@ export function generateCertificate(signedContent: SignedContent): string {
       box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
     
+    .security-warning {
+      background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 50%, #fecaca 100%);
+      border: 2px solid #fb923c;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(251, 146, 60, 0.2);
+    }
+    
+    .security-warning-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .security-warning-icon {
+      width: 40px;
+      height: 40px;
+      background: #f97316;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    
+    .security-warning-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #7c2d12;
+      margin-bottom: 8px;
+    }
+    
+    .security-warning-text {
+      font-size: 14px;
+      color: #9a3412;
+      line-height: 1.6;
+    }
+    
+    .security-checklist {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid #fdba74;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    
+    .security-checklist-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #7c2d12;
+      margin-bottom: 12px;
+    }
+    
+    .security-checklist ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .security-checklist li {
+      font-size: 13px;
+      color: #9a3412;
+      margin-bottom: 8px;
+      padding-left: 20px;
+      position: relative;
+    }
+    
+    .security-checklist li::before {
+      content: '☐';
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    
     .info-section {
       margin-bottom: 30px;
     }
@@ -619,6 +696,31 @@ export function generateCertificate(signedContent: SignedContent): string {
     <div class="content">
       <div class="badge">
         ✓ Conteúdo Autenticado
+      </div>
+      
+      <!-- 🔒 SOLUÇÃO 3: AVISO INTELIGENTE DE SEGURANÇA -->
+      <div class="security-warning">
+        <div class="security-warning-header">
+          <div class="security-warning-icon">⚠️</div>
+          <div style="flex: 1;">
+            <div class="security-warning-title">ATENÇÃO: Verificação de Autenticidade</div>
+            <div class="security-warning-text">
+              Este certificado autentica o <strong>CONTEÚDO COMPLETO</strong> original. 
+              Se você está vendo um <strong style="color: #991b1b;">RECORTE ou FRAGMENTO</strong>, 
+              ele NÃO está coberto por esta certificação.
+            </div>
+          </div>
+        </div>
+        
+        <div class="security-checklist">
+          <div class="security-checklist-title">✅ COMO VERIFICAR A AUTENTICIDADE:</div>
+          <ul>
+            <li>A imagem de preview abaixo corresponde ao conteúdo que você viu?</li>
+            <li>O conteúdo completo está íntegro (não foi editado ou recortado)?</li>
+            <li>Os links das redes sociais levam ao post/perfil original do criador?</li>
+            <li><strong>Visite os perfis oficiais do criador abaixo para comparar com a fonte original!</strong></li>
+          </ul>
+        </div>
       </div>
       
       ${thumbnailHtml}

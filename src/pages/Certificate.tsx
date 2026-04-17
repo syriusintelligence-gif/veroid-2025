@@ -365,7 +365,7 @@ export default function Certificate() {
   // 🆕 CORREÇÃO: Extrai título e descrição do conteúdo
   const { title, description } = extractContentDescription(content.content);
 
-  // 🆕 FUNÇÃO RENDERIZAÇÃO DE LINKS SOCIAIS - MOVIDA PARA CIMA E COM CSS FORÇADO
+  // 🔒 SOLUÇÃO 5: LINK DIRETO PARA ORIGINAL - Renderização com Botão Destacado
   const renderSocialLinks = () => {
     console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
     console.log('🔍 [DEBUG] content:', content);
@@ -394,6 +394,9 @@ export default function Certificate() {
       return null;
     }
 
+    // 🔒 SOLUÇÃO 5: Pega o primeiro link (geralmente o principal) para o botão grande
+    const primaryLink = relevantLinks[0];
+
     return (
       <div 
         className="mb-8 w-full"
@@ -420,25 +423,49 @@ export default function Certificate() {
           <p className="text-base text-gray-800 mb-4 font-medium">
             🔗 Conecte-se com <strong className="text-blue-600">{content.creatorName}</strong>:
           </p>
-          <div className="flex flex-wrap gap-3">
-            {relevantLinks.map(({ platform, url }) => (
-              <a
-                key={platform}
-                href={ensureProtocol(url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
-                style={{ 
-                  display: 'inline-flex !important',
-                  visibility: 'visible !important'
-                }}
-              >
-                {getSocialIcon(platform)}
-                <span className="text-gray-800">{getPlatformLabel(platform)}</span>
-                <LinkIcon className="h-4 w-4 text-blue-500" />
-              </a>
-            ))}
-          </div>
+          
+          {/* 🔒 SOLUÇÃO 5: Botão GRANDE "Ver Original" - Destaque Principal */}
+          <a
+            href={ensureProtocol(primaryLink.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold text-lg text-center shadow-xl hover:shadow-2xl transition-all transform hover:scale-105"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl">🔗</span>
+              <span>VER CONTEÚDO ORIGINAL COMPLETO</span>
+              <LinkIcon className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-normal mt-2 opacity-90">
+              Clique para acessar o post original em {getPlatformLabel(primaryLink.platform)}
+            </p>
+          </a>
+          
+          {/* Links adicionais (se houver mais de um) */}
+          {relevantLinks.length > 1 && (
+            <>
+              <p className="text-sm text-gray-600 mb-3 font-medium">Outros perfis oficiais:</p>
+              <div className="flex flex-wrap gap-3">
+                {relevantLinks.slice(1).map(({ platform, url }) => (
+                  <a
+                    key={platform}
+                    href={ensureProtocol(url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
+                    style={{ 
+                      display: 'inline-flex !important',
+                      visibility: 'visible !important'
+                    }}
+                  >
+                    {getSocialIcon(platform)}
+                    <span className="text-gray-800">{getPlatformLabel(platform)}</span>
+                    <LinkIcon className="h-4 w-4 text-blue-500" />
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -516,22 +543,78 @@ export default function Certificate() {
             </p>
           </div>
 
-          {/* 🆕 CORREÇÃO: Thumbnail com tratamento de erro */}
-          {content.thumbnail && !imageError && (
-            <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-                📸 Preview do Conteúdo
+          {/* 🔒 SOLUÇÃO 3: AVISO INTELIGENTE DE SEGURANÇA - Banner de Alerta */}
+          <div className="mb-8 sm:mb-10 bg-gradient-to-r from-yellow-50 via-orange-50 to-red-50 border-2 border-orange-400 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
               </div>
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
+              <div className="flex-1">
+                <h3 className="text-base sm:text-lg font-bold text-orange-900 mb-2">
+                  ATENÇÃO: Verificação de Autenticidade
+                </h3>
+                <p className="text-sm text-orange-800 leading-relaxed mb-3">
+                  Este certificado autentica o <strong>CONTEÚDO COMPLETO</strong> original. 
+                  Se você está vendo um <strong className="text-red-700">RECORTE ou FRAGMENTO</strong>, 
+                  ele NÃO está coberto por esta certificação.
+                </p>
+              </div>
+            </div>
+            
+            {/* 🔒 SOLUÇÃO 3: Checklist de Verificação */}
+            <div className="bg-white/70 rounded-lg p-4 border border-orange-200">
+              <p className="text-sm font-bold text-orange-900 mb-3">✅ COMO VERIFICAR A AUTENTICIDADE:</p>
+              <ul className="space-y-2 text-sm text-orange-800">
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 mt-0.5">☐</span>
+                  <span>A imagem de preview abaixo corresponde ao conteúdo que você viu?</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 mt-0.5">☐</span>
+                  <span>O conteúdo completo está íntegro (não foi editado ou recortado)?</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 mt-0.5">☐</span>
+                  <span>Os links das redes sociais levam ao post/perfil original do criador?</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 mt-0.5">☐</span>
+                  <span className="font-bold text-orange-900">Clique no botão "VER ORIGINAL" abaixo para comparar com a fonte oficial!</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* 🔒 SOLUÇÃO 1: HASH VISUAL - Thumbnail Destacada com Aviso */}
+          {content.thumbnail && !imageError && (
+            <div className="mb-8 sm:mb-10">
+              <div className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <span className="text-xl">📸</span>
+                Preview do Conteúdo ORIGINAL Autenticado
+              </div>
+              <div className="relative bg-gradient-to-br from-blue-100 to-purple-100 p-4 sm:p-6 rounded-xl border-4 border-blue-500 shadow-xl">
+                {/* Badge de autenticação no canto */}
+                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  ORIGINAL
+                </div>
+                
                 <img 
                   src={content.thumbnail} 
-                  alt="Preview do conteúdo" 
-                  className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                  alt="Preview do conteúdo original autenticado" 
+                  className="w-full max-h-80 sm:max-h-96 object-contain rounded-lg shadow-md border-2 border-white"
                   onError={() => {
                     console.error('❌ Erro ao carregar thumbnail');
                     setImageError(true);
                   }}
                 />
+                
+                {/* Aviso abaixo da imagem */}
+                <div className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-center">
+                  <p className="text-xs sm:text-sm font-medium">
+                    ✅ Esta é a imagem/frame do <strong>conteúdo original completo</strong> que foi autenticado
+                  </p>
+                </div>
               </div>
             </div>
           )}
