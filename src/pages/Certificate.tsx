@@ -57,6 +57,8 @@ export default function Certificate() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isCreator, setIsCreator] = useState(false);
 
   useEffect(() => {
     checkUserAndLoadCertificate();
@@ -66,6 +68,7 @@ export default function Certificate() {
     // Verifica se o usuário está logado
     const user = await getCurrentUser();
     setIsLoggedIn(!!user);
+    setCurrentUserId(user?.id || null);
     
     // Tenta parâmetro compactado 'd' primeiro
     let dataParam = searchParams.get('d');
@@ -117,6 +120,11 @@ export default function Certificate() {
           
           setContent(fullContent);
           
+          // 🆕 Verifica se o usuário atual é o criador do certificado
+          const userIsCreator = user && fullContent.userId === user.id;
+          setIsCreator(userIsCreator);
+          console.log('👤 [CERTIFICATE] Usuário é o criador?', userIsCreator);
+          
           // Incrementa contador de verificações
           await incrementVerificationCount(fullContent.id);
         } else {
@@ -125,6 +133,10 @@ export default function Certificate() {
           // Último recurso: usa dados da URL (incompletos)
           console.warn('⚠️ [CERTIFICATE] Usando dados da URL como fallback (DADOS INCOMPLETOS)');
           setContent(decodedContent);
+          
+          // 🆕 Verifica se o usuário atual é o criador (fallback)
+          const userIsCreator = user && decodedContent.userId === user.id;
+          setIsCreator(userIsCreator);
         }
       } else {
         console.error('❌ [CERTIFICATE] Falha ao decodificar conteúdo da URL');
@@ -811,15 +823,18 @@ export default function Certificate() {
               <p className="text-xs text-center text-gray-500 mt-4">
                 Escaneie para verificar a autenticidade
               </p>
-              <Button
-                onClick={handleDownloadQRCode}
-                variant="outline"
-                size="sm"
-                className="mt-4"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Baixar QR Code
-              </Button>
+              {/* 🔒 Botão de download disponível APENAS para o criador */}
+              {isCreator && (
+                <Button
+                  onClick={handleDownloadQRCode}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar QR Code
+                </Button>
+              )}
             </div>
           </div>
 
