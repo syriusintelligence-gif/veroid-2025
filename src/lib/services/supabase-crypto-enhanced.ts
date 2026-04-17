@@ -104,6 +104,7 @@ interface SignContentResult {
  * @param thumbnail - Thumbnail opcional
  * @param platforms - Plataformas sociais
  * @param fileMetadata - 🆕 Metadados do arquivo anexado (opcional)
+ * @param creatorSocialLinks - 🆕 Links sociais do criador (opcional)
  * @returns Resultado da assinatura
  */
 export async function signContentEnhanced(
@@ -114,7 +115,8 @@ export async function signContentEnhanced(
   userId: string,
   thumbnail?: string,
   platforms?: string[],
-  fileMetadata?: FileMetadata // 🆕 Novo parâmetro opcional
+  fileMetadata?: FileMetadata,
+  creatorSocialLinks?: SocialLinks
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -128,7 +130,8 @@ export async function signContentEnhanced(
       contentLength: content.length,
       hasThumbnail: !!thumbnail,
       platforms: platforms?.join(', '),
-      hasFile: !!fileMetadata, // 🆕 Log de arquivo
+      hasFile: !!fileMetadata,
+      hasSocialLinks: !!creatorSocialLinks,
     });
   }
 
@@ -207,7 +210,7 @@ export async function signContentEnhanced(
           userId: userId.substring(0, 8) + '...',
           hasThumbnail: !!thumbnail,
           platforms: platforms?.length || 0,
-          hasFile: !!fileMetadata, // 🆕
+          hasFile: !!fileMetadata,
         });
       }
 
@@ -282,7 +285,7 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
-    // 🆕 Preparar objeto de inserção com metadados de arquivo
+    // 🆕 Preparar objeto de inserção com metadados de arquivo e links sociais
     const signedContent: SignedContentInsert = {
       user_id: userId,
       content,
@@ -300,6 +303,8 @@ export async function signContentEnhanced(
       file_size: fileMetadata?.file_size || null,
       mime_type: fileMetadata?.mime_type || null,
       storage_bucket: fileMetadata?.storage_bucket || null,
+      // 🆕 SOLUÇÃO DEFINITIVA: Salvar links sociais no certificado
+      creator_social_links: creatorSocialLinks || null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -319,41 +324,22 @@ export async function signContentEnhanced(
     }
 
     console.log('✅ [Enhanced] Conteúdo salvo com sucesso!');
-    console.log('🔍 [Enhanced] Buscando links sociais do criador...');
 
-    // 🆕 CORREÇÃO CRÍTICA: Busca o conteúdo completo com links sociais
-    const { data: fullContentData, error: fetchError } = await supabase
-      .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
-      .eq('id', data.id)
-      .single();
-
-    if (fetchError || !fullContentData) {
-      console.warn('⚠️ [Enhanced] Erro ao buscar links sociais, usando dados básicos');
-      return {
-        success: true,
-        signedContent: dbSignedContentToAppSignedContent(data),
-        method: 'client_side',
-      };
-    }
-
-    // Extrai links sociais do criador
-    let creatorSocialLinks: SocialLinks | undefined = undefined;
-    if (fullContentData.users && typeof fullContentData.users === 'object' && 'social_links' in fullContentData.users) {
-      creatorSocialLinks = fullContentData.users.social_links as SocialLinks;
-      console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
+    // 🆕 SOLUÇÃO DEFINITIVA: Usa links sociais já salvos na tabela signed_contents
+    // Não precisa mais fazer JOIN com a tabela users (evita problema de RLS)
+    let finalCreatorSocialLinks: SocialLinks | undefined = undefined;
+    if (data.creator_social_links) {
+      finalCreatorSocialLinks = data.creator_social_links as SocialLinks;
+      console.log('✅ [Enhanced] Links sociais salvos no certificado:', finalCreatorSocialLinks);
     } else {
-      console.log('⚠️ [Enhanced] Nenhum link social encontrado');
+      console.log('⚠️ [Enhanced] Nenhum link social salvo no certificado');
     }
 
     console.log('✅ [Enhanced] Assinatura client-side concluída com sucesso!');
 
     return {
       success: true,
-      signedContent: dbSignedContentToAppSignedContent(fullContentData, creatorSocialLinks),
+      signedContent: dbSignedContentToAppSignedContent(data, finalCreatorSocialLinks),
       method: 'client_side',
     };
 
@@ -388,7 +374,7 @@ function dbSignedContentToAppSignedContent(
     thumbnail: dbContent.thumbnail || undefined,
     platforms: dbContent.platforms || undefined,
     verificationCount: dbContent.verification_count,
-    creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
+    creatorSocialLinks: creatorSocialLinks,
     // 🆕 FASE 3: Adicionar metadados de arquivo ao tipo retornado
     filePath: dbContent.file_path || undefined,
     fileName: dbContent.file_name || undefined,

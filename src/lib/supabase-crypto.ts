@@ -74,7 +74,7 @@ function dbSignedContentToAppSignedContent(
     thumbnail: dbContent.thumbnail || undefined,
     platforms: dbContent.platforms || undefined,
     verificationCount: dbContent.verification_count,
-    creatorSocialLinks: creatorSocialLinks, // 🆕 Adiciona links sociais
+    creatorSocialLinks: creatorSocialLinks,
     // 🆕 Campos de arquivo anexado - usando type assertion segura
     filePath: 'file_path' in dbContent ? (dbContent.file_path as string | null) || undefined : undefined,
     fileName: 'file_name' in dbContent ? (dbContent.file_name as string | null) || undefined : undefined,
@@ -217,10 +217,9 @@ export async function saveKeyPair(keyPair: KeyPair): Promise<{ success: boolean;
         id: keyPair.id,
         user_id: keyPair.userId,
         public_key: keyPair.publicKey,
-        encrypted_private_key: encryptedPrivateKey, // 🆕 Salva criptografada
+        encrypted_private_key: encryptedPrivateKey,
         encryption_algorithm: 'AES-256-GCM',
         key_version: 1,
-        // private_key: null, // 🆕 Não salva mais em texto plano
       });
     
     if (error) {
@@ -266,7 +265,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
           id: data.id,
           userId: data.user_id,
           publicKey: data.public_key,
-          privateKey: decryptedPrivateKey, // 🆕 Retorna descriptografada
+          privateKey: decryptedPrivateKey,
           createdAt: data.created_at,
         };
       } catch (decryptError) {
@@ -298,6 +297,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
 
 /**
  * Assina conteúdo e salva no Supabase
+ * 🆕 ATUALIZADO: Agora salva links sociais do criador junto ao certificado
  */
 export async function signContent(
   content: string,
@@ -306,7 +306,8 @@ export async function signContent(
   creatorName: string,
   userId: string,
   thumbnail?: string,
-  platforms?: string[]
+  platforms?: string[],
+  creatorSocialLinks?: SocialLinks
 ): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
   try {
     console.log('🔐 [1/7] Iniciando processo de assinatura...');
@@ -319,6 +320,7 @@ export async function signContent(
       hasThumbnail: !!thumbnail,
       thumbnailSize: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
       platforms: platforms?.join(', '),
+      hasSocialLinks: !!creatorSocialLinks,
     });
     
     console.log('🔐 [2/7] Gerando hash do conteúdo...');
@@ -346,6 +348,7 @@ export async function signContent(
       thumbnail: thumbnail || null,
       platforms: platforms || null,
       verification_count: 0,
+      creator_social_links: creatorSocialLinks || null,
     };
     
     console.log('📊 Tamanho dos dados:', {
@@ -374,9 +377,15 @@ export async function signContent(
     console.log('✅ [7/7] Conteúdo salvo com sucesso no Supabase!');
     console.log('📄 ID do conteúdo:', data.id);
     
+    // Extrai links sociais salvos
+    let finalCreatorSocialLinks: SocialLinks | undefined = undefined;
+    if (data.creator_social_links) {
+      finalCreatorSocialLinks = data.creator_social_links as SocialLinks;
+    }
+    
     return {
       success: true,
-      signedContent: dbSignedContentToAppSignedContent(data),
+      signedContent: dbSignedContentToAppSignedContent(data, finalCreatorSocialLinks),
     };
   } catch (error) {
     console.error('❌ [ERRO CRÍTICO] Erro ao assinar conteúdo:', error);
@@ -394,10 +403,7 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
     
     const { data, error } = await supabase
       .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     
@@ -409,11 +415,9 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
     console.log(`✅ [getSignedContentsByUserId] ${data.length} conteúdos encontrados`);
     
     return data.map(item => {
-      // Extrai links sociais do criador
       let creatorSocialLinks: SocialLinks | undefined = undefined;
-      if (item.users && typeof item.users === 'object' && 'social_links' in item.users) {
-        creatorSocialLinks = item.users.social_links as SocialLinks;
-        console.log('✅ [getSignedContentsByUserId] Links sociais encontrados para:', item.id);
+      if (item.creator_social_links) {
+        creatorSocialLinks = item.creator_social_links as SocialLinks;
       }
       
       return dbSignedContentToAppSignedContent(item, creatorSocialLinks);
@@ -455,10 +459,7 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
     
     const { data, error } = await supabase
       .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
     
@@ -468,18 +469,15 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
     }
     
     console.log('✅ [getSignedContentById] Conteúdo encontrado');
-    console.log('🔍 [DEBUG] data.users:', data.users);
     
-    // Extrai links sociais do criador
     let creatorSocialLinks: SocialLinks | undefined = undefined;
-    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
-      creatorSocialLinks = data.users.social_links as SocialLinks;
+    if (data.creator_social_links) {
+      creatorSocialLinks = data.creator_social_links as SocialLinks;
       console.log('✅ [getSignedContentById] Links sociais encontrados:', creatorSocialLinks);
     } else {
-      console.log('⚠️ [getSignedContentById] Nenhum link social encontrado');
+      console.log('⚠️ [getSignedContentById] Nenhum link social armazenado');
     }
     
-    // 🆕 CORRIGIDO: Passa creatorSocialLinks para a função de conversão
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
     
     console.log('📊 [getSignedContentById] Conteúdo final:', {
@@ -487,6 +485,16 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
       creatorName: content.creatorName,
       hasCreatorSocialLinks: !!content.creatorSocialLinks,
       socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
+      hasThumbnail: !!content.thumbnail,
+      thumbnailLength: content.thumbnail?.length || 0,
+      thumbnailPreview: content.thumbnail?.substring(0, 50) || 'N/A',
+      hasContent: !!content.content,
+      contentLength: content.content?.length || 0,
+    });
+    
+    console.log('🔍 [getSignedContentById] Dados brutos do Supabase:', {
+      rawThumbnail: data.thumbnail ? `${data.thumbnail.substring(0, 50)}... (${data.thumbnail.length} chars)` : 'NULL',
+      rawContent: data.content ? `${data.content.substring(0, 50)}... (${data.content.length} chars)` : 'NULL',
     });
     
     return content;
@@ -505,10 +513,7 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
     
     const { data, error } = await supabase
       .from('signed_contents')
-      .select(`
-        *,
-        users!signed_contents_user_id_fkey(social_links)
-      `)
+      .select('*')
       .eq('verification_code', code.toUpperCase())
       .single();
     
@@ -518,18 +523,15 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
     }
     
     console.log('✅ [getSignedContentByVerificationCode] Conteúdo encontrado');
-    console.log('🔍 [DEBUG] data.users:', data.users);
     
-    // Extrai links sociais do criador
     let creatorSocialLinks: SocialLinks | undefined = undefined;
-    if (data.users && typeof data.users === 'object' && 'social_links' in data.users) {
-      creatorSocialLinks = data.users.social_links as SocialLinks;
+    if (data.creator_social_links) {
+      creatorSocialLinks = data.creator_social_links as SocialLinks;
       console.log('✅ [getSignedContentByVerificationCode] Links sociais encontrados:', creatorSocialLinks);
     } else {
-      console.log('⚠️ [getSignedContentByVerificationCode] Nenhum link social encontrado');
+      console.log('⚠️ [getSignedContentByVerificationCode] Nenhum link social armazenado');
     }
     
-    // 🆕 CORRIGIDO: Passa creatorSocialLinks para a função de conversão
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
     
     console.log('📊 [getSignedContentByVerificationCode] Conteúdo final:', {
