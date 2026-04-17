@@ -324,22 +324,28 @@ export async function signContentEnhanced(
     }
 
     console.log('✅ [Enhanced] Conteúdo salvo com sucesso!');
+    console.log('🔍 [DEBUG] Dados salvos no banco:', {
+      id: data.id,
+      creator_social_links: data.creator_social_links,
+      hasCreatorSocialLinks: !!data.creator_social_links,
+      typeOfCreatorSocialLinks: typeof data.creator_social_links
+    });
 
-    // 🆕 SOLUÇÃO DEFINITIVA: Usa links sociais já salvos na tabela signed_contents
-    // Não precisa mais fazer JOIN com a tabela users (evita problema de RLS)
-    let finalCreatorSocialLinks: SocialLinks | undefined = undefined;
-    if (data.creator_social_links) {
-      finalCreatorSocialLinks = data.creator_social_links as SocialLinks;
+    // 🆕 SOLUÇÃO DEFINITIVA: Lê DIRETAMENTE do banco (já está no formato correto)
+    const finalCreatorSocialLinks = data.creator_social_links as SocialLinks | null;
+    
+    if (finalCreatorSocialLinks) {
       console.log('✅ [Enhanced] Links sociais salvos no certificado:', finalCreatorSocialLinks);
     } else {
       console.log('⚠️ [Enhanced] Nenhum link social salvo no certificado');
+      console.log('🔍 [DEBUG] creatorSocialLinks original passado:', creatorSocialLinks);
     }
 
     console.log('✅ [Enhanced] Assinatura client-side concluída com sucesso!');
 
     return {
       success: true,
-      signedContent: dbSignedContentToAppSignedContent(data, finalCreatorSocialLinks),
+      signedContent: dbSignedContentToAppSignedContent(data, finalCreatorSocialLinks || undefined),
       method: 'client_side',
     };
 
