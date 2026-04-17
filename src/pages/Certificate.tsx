@@ -398,7 +398,7 @@ export default function Certificate() {
     const additionalLinks: Array<{ platform: string; url: string }> = [];
     
     // Normaliza nomes de plataformas para matching (case-insensitive)
-    const normalizeplatformName = (name: string): string => {
+    const normalizePlatformName = (name: string): string => {
       return name.toLowerCase().replace(/[^a-z]/g, '');
     };
     
