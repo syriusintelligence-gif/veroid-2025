@@ -1152,10 +1152,10 @@ export async function checkCpfCnpjExists(cpfCnpj: string): Promise<boolean> {
 
 /**
  * 🆕 Atualiza os links de redes sociais do usuário
- * VERSÃO COM PROTEÇÃO ANTI-DUPLICAÇÃO
+ * VERSÃO COM PROTEÇÃO ANTI-DUPLICAÇÃO + VERIFICAÇÃO DUPLA
  * 
- * Agora detecta quando um link já está sendo usado por outra conta
- * e retorna mensagem específica para o usuário.
+ * ⚡ CORREÇÃO DO BUG: O trigger do banco bloqueia, mas o Supabase JS não captura o erro.
+ * Solução: Verificação ANTES (via RPC) + Confirmação DEPOIS (via SELECT).
  */
 export async function updateSocialLinks(
   userId: string,
@@ -1173,6 +1173,50 @@ export async function updateSocialLinks(
       return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
     }
     
+    // 🆕 VERIFICAÇÃO PRÉVIA: Chama função do banco para validar links ANTES de tentar salvar
+    console.log('🔍 Verificando duplicatas via RPC...');
+    
+    const { data: validationResult, error: rpcError } = await supabase.rpc(
+      'check_duplicate_social_links_before_update',
+      {
+        p_user_id: userId,
+        p_social_links: socialLinks as any
+      }
+    );
+    
+    if (rpcError) {
+      console.error('❌ Erro na verificação RPC:', rpcError);
+      // Se a RPC falhar, continua com o UPDATE normal (fallback para o trigger)
+      console.log('⚠️ RPC falhou, continuando com UPDATE (trigger fará a validação)...');
+    } else if (validationResult && !validationResult.is_valid) {
+      // 🚫 DUPLICATA DETECTADA ANTES DE SALVAR!
+      console.log('🚫 Duplicata detectada pela RPC!');
+      console.log('📊 Resultado:', validationResult);
+      
+      const platform = validationResult.platform || 'rede social';
+      const conflictEmail = validationResult.conflict_email || '';
+      const conflictUrl = validationResult.conflict_url || '';
+      
+      let userMessage = `Este link de ${platform}`;
+      if (conflictUrl) {
+        userMessage += ` (${conflictUrl})`;
+      }
+      userMessage += ' já está sendo usado';
+      if (conflictEmail) {
+        userMessage += ` pela conta "${conflictEmail}"`;
+      }
+      userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
+      
+      return {
+        success: false,
+        error: userMessage,
+        duplicatedPlatform: platform
+      };
+    }
+    
+    console.log('✅ RPC: Nenhuma duplicata encontrada, prosseguindo com UPDATE...');
+    
+    // Tenta fazer o UPDATE
     const { error } = await supabase
       .from('users')
       .update({ social_links: socialLinks })
@@ -1182,26 +1226,15 @@ export async function updateSocialLinks(
       console.error('❌ Erro ao atualizar links sociais:', error);
       console.error('📊 Código do erro:', error.code);
       console.error('📊 Mensagem:', error.message);
-      console.error('📊 Detalhes:', error.details);
-      console.error('📊 Hint:', error.hint);
       
-      // 🆕 DETECTA ERRO DE DUPLICAÇÃO (unique_violation)
-      // O trigger do banco retorna erro code '23505' quando um link já está em uso
+      // Detecta erro de duplicação
       if (error.code === '23505' || error.message.includes('já está sendo usado')) {
-        // Extrai o nome da plataforma da mensagem de erro
-        // Formato esperado: "O link de instagram "https://..." já está sendo usado pela conta "email@example.com""
         const platformMatch = error.message.match(/link de (\w+)/i);
         const platform = platformMatch ? platformMatch[1] : 'rede social';
         
-        // Extrai o email da conta que está usando o link
         const emailMatch = error.message.match(/conta "([^"]+)"/i);
         const conflictEmail = emailMatch ? emailMatch[1] : '';
         
-        console.log('🚫 Link duplicado detectado!');
-        console.log('   Plataforma:', platform);
-        console.log('   Email em conflito:', conflictEmail);
-        
-        // Monta mensagem amigável para o usuário
         let userMessage = `Este link de ${platform} já está sendo usado`;
         if (conflictEmail) {
           userMessage += ` pela conta "${conflictEmail}"`;
@@ -1215,14 +1248,80 @@ export async function updateSocialLinks(
         };
       }
       
-      // Erro genérico
       return { 
         success: false, 
         error: 'Erro ao atualizar links das redes sociais. Por favor, tente novamente.' 
       };
     }
     
-    console.log('✅ Links sociais atualizados com sucesso!');
+    // 🆕 VERIFICAÇÃO PÓS-UPDATE: Confirma que os dados foram realmente salvos
+    console.log('🔍 Verificando se os dados foram salvos...');
+    
+    const { data: savedData, error: readError } = await supabase
+      .from('users')
+      .select('social_links')
+      .eq('id', userId)
+      .single();
+    
+    if (readError || !savedData) {
+      console.error('❌ Erro ao verificar dados salvos:', readError);
+      return {
+        success: false,
+        error: 'Não foi possível confirmar se os dados foram salvos. Por favor, verifique e tente novamente.'
+      };
+    }
+    
+    // Verifica se os links salvos correspondem aos enviados
+    const savedLinks = savedData.social_links || {};
+    const platforms = ['instagram', 'facebook', 'twitter', 'linkedin', 'youtube', 'tiktok', 'website'];
+    
+    let mismatch = false;
+    for (const platform of platforms) {
+      const sent = (socialLinks as any)[platform] || '';
+      const saved = savedLinks[platform] || '';
+      
+      if (sent !== saved) {
+        console.error(`❌ Mismatch detectado em ${platform}:`);
+        console.error(`   Enviado: "${sent}"`);
+        console.error(`   Salvo: "${saved}"`);
+        mismatch = true;
+      }
+    }
+    
+    if (mismatch) {
+      console.error('🚫 OS DADOS NÃO FORAM SALVOS CORRETAMENTE!');
+      console.error('   Isso indica que o trigger bloqueou silenciosamente.');
+      
+      // Tenta detectar qual link causou o problema
+      for (const platform of platforms) {
+        const linkToCheck = (socialLinks as any)[platform];
+        if (!linkToCheck) continue;
+        
+        // Verifica se este link existe em outra conta
+        const { data: conflictData } = await supabase
+          .from('users')
+          .select('email')
+          .neq('id', userId)
+          .or(`social_links->>${platform}.eq.${linkToCheck}`)
+          .limit(1)
+          .single();
+        
+        if (conflictData) {
+          return {
+            success: false,
+            error: `Este link de ${platform} já está sendo usado pela conta "${conflictData.email}". Por favor, use um link diferente ou remova-o da outra conta primeiro.`,
+            duplicatedPlatform: platform
+          };
+        }
+      }
+      
+      return {
+        success: false,
+        error: 'Um ou mais links já estão sendo usados por outra conta. Por favor, verifique seus links e tente novamente.'
+      };
+    }
+    
+    console.log('✅ Links sociais atualizados e confirmados com sucesso!');
     
     // 📊 Log de auditoria
     await logAuditEvent(AuditAction.USER_UPDATED, {
@@ -1235,23 +1334,15 @@ export async function updateSocialLinks(
   } catch (error) {
     console.error('❌ Erro crítico ao atualizar links sociais:', error);
     
-    // Verifica se é um erro de duplicação mesmo no catch
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     
     if (errorMessage.includes('já está sendo usado') || errorMessage.includes('unique_violation') || errorMessage.includes('23505')) {
-      // Extrai o nome da plataforma da mensagem de erro
       const platformMatch = errorMessage.match(/link de (\w+)/i);
       const platform = platformMatch ? platformMatch[1] : 'rede social';
       
-      // Extrai o email da conta que está usando o link
       const emailMatch = errorMessage.match(/conta "([^"]+)"/i);
       const conflictEmail = emailMatch ? emailMatch[1] : '';
       
-      console.log('🚫 Link duplicado detectado no catch!');
-      console.log('   Plataforma:', platform);
-      console.log('   Email em conflito:', conflictEmail);
-      
-      // Monta mensagem amigável para o usuário
       let userMessage = `Este link de ${platform} já está sendo usado`;
       if (conflictEmail) {
         userMessage += ` pela conta "${conflictEmail}"`;
