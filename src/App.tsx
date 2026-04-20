@@ -32,6 +32,7 @@ import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { getCurrentUser } from './lib/supabase-auth-v2';
 import { supabase } from './lib/supabase';
 import type { User } from './lib/supabase-auth-v2';
+import { Toaster } from '@/components/ui/toaster';
 
 // Componente wrapper para gerenciar o timeout de sessão
 function SessionTimeoutManager({ children, isAuthenticated }: { children: React.ReactNode; isAuthenticated: boolean }) {
@@ -150,6 +151,7 @@ function App() {
   return (
     <Router>
       <SessionTimeoutManager isAuthenticated={!!user}>
+        <Toaster />
         <Routes>
           <Route path="/" element={<Index />} />
           
