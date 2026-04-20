@@ -1175,6 +1175,7 @@ export async function updateSocialLinks(
     
     // 🆕 VERIFICAÇÃO PRÉVIA: Chama função do banco para validar links ANTES de tentar salvar
     console.log('🔍 Verificando duplicatas via RPC...');
+    console.log('📤 Enviando para RPC:', { userId, socialLinks });
     
     const { data: validationResult, error: rpcError } = await supabase.rpc(
       'check_duplicate_social_links_before_update',
@@ -1184,34 +1185,52 @@ export async function updateSocialLinks(
       }
     );
     
+    console.log('📥 Resposta RPC:', { validationResult, rpcError });
+    
     if (rpcError) {
       console.error('❌ Erro na verificação RPC:', rpcError);
       // Se a RPC falhar, continua com o UPDATE normal (fallback para o trigger)
       console.log('⚠️ RPC falhou, continuando com UPDATE (trigger fará a validação)...');
-    } else if (validationResult && !validationResult.is_valid) {
-      // 🚫 DUPLICATA DETECTADA ANTES DE SALVAR!
-      console.log('🚫 Duplicata detectada pela RPC!');
-      console.log('📊 Resultado:', validationResult);
+    } else if (validationResult) {
+      console.log('🔍 Analisando resultado RPC...');
+      console.log('   - Tipo:', typeof validationResult);
+      console.log('   - É array?', Array.isArray(validationResult));
+      console.log('   - Valor completo:', JSON.stringify(validationResult, null, 2));
       
-      const platform = validationResult.platform || 'rede social';
-      const conflictEmail = validationResult.conflict_email || '';
-      const conflictUrl = validationResult.conflict_url || '';
+      // A RPC retorna um array com um objeto
+      const result = Array.isArray(validationResult) ? validationResult[0] : validationResult;
+      console.log('   - Primeiro item (se array):', result);
+      console.log('   - is_valid:', result?.is_valid);
       
-      let userMessage = `Este link de ${platform}`;
-      if (conflictUrl) {
-        userMessage += ` (${conflictUrl})`;
+      if (result && result.is_valid === false) {
+        // 🚫 DUPLICATA DETECTADA ANTES DE SALVAR!
+        console.log('🚫 Duplicata detectada pela RPC!');
+        console.log('📊 Resultado detalhado:', result);
+        
+        const platform = result.platform || 'rede social';
+        const conflictEmail = result.conflict_email || '';
+        const conflictUrl = result.conflict_url || '';
+        
+        let userMessage = `Este link de ${platform}`;
+        if (conflictUrl) {
+          userMessage += ` (${conflictUrl})`;
+        }
+        userMessage += ' já está sendo usado';
+        if (conflictEmail) {
+          userMessage += ` pela conta "${conflictEmail}"`;
+        }
+        userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
+        
+        console.log('🚫 Retornando erro para o frontend:', userMessage);
+        
+        return {
+          success: false,
+          error: userMessage,
+          duplicatedPlatform: platform
+        };
+      } else {
+        console.log('✅ RPC: Nenhuma duplicata encontrada (is_valid = true ou undefined)');
       }
-      userMessage += ' já está sendo usado';
-      if (conflictEmail) {
-        userMessage += ` pela conta "${conflictEmail}"`;
-      }
-      userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
-      
-      return {
-        success: false,
-        error: userMessage,
-        duplicatedPlatform: platform
-      };
     }
     
     console.log('✅ RPC: Nenhuma duplicata encontrada, prosseguindo com UPDATE...');
