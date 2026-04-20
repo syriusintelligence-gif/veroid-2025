@@ -1182,19 +1182,35 @@ export async function updateSocialLinks(
       console.error('❌ Erro ao atualizar links sociais:', error);
       console.error('📊 Código do erro:', error.code);
       console.error('📊 Mensagem:', error.message);
+      console.error('📊 Detalhes:', error.details);
+      console.error('📊 Hint:', error.hint);
       
       // 🆕 DETECTA ERRO DE DUPLICAÇÃO (unique_violation)
       // O trigger do banco retorna erro code '23505' quando um link já está em uso
       if (error.code === '23505' || error.message.includes('já está sendo usado')) {
         // Extrai o nome da plataforma da mensagem de erro
+        // Formato esperado: "O link de instagram "https://..." já está sendo usado pela conta "email@example.com""
         const platformMatch = error.message.match(/link de (\w+)/i);
         const platform = platformMatch ? platformMatch[1] : 'rede social';
         
-        console.log('🚫 Link duplicado detectado:', platform);
+        // Extrai o email da conta que está usando o link
+        const emailMatch = error.message.match(/conta "([^"]+)"/i);
+        const conflictEmail = emailMatch ? emailMatch[1] : '';
+        
+        console.log('🚫 Link duplicado detectado!');
+        console.log('   Plataforma:', platform);
+        console.log('   Email em conflito:', conflictEmail);
+        
+        // Monta mensagem amigável para o usuário
+        let userMessage = `Este link de ${platform} já está sendo usado`;
+        if (conflictEmail) {
+          userMessage += ` pela conta "${conflictEmail}"`;
+        }
+        userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
         
         return { 
           success: false, 
-          error: `Este link de ${platform} já está sendo usado por outra conta. Por favor, use um link diferente.`,
+          error: userMessage,
           duplicatedPlatform: platform
         };
       }
@@ -1221,13 +1237,30 @@ export async function updateSocialLinks(
     
     // Verifica se é um erro de duplicação mesmo no catch
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    if (errorMessage.includes('já está sendo usado') || errorMessage.includes('unique_violation')) {
+    
+    if (errorMessage.includes('já está sendo usado') || errorMessage.includes('unique_violation') || errorMessage.includes('23505')) {
+      // Extrai o nome da plataforma da mensagem de erro
       const platformMatch = errorMessage.match(/link de (\w+)/i);
       const platform = platformMatch ? platformMatch[1] : 'rede social';
       
+      // Extrai o email da conta que está usando o link
+      const emailMatch = errorMessage.match(/conta "([^"]+)"/i);
+      const conflictEmail = emailMatch ? emailMatch[1] : '';
+      
+      console.log('🚫 Link duplicado detectado no catch!');
+      console.log('   Plataforma:', platform);
+      console.log('   Email em conflito:', conflictEmail);
+      
+      // Monta mensagem amigável para o usuário
+      let userMessage = `Este link de ${platform} já está sendo usado`;
+      if (conflictEmail) {
+        userMessage += ` pela conta "${conflictEmail}"`;
+      }
+      userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
+      
       return { 
         success: false, 
-        error: `Este link de ${platform} já está sendo usado por outra conta. Por favor, use um link diferente.`,
+        error: userMessage,
         duplicatedPlatform: platform
       };
     }
