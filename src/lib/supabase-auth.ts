@@ -1,6 +1,10 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.5 - CORREÇÃO FINAL: Não enviar phone para Auth, apenas para tabela users
+ * Versão 2.6 - PROTEÇÃO ANTI-DUPLICAÇÃO: Links sociais únicos por conta
+ * 
+ * Changelog:
+ * - v2.6: Adiciona validação de unicidade de links sociais para prevenir fraude
+ * - v2.5: Correção final - não enviar phone para Auth, apenas para tabela users
  */
 
 import { supabase } from './supabase';
