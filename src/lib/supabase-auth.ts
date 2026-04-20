@@ -1147,13 +1147,21 @@ export async function checkCpfCnpjExists(cpfCnpj: string): Promise<boolean> {
 }
 
 /**
- * Atualiza os links de redes sociais do usuário
+ * 🆕 Atualiza os links de redes sociais do usuário
+ * VERSÃO COM PROTEÇÃO ANTI-DUPLICAÇÃO
+ * 
+ * Agora detecta quando um link já está sendo usado por outra conta
+ * e retorna mensagem específica para o usuário.
  */
 export async function updateSocialLinks(
   userId: string,
   socialLinks: SocialLinks
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; duplicatedPlatform?: string }> {
   try {
+    console.log('🔐 [UPDATE SOCIAL LINKS] Iniciando atualização...');
+    console.log('👤 User ID:', userId);
+    console.log('📊 Links a atualizar:', socialLinks);
+    
     const currentUser = await getCurrentUser();
     
     // Verifica se o usuário tem permissão
@@ -1168,15 +1176,61 @@ export async function updateSocialLinks(
     
     if (error) {
       console.error('❌ Erro ao atualizar links sociais:', error);
-      return { success: false, error: 'Erro ao atualizar links das redes sociais' };
+      console.error('📊 Código do erro:', error.code);
+      console.error('📊 Mensagem:', error.message);
+      
+      // 🆕 DETECTA ERRO DE DUPLICAÇÃO (unique_violation)
+      // O trigger do banco retorna erro code '23505' quando um link já está em uso
+      if (error.code === '23505' || error.message.includes('já está sendo usado')) {
+        // Extrai o nome da plataforma da mensagem de erro
+        const platformMatch = error.message.match(/link de (\w+)/i);
+        const platform = platformMatch ? platformMatch[1] : 'rede social';
+        
+        console.log('🚫 Link duplicado detectado:', platform);
+        
+        return { 
+          success: false, 
+          error: `Este link de ${platform} já está sendo usado por outra conta. Por favor, use um link diferente.`,
+          duplicatedPlatform: platform
+        };
+      }
+      
+      // Erro genérico
+      return { 
+        success: false, 
+        error: 'Erro ao atualizar links das redes sociais. Por favor, tente novamente.' 
+      };
     }
+    
+    console.log('✅ Links sociais atualizados com sucesso!');
+    
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.USER_UPDATED, {
+      success: true,
+      targetUserId: userId,
+      updates: { social_links: socialLinks },
+    }, userId);
     
     return { success: true };
   } catch (error) {
-    console.error('❌ Erro ao atualizar links sociais:', error);
+    console.error('❌ Erro crítico ao atualizar links sociais:', error);
+    
+    // Verifica se é um erro de duplicação mesmo no catch
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    if (errorMessage.includes('já está sendo usado') || errorMessage.includes('unique_violation')) {
+      const platformMatch = errorMessage.match(/link de (\w+)/i);
+      const platform = platformMatch ? platformMatch[1] : 'rede social';
+      
+      return { 
+        success: false, 
+        error: `Este link de ${platform} já está sendo usado por outra conta. Por favor, use um link diferente.`,
+        duplicatedPlatform: platform
+      };
+    }
+    
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+      error: errorMessage
     };
   }
 }
