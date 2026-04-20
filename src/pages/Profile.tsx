@@ -199,33 +199,70 @@ export default function Profile() {
     
     setIsSaving(true);
     
-    // Remove campos vazios e normaliza URLs (adiciona https:// se necessário)
-    const cleanedLinks: SocialLinks = {};
-    Object.entries(socialLinks).forEach(([key, value]) => {
-      if (value && value.trim()) {
-        // 🆕 Normaliza a URL adicionando https:// se não tiver protocolo
-        cleanedLinks[key as keyof SocialLinks] = ensureProtocol(value);
-      }
-    });
-    
-    const result = await updateSocialLinks(currentUser.id, cleanedLinks);
-    
-    if (result.success) {
-      toast({
-        title: 'Links atualizados!',
-        description: 'Seus links de redes sociais foram salvos com sucesso.',
+    try {
+      // Remove campos vazios e normaliza URLs (adiciona https:// se necessário)
+      const cleanedLinks: SocialLinks = {};
+      Object.entries(socialLinks).forEach(([key, value]) => {
+        if (value && value.trim()) {
+          // 🆕 Normaliza a URL adicionando https:// se não tiver protocolo
+          cleanedLinks[key as keyof SocialLinks] = ensureProtocol(value);
+        }
       });
-      setIsEditingSocial(false);
-      await loadUser(); // Recarrega os dados
-    } else {
+      
+      console.log('🔐 [PROFILE] Iniciando atualização de links sociais...');
+      console.log('👤 User ID:', currentUser.id);
+      console.log('📊 Links a atualizar:', cleanedLinks);
+      
+      const result = await updateSocialLinks(currentUser.id, cleanedLinks);
+      
+      console.log('📥 [PROFILE] Resultado recebido:', result);
+      console.log('   - success:', result.success);
+      console.log('   - error:', result.error);
+      console.log('   - duplicatedPlatform:', result.duplicatedPlatform);
+      
+      if (result.success) {
+        console.log('✅ [PROFILE] Sucesso! Mostrando toast de sucesso...');
+        toast({
+          title: 'Links atualizados!',
+          description: 'Seus links de redes sociais foram salvos com sucesso.',
+        });
+        setIsEditingSocial(false);
+        await loadUser(); // Recarrega os dados
+      } else {
+        // 🆕 MENSAGEM DE ERRO MELHORADA
+        console.log('❌ [PROFILE] Erro detectado! Mostrando toast de erro...');
+        console.error('❌ Erro ao salvar links:', result.error);
+        
+        // Extrai informações do erro
+        const errorMessage = result.error || 'Não foi possível atualizar os links.';
+        const platform = result.duplicatedPlatform;
+        
+        console.log('🔔 [PROFILE] Exibindo toast:', {
+          title: platform ? `Link de ${platform} duplicado` : 'Erro ao salvar',
+          description: errorMessage,
+          variant: 'destructive'
+        });
+        
+        // Mostra toast com mensagem específica
+        toast({
+          title: platform ? `Link de ${platform} duplicado` : 'Erro ao salvar',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        
+        console.log('✅ [PROFILE] Toast de erro foi chamado!');
+      }
+    } catch (error) {
+      console.error('❌ [PROFILE] Erro crítico no try/catch:', error);
       toast({
-        title: 'Erro ao salvar',
-        description: result.error || 'Não foi possível atualizar os links.',
+        title: 'Erro inesperado',
+        description: 'Ocorreu um erro ao salvar os links. Por favor, tente novamente.',
         variant: 'destructive',
       });
+    } finally {
+      console.log('🏁 [PROFILE] Finalizando (setIsSaving = false)');
+      setIsSaving(false);
     }
-    
-    setIsSaving(false);
   };
 
   const getSocialIcon = (platform: string) => {
