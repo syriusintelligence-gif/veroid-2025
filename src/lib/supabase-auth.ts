@@ -1,6 +1,6 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.6 - PROTEÇÃO ANTI-DUPLICAÇÃO: Links sociais únicos por conta
+ * Versão 2.7 - PROTEÇÃO ANTI-DUPLICAÇÃO: Links sociais únicos por conta
  * 
  * Changelog:
  * - v2.6: Adiciona validação de unicidade de links sociais para prevenir fraude
