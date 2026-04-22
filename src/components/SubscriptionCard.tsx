@@ -60,21 +60,23 @@ export const SubscriptionCard = () => {
     );
   }
 
-  // 🆕 Cálculo correto dos créditos
+  // ✅ CORREÇÃO: Calcular créditos APENAS de pacotes válidos (não expirados)
   const signaturesRemaining = Math.max(0, subscription.signatures_limit - subscription.signatures_used);
-  const overageAvailable = subscription.overage_signatures_available || 0;
+  
+  // 🆕 Obtém pacotes válidos (não expirados e com créditos)
+  const validPackages = getValidPackages(subscription.metadata?.package_purchases);
+  const hasValidPackages = validPackages.length > 0;
+  
+  // ✅ CORREÇÃO CRÍTICA: Usar soma dos créditos dos pacotes VÁLIDOS em vez de overage_signatures_available
+  const overageAvailable = validPackages.reduce((sum, pkg) => sum + pkg.credits_remaining, 0);
   const totalAvailable = signaturesRemaining + overageAvailable;
   
-  // Calcula a porcentagem baseada no total (plano + extras)
+  // Calcula a porcentagem baseada no total (plano + extras válidos)
   const totalLimit = subscription.signatures_limit + overageAvailable;
   const usagePercentage = totalLimit > 0 ? (subscription.signatures_used / totalLimit) * 100 : 0;
 
   // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
-
-  // 🆕 Obtém pacotes válidos (não expirados e com créditos)
-  const validPackages = getValidPackages(subscription.metadata?.package_purchases);
-  const hasValidPackages = validPackages.length > 0;
 
   return (
     <Card>
