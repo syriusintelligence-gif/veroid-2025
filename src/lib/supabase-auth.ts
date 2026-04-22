@@ -1181,7 +1181,7 @@ export async function updateSocialLinks(
       'check_duplicate_social_links_before_update',
       {
         p_user_id: userId,
-        p_social_links: socialLinks as any
+        p_social_links: socialLinks as Record<string, string | undefined>
       }
     );
     
@@ -1296,7 +1296,7 @@ export async function updateSocialLinks(
     
     let mismatch = false;
     for (const platform of platforms) {
-      const sent = (socialLinks as any)[platform] || '';
+      const sent = (socialLinks as Record<string, string | undefined>)[platform] || '';
       const saved = savedLinks[platform] || '';
       
       if (sent !== saved) {
@@ -1313,7 +1313,7 @@ export async function updateSocialLinks(
       
       // Tenta detectar qual link causou o problema
       for (const platform of platforms) {
-        const linkToCheck = (socialLinks as any)[platform];
+        const linkToCheck = (socialLinks as Record<string, string | undefined>)[platform];
         if (!linkToCheck) continue;
         
         // Verifica se este link existe em outra conta

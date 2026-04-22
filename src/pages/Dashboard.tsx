@@ -22,6 +22,7 @@ import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { SubscriptionCard } from '@/components/SubscriptionCard';
 import TwoFactorAlert from '@/components/TwoFactorAlert';
+import SocialLinksAlert from '@/components/SocialLinksAlert';
 import { TrialBanner } from '@/components/TrialBanner';
 import { TrialModal } from '@/components/TrialModal';
 import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
@@ -446,6 +447,11 @@ export default function Dashboard() {
         {/* 🔐 2FA Security Alert */}
         {currentUser && (
           <TwoFactorAlert userId={currentUser.id} className="mb-6" />
+        )}
+        
+        {/* 🔗 Social Links Alert */}
+        {currentUser && (
+          <SocialLinksAlert userId={currentUser.id} className="mb-6" />
         )}
         
         {/* Subscription Card - NEW */}
