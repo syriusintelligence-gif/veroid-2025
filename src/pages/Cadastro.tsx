@@ -49,18 +49,7 @@ async function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-/**
- * 🔐 SEGURANÇA: Calcula hash SHA256 de um arquivo
- * Usado para identificação única e verificação de integridade
- * Integração com VirusTotal para scan de malware
- * 
- * @param file - Arquivo a ser processado
- * @returns Promise com hash SHA256 em formato hexadecimal (64 caracteres)
- * 
- * @example
- * const hash = await calculateSHA256(file);
- * console.log(hash); // "e7705526e3332c5ddda4257b55acb19d1f2ea28672488b51a09c78ca46d71e5c"
- */
+
 async function calculateSHA256(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -80,8 +69,6 @@ async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
 }
 
 function compareFaces(doc: string, selfie: string): { match: boolean; confidence: number } {
-  // Simulação de comparação facial
-  // Em produção: usar API de reconhecimento facial (AWS Rekognition, Azure Face API, etc.)
   return {
     match: true,
     confidence: 0.95
@@ -95,17 +82,14 @@ export default function Cadastro() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Rate limiting: 3 contas por hora
   const { check: checkRateLimit, isBlocked, blockedUntil, remaining, message: rateLimitMessage } = useRateLimit('REGISTER');
   
-  // 🔒 CSRF Protection
   const { 
     token: csrfToken, 
     isLoading: csrfLoading, 
     error: csrfError 
   } = useCSRFProtection();
   
-  // Dados do formulário
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [nomePublico, setNomePublico] = useState('');
   const [email, setEmail] = useState('');
@@ -118,31 +102,21 @@ export default function Cadastro() {
   const [documentoType, setDocumentoType] = useState<'image'>('image');
   const [selfieUrl, setSelfieUrl] = useState('');
   
-  // 👁️ Estados para mostrar/ocultar senha
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  // ✅ Estado para declaração de maioridade
   const [ageDeclarationAccepted, setAgeDeclarationAccepted] = useState(false);
-  
-  // 🔐 SEGURANÇA: Hash do documento (usado internamente, sem exibição de status)
   const [documentoHash, setDocumentoHash] = useState<string>('');
-  
-  // Validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
   
-  // 🔐 AWS Textract: Estados para verificação de idade
   const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
   const [verifiedBirthDate, setVerifiedBirthDate] = useState<string | null>(null);
   
-  // Webcam para selfie
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [webcamActive, setWebcamActive] = useState(false);
   const [selfieCaptured, setSelfieCaptured] = useState(false);
   
-  // 🆕 Webcam para documento
   const documentVideoRef = useRef<HTMLVideoElement>(null);
   const [documentStream, setDocumentStream] = useState<MediaStream | null>(null);
   const [documentWebcamActive, setDocumentWebcamActive] = useState(false);
@@ -158,7 +132,6 @@ export default function Cadastro() {
     };
   }, [stream, documentStream]);
   
-  // 🔒 Log CSRF token status
   useEffect(() => {
     if (csrfToken) {
       console.log('🔐 [Cadastro] CSRF Token disponível:', csrfToken.substring(0, 16) + '...');
@@ -168,18 +141,15 @@ export default function Cadastro() {
     }
   }, [csrfToken, csrfError]);
   
-  // Adiciona efeito para garantir que o vídeo seja reproduzido quando o stream estiver disponível
   useEffect(() => {
     if (stream && videoRef.current && webcamActive) {
       videoRef.current.srcObject = stream;
-      // Força o play do vídeo
       videoRef.current.play().catch(err => {
         console.error('Erro ao iniciar vídeo:', err);
       });
     }
   }, [stream, webcamActive]);
   
-  // 🆕 Efeito para vídeo do documento
   useEffect(() => {
     if (documentStream && documentVideoRef.current && documentWebcamActive) {
       documentVideoRef.current.srcObject = documentStream;
@@ -189,15 +159,9 @@ export default function Cadastro() {
     }
   }, [documentStream, documentWebcamActive]);
   
-  /**
-   * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
-   * 🆕 VALIDAÇÃO HÍBRIDA: Aceita apenas CNH, RG e Passaporte
-   * 🔐 VIRUSTOTAL: Scan silencioso em background (SEM exibição de status na UI)
-   */
   const handleDocumentoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     
-    // Limpa estados anteriores
     setFileValidationError('');
     setError('');
     setDocumentoFile(null);
@@ -208,9 +172,6 @@ export default function Cadastro() {
       return;
     }
     
-    // ========================================
-    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS
-    // ========================================
     const sanitizedFileName = sanitizeFileName(file.name);
     
     console.log('📁 [DOCUMENTO UPLOAD] Arquivo selecionado:', {
@@ -220,42 +181,29 @@ export default function Cadastro() {
       type: file.type
     });
     
-    // =====================================================
-    // 🔒 VALIDAÇÃO HÍBRIDA: CNH, RG, Passaporte
-    // =====================================================
-    
     const validationResult = await validateDocument(file);
     
     if (!validationResult.valid) {
       console.error('❌ [DOCUMENTO UPLOAD] Validação falhou:', validationResult.message);
       setFileValidationError(validationResult.message);
       setError(validationResult.message);
-      
-      // Limpa o input de arquivo
       e.target.value = '';
       return;
     }
     
     console.log('✅ [DOCUMENTO UPLOAD] Documento validado com sucesso:', validationResult.details);
     
-    // =====================================================
-    // 🔐 SEGURANÇA: Scan VirusTotal SILENCIOSO (SEM UI)
-    // =====================================================
-    
     try {
-      // Calcula hash SHA256 do arquivo
       console.log('🔐 [VIRUSTOTAL] Calculando hash SHA256...');
       const hash = await calculateSHA256(file);
       setDocumentoHash(hash);
       console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
       
-      // Inicia scan VirusTotal em background (SILENCIOSO)
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
         console.log('🚀 [VIRUSTOTAL] Iniciando scan silencioso em background...');
         
-        // Chama Edge Function para scan (não aguarda resposta, não bloqueia UI)
         supabase.functions.invoke('scan-uploaded-file', {
           body: { 
             fileHash: hash,
@@ -267,7 +215,6 @@ export default function Cadastro() {
           } else if (scanData) {
             console.log('✅ [VIRUSTOTAL] Scan silencioso concluído:', scanData);
             
-            // Verifica se há ameaças detectadas (apenas log, não bloqueia)
             if (scanData.stats && (scanData.stats.malicious > 0 || scanData.stats.suspicious > 0)) {
               console.warn('⚠️ [VIRUSTOTAL] Ameaça detectada:', {
                 malicious: scanData.stats.malicious,
@@ -285,16 +232,9 @@ export default function Cadastro() {
       console.warn('⚠️ [VIRUSTOTAL] Erro ao calcular hash (não bloqueia upload):', scanErr);
     }
     
-    // =====================================================
-    // Arquivo válido, prosseguir com upload
-    // =====================================================
-    
     setDocumentoFile(file);
-    
-    // Tipo sempre é imagem (PDF não é mais aceito)
     setDocumentoType('image');
     
-    // Converte para base64
     const base64 = await fileToBase64(file);
     setDocumentoUrl(base64);
   };
@@ -304,7 +244,6 @@ export default function Cadastro() {
       setError('');
       setIsLoading(true);
       
-      // Solicita permissão para câmera com configurações específicas
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: 1280 },
@@ -316,7 +255,6 @@ export default function Cadastro() {
       setStream(mediaStream);
       setWebcamActive(true);
       
-      // Aguarda um pouco para garantir que o vídeo está pronto
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -353,21 +291,16 @@ export default function Cadastro() {
     startWebcam();
   };
   
-  /**
-   * 🆕 CAMERA CAPTURE: Inicia câmera para captura de documento
-   * Usa câmera traseira (environment) por padrão para melhor qualidade
-   */
   const startDocumentWebcam = async () => {
     try {
       setError('');
       setIsLoading(true);
       
-      // Solicita câmera traseira (melhor para documentos)
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          facingMode: 'environment' // Câmera traseira
+          facingMode: 'environment'
         } 
       });
       
@@ -393,19 +326,14 @@ export default function Cadastro() {
     }
   };
   
-  /**
-   * 🆕 CAMERA CAPTURE: Captura foto do documento
-   */
   const captureDocument = async () => {
     if (documentVideoRef.current && documentStream) {
       const photo = await captureWebcamPhoto(documentVideoRef.current);
       
-      // Fecha o stream da câmera
       documentStream.getTracks().forEach(track => track.stop());
       setDocumentStream(null);
       setDocumentWebcamActive(false);
       
-      // Converte data URL em File object para processamento
       try {
         const response = await fetch(photo);
         const blob = await response.blob();
@@ -418,7 +346,6 @@ export default function Cadastro() {
           type: file.type
         });
         
-        // Processa como upload normal
         const syntheticEvent = {
           target: {
             files: [file],
@@ -435,9 +362,6 @@ export default function Cadastro() {
     }
   };
   
-  /**
-   * 🆕 CAMERA CAPTURE: Cancela captura de documento
-   */
   const cancelDocumentCapture = () => {
     if (documentStream) {
       documentStream.getTracks().forEach(track => track.stop());
@@ -446,7 +370,6 @@ export default function Cadastro() {
     setDocumentWebcamActive(false);
   };
   
-  // Auto-formatação de CPF/CNPJ
   const handleCpfCnpjChange = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
     if (cleaned.length === 11) {
@@ -458,7 +381,6 @@ export default function Cadastro() {
     }
   };
   
-  // Auto-formatação de telefone
   const handleTelefoneChange = (value: string) => {
     setTelefone(formatPhone(value));
   };
@@ -483,23 +405,19 @@ export default function Cadastro() {
         return false;
       }
       
-      // Validação rigorosa de email
       const emailValidation = validateEmailStrict(email);
       if (!emailValidation.valid) {
         setError(emailValidation.message);
         return false;
       }
       
-      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
       console.log('🔍 Verificando disponibilidade de dados...');
       const emailCheck = await checkEmailExists(email);
       if (emailCheck.error) {
-        // Não revela o erro específico
         setError('Erro ao validar dados. Tente novamente.');
         return false;
       }
       if (emailCheck.exists) {
-        // 🛡️ Mensagem genérica - não revela que email existe
         setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         return false;
       }
@@ -510,22 +428,18 @@ export default function Cadastro() {
         return false;
       }
       
-      // Validação rigorosa de CPF/CNPJ
       const cpfCnpjValidation = validateCPForCNPJ(cpfCnpj);
       if (!cpfCnpjValidation.valid) {
         setError(cpfCnpjValidation.message);
         return false;
       }
       
-      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Verifica duplicação silenciosamente
       const cpfCheck = await checkCpfCnpjExists(cpfCnpj);
       if (cpfCheck.error) {
-        // Não revela o erro específico
         setError('Erro ao validar dados. Tente novamente.');
         return false;
       }
       if (cpfCheck.exists) {
-        // 🛡️ Mensagem genérica - não revela que CPF/CNPJ existe
         setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         return false;
       }
@@ -536,7 +450,6 @@ export default function Cadastro() {
         return false;
       }
       
-      // Validação rigorosa de telefone
       const phoneValidation = validatePhoneBR(telefone);
       if (!phoneValidation.valid) {
         setError(phoneValidation.message);
@@ -602,7 +515,6 @@ export default function Cadastro() {
         setStep(2);
       }
     } else if (step === 2 && validateStep2()) {
-      // 🔐 AWS Textract: Verificação de idade via documento
       setIsLoading(true);
       setError('');
       setAgeVerificationStatus('verifying');
@@ -610,21 +522,18 @@ export default function Cadastro() {
       try {
         console.log('🔍 [CADASTRO] Iniciando verificação de idade via AWS Textract...');
         
-        // Verifica idade usando AWS Textract
         const ageResult = await verifyAgeFromDocument(documentoUrl);
         
         if (!ageResult.success) {
           console.error('❌ [CADASTRO] Falha na verificação de idade:', ageResult.error);
           setAgeVerificationStatus('failed');
           
-          // Se não conseguiu extrair a data, permite continuar com a declaração manual
           toast({
             title: '⚠️ Verificação automática indisponível',
             description: 'Não foi possível verificar a idade automaticamente. Sua declaração de maioridade será considerada.',
             variant: 'default',
           });
           
-          // Comparação facial (simulada)
           const comparison = compareFaces(documentoUrl, selfieUrl);
           if (comparison.match) {
             setStep(3);
@@ -634,12 +543,10 @@ export default function Cadastro() {
           return;
         }
         
-        // Verificação bem-sucedida
         setVerifiedAge(ageResult.age || null);
         setVerifiedBirthDate(ageResult.birthDate || null);
         
         if (!ageResult.isAdult) {
-          // MENOR DE IDADE - BLOQUEIA CADASTRO
           console.warn('🚫 [CADASTRO] Usuário menor de idade detectado:', ageResult.age);
           setAgeVerificationStatus('failed');
           setError(`Cadastro não permitido. De acordo com o documento, você tem ${ageResult.age} anos. É necessário ter 18 anos ou mais para se cadastrar.`);
@@ -652,7 +559,6 @@ export default function Cadastro() {
           return;
         }
         
-        // MAIOR DE IDADE - PERMITE CONTINUAR
         console.log('✅ [CADASTRO] Usuário maior de idade confirmado:', ageResult.age, 'anos');
         setAgeVerificationStatus('verified');
         
@@ -662,7 +568,6 @@ export default function Cadastro() {
           variant: 'default',
         });
         
-        // Comparação facial (simulada)
         const comparison = compareFaces(documentoUrl, selfieUrl);
         if (comparison.match) {
           setStep(3);
@@ -674,14 +579,12 @@ export default function Cadastro() {
         console.error('❌ [CADASTRO] Erro na verificação de idade:', err);
         setAgeVerificationStatus('failed');
         
-        // Em caso de erro, permite continuar com a declaração manual
         toast({
           title: '⚠️ Verificação automática indisponível',
           description: 'Erro ao verificar idade. Sua declaração de maioridade será considerada.',
           variant: 'default',
         });
         
-        // Comparação facial (simulada)
         const comparison = compareFaces(documentoUrl, selfieUrl);
         if (comparison.match) {
           setStep(3);
@@ -701,7 +604,6 @@ export default function Cadastro() {
       return;
     }
     
-    // 🔒 Verifica se CSRF token está disponível
     if (!csrfToken) {
       console.error('❌ [Cadastro] CSRF token não disponível!');
       setError('Erro de segurança. Recarregue a página e tente novamente.');
@@ -710,7 +612,6 @@ export default function Cadastro() {
     
     console.log('🔐 [Cadastro] CSRF Token será incluído na requisição');
     
-    // Verifica rate limiting ANTES de criar conta
     const rateLimitResult = await checkRateLimit();
     if (!rateLimitResult.allowed) {
       console.warn('🚫 Rate limit excedido:', rateLimitResult.message);
@@ -726,7 +627,6 @@ export default function Cadastro() {
     try {
       console.log('📝 Registrando usuário no Supabase...');
       
-      // Sanitiza dados antes de enviar
       const sanitizedData = sanitizeCadastroData({
         nomeCompleto,
         nomePublico: nomePublico || nomeCompleto,
@@ -750,23 +650,18 @@ export default function Cadastro() {
       );
       
       if (!result.success) {
-        // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
         setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
         setIsLoading(false);
         return;
       }
       
       console.log('✅ Usuário registrado com sucesso!');
-      
-      // 📧 REDIRECIONA PARA PÁGINA DE CONFIRMAÇÃO DE EMAIL
       console.log('🔄 Redirecionando para página de confirmação de email...');
       
-      // Redireciona imediatamente para a página de confirmação com o email como parâmetro
       navigate(`/email-confirmation?email=${encodeURIComponent(sanitizedData.email)}`);
       
     } catch (err) {
       console.error('❌ Erro ao criar conta:', err);
-      // 🛡️ PROTEÇÃO CONTRA ENUMERAÇÃO: Mensagem genérica
       setError('Não foi possível completar o cadastro. Tente novamente mais tarde.');
       setIsLoading(false);
     }
@@ -774,7 +669,6 @@ export default function Cadastro() {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -796,7 +690,6 @@ export default function Cadastro() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          {/* Progress */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Passo {step} de 3</span>
@@ -812,7 +705,6 @@ export default function Cadastro() {
             </div>
           </div>
           
-          {/* 🎨 NOVO LAYOUT DE ALERTAS - Mais Visível e Destacado */}
           {error && !isBlocked && !fileValidationError && (
             <Alert variant="destructive" className="mb-6 border-2 border-red-500 bg-red-50 shadow-lg">
               <XCircle className="h-5 w-5 text-red-600" />
@@ -843,7 +735,6 @@ export default function Cadastro() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* 🔒 CSRF Loading/Error - apenas no step 3 */}
               {step === 3 && csrfLoading && (
                 <Alert className="border-blue-500 bg-blue-50 mb-4">
                   <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
@@ -863,7 +754,6 @@ export default function Cadastro() {
                 </Alert>
               )}
               
-              {/* Rate Limit Alert - apenas no step 3 */}
               {step === 3 && isBlocked && (
                 <RateLimitAlert 
                   blockedUntil={blockedUntil}
@@ -872,7 +762,6 @@ export default function Cadastro() {
                 />
               )}
               
-              {/* Step 1: Dados Pessoais */}
               {step === 1 && (
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -962,21 +851,29 @@ export default function Cadastro() {
                 </div>
               )}
               
-              {/* Step 2: Verificação */}
               {step === 2 && (
-                <div className="space-y-6">
-                  {/* Upload Documento */}
-                  <div className="space-y-2">
-                    <Label>Documento de Identificação com Foto *</Label>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      📷 Envie uma <strong>FOTO</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
-                    </p>
-                    <p className="text-xs text-amber-600 mb-2">
-                      ⚠️ <strong>PDFs não são aceitos</strong> - tire uma foto do documento com seu celular
-                    </p>
+                <div className="space-y-8">
+                  {/* 📄 SEÇÃO 1: DOCUMENTO DE IDENTIFICAÇÃO */}
+                  <div className="space-y-4 p-6 bg-blue-50/50 border-2 border-blue-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                        1
+                      </div>
+                      <Label className="text-lg font-semibold text-blue-900">Documento de Identificação com Foto *</Label>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      <p className="text-sm text-blue-800">
+                        📷 Envie uma <strong>FOTO</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
+                      </p>
+                      <p className="text-xs text-amber-700 font-medium">
+                        ⚠️ <strong>PDFs não são aceitos</strong> - tire uma foto do documento com seu celular
+                      </p>
+                    </div>
+                    
                     {!documentoUrl && !documentWebcamActive ? (
                       <>
                         <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -1001,7 +898,6 @@ export default function Cadastro() {
                           </Label>
                         </div>
                         
-                        {/* 🆕 CAMERA CAPTURE: Divisor "ou" */}
                         <div className="relative">
                           <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t" />
@@ -1013,7 +909,6 @@ export default function Cadastro() {
                           </div>
                         </div>
                         
-                        {/* 🆕 CAMERA CAPTURE: Botão para tirar foto */}
                         <Button 
                           type="button"
                           onClick={startDocumentWebcam} 
@@ -1034,7 +929,6 @@ export default function Cadastro() {
                         </Button>
                       </>
                     ) : documentWebcamActive ? (
-                      /* 🆕 CAMERA CAPTURE: Interface de captura */
                       <div className="space-y-4">
                         <div className="relative bg-black rounded-lg overflow-hidden">
                           <video
@@ -1103,10 +997,27 @@ export default function Cadastro() {
                     )}
                   </div>
                   
-                  {/* Selfie */}
-                  <div className="space-y-2">
-                    <Label>Selfie em Tempo Real *</Label>
-                    <p className="text-sm text-muted-foreground mb-2">
+                  {/* 🎯 DIVISOR VISUAL ENTRE SEÇÕES */}
+                  <div className="relative py-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t-2 border-gray-300" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-background px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full">
+                        Em seguida
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* 🤳 SEÇÃO 2: SELFIE EM TEMPO REAL */}
+                  <div className="space-y-4 p-6 bg-purple-50/50 border-2 border-purple-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm">
+                        2
+                      </div>
+                      <Label className="text-lg font-semibold text-purple-900">Selfie em Tempo Real *</Label>
+                    </div>
+                    <p className="text-sm text-purple-800">
                       Tire uma foto do seu rosto para verificação
                     </p>
                     
@@ -1170,8 +1081,20 @@ export default function Cadastro() {
                     )}
                   </div>
                   
-                  {/* ✅ Declaração de Maioridade */}
-                  <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  {/* 🎯 DIVISOR VISUAL ENTRE SELFIE E DECLARAÇÃO */}
+                  <div className="relative py-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t-2 border-gray-300" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-background px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full">
+                        Por último
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* ✅ SEÇÃO 3: DECLARAÇÃO DE MAIORIDADE */}
+                  <div className="space-y-3 p-6 bg-amber-50 border-2 border-amber-300 rounded-xl">
                     <div className="flex items-start space-x-3">
                       <Checkbox
                         id="ageDeclaration"
@@ -1220,10 +1143,8 @@ export default function Cadastro() {
                 </div>
               )}
               
-              {/* Step 3: Senha */}
               {step === 3 && (
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Alerta de verificação de idade */}
                   {ageVerificationStatus === 'verified' && verifiedAge && verifiedBirthDate ? (
                     <Alert className="border-green-500 bg-green-50">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -1269,7 +1190,6 @@ export default function Cadastro() {
                     </div>
                   </div>
                   
-                  {/* Indicador de Força da Senha */}
                   <PasswordStrengthIndicator password={senha} />
                   
                   <div className="space-y-2">
@@ -1300,7 +1220,6 @@ export default function Cadastro() {
                     </div>
                   </div>
                   
-                  {/* Indicador de tentativas restantes */}
                   {!isBlocked && remaining !== undefined && remaining <= 1 && (
                     <p className="text-xs text-center text-amber-600 font-medium">
                       ⚠️ Última tentativa disponível nesta hora
