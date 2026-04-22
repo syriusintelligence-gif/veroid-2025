@@ -136,19 +136,27 @@ export default function Cadastro() {
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
   const [verifiedBirthDate, setVerifiedBirthDate] = useState<string | null>(null);
   
-  // Webcam
+  // Webcam para selfie
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [webcamActive, setWebcamActive] = useState(false);
   const [selfieCaptured, setSelfieCaptured] = useState(false);
+  
+  // 🆕 Webcam para documento
+  const documentVideoRef = useRef<HTMLVideoElement>(null);
+  const [documentStream, setDocumentStream] = useState<MediaStream | null>(null);
+  const [documentWebcamActive, setDocumentWebcamActive] = useState(false);
   
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (documentStream) {
+        documentStream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [stream]);
+  }, [stream, documentStream]);
   
   // 🔒 Log CSRF token status
   useEffect(() => {
@@ -170,6 +178,16 @@ export default function Cadastro() {
       });
     }
   }, [stream, webcamActive]);
+  
+  // 🆕 Efeito para vídeo do documento
+  useEffect(() => {
+    if (documentStream && documentVideoRef.current && documentWebcamActive) {
+      documentVideoRef.current.srcObject = documentStream;
+      documentVideoRef.current.play().catch(err => {
+        console.error('Erro ao iniciar vídeo do documento:', err);
+      });
+    }
+  }, [documentStream, documentWebcamActive]);
   
   /**
    * 🔒 SEGURANÇA: Handler de upload de documento com validação rigorosa
@@ -333,6 +351,99 @@ export default function Cadastro() {
     setSelfieUrl('');
     setSelfieCaptured(false);
     startWebcam();
+  };
+  
+  /**
+   * 🆕 CAMERA CAPTURE: Inicia câmera para captura de documento
+   * Usa câmera traseira (environment) por padrão para melhor qualidade
+   */
+  const startDocumentWebcam = async () => {
+    try {
+      setError('');
+      setIsLoading(true);
+      
+      // Solicita câmera traseira (melhor para documentos)
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: 'environment' // Câmera traseira
+        } 
+      });
+      
+      setDocumentStream(mediaStream);
+      setDocumentWebcamActive(true);
+      
+      setTimeout(() => {
+        if (documentVideoRef.current) {
+          documentVideoRef.current.srcObject = mediaStream;
+          documentVideoRef.current.play().catch(err => {
+            console.error('Erro ao reproduzir vídeo do documento:', err);
+            setError('Erro ao iniciar visualização da câmera. Tente novamente.');
+          });
+        }
+      }, 100);
+      
+    } catch (err) {
+      console.error('Erro ao acessar câmera para documento:', err);
+      setError('Erro ao acessar câmera. Verifique as permissões do navegador.');
+      setDocumentWebcamActive(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  /**
+   * 🆕 CAMERA CAPTURE: Captura foto do documento
+   */
+  const captureDocument = async () => {
+    if (documentVideoRef.current && documentStream) {
+      const photo = await captureWebcamPhoto(documentVideoRef.current);
+      
+      // Fecha o stream da câmera
+      documentStream.getTracks().forEach(track => track.stop());
+      setDocumentStream(null);
+      setDocumentWebcamActive(false);
+      
+      // Converte data URL em File object para processamento
+      try {
+        const response = await fetch(photo);
+        const blob = await response.blob();
+        const timestamp = new Date().getTime();
+        const file = new File([blob], `documento_${timestamp}.jpg`, { type: 'image/jpeg' });
+        
+        console.log('📸 [DOCUMENT CAPTURE] Foto capturada:', {
+          name: file.name,
+          size: file.size,
+          type: file.type
+        });
+        
+        // Processa como upload normal
+        const syntheticEvent = {
+          target: {
+            files: [file],
+            value: ''
+          }
+        } as React.ChangeEvent<HTMLInputElement>;
+        
+        await handleDocumentoUpload(syntheticEvent);
+        
+      } catch (error) {
+        console.error('❌ [DOCUMENT CAPTURE] Erro ao processar foto:', error);
+        setError('Erro ao processar foto capturada. Tente novamente.');
+      }
+    }
+  };
+  
+  /**
+   * 🆕 CAMERA CAPTURE: Cancela captura de documento
+   */
+  const cancelDocumentCapture = () => {
+    if (documentStream) {
+      documentStream.getTracks().forEach(track => track.stop());
+      setDocumentStream(null);
+    }
+    setDocumentWebcamActive(false);
   };
   
   // Auto-formatação de CPF/CNPJ
@@ -866,27 +977,101 @@ export default function Cadastro() {
                     <p className="text-xs text-amber-600 mb-2">
                       ⚠️ <strong>PDFs não são aceitos</strong> - tire uma foto do documento com seu celular
                     </p>
-                    {!documentoUrl ? (
-                      <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <Label htmlFor="documento" className="cursor-pointer">
-                          <span className="text-blue-600 hover:underline font-medium">
-                            Clique para fazer upload
-                          </span>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            🔒 Validação de segurança ativa
-                          </p>
-                          <p className="text-xs text-amber-600 mt-1 font-medium">
-                            ⚠️ Apenas CNH, RG ou Passaporte são aceitos
-                          </p>
-                          <Input
-                            id="documento"
-                            type="file"
-                            accept={getDocumentAcceptString()}
-                            className="hidden"
-                            onChange={handleDocumentoUpload}
+                    {!documentoUrl && !documentWebcamActive ? (
+                      <>
+                        <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                          <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <Label htmlFor="documento" className="cursor-pointer">
+                            <span className="text-blue-600 hover:underline font-medium">
+                              Clique para fazer upload
+                            </span>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              🔒 Validação de segurança ativa
+                            </p>
+                            <p className="text-xs text-amber-600 mt-1 font-medium">
+                              ⚠️ Apenas CNH, RG ou Passaporte são aceitos
+                            </p>
+                            <Input
+                              id="documento"
+                              type="file"
+                              accept={getDocumentAcceptString()}
+                              className="hidden"
+                              onChange={handleDocumentoUpload}
+                            />
+                          </Label>
+                        </div>
+                        
+                        {/* 🆕 CAMERA CAPTURE: Divisor "ou" */}
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">
+                              ou
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* 🆕 CAMERA CAPTURE: Botão para tirar foto */}
+                        <Button 
+                          type="button"
+                          onClick={startDocumentWebcam} 
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-medium"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Iniciando câmera...
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="mr-2 h-4 w-4" />
+                              📸 Tirar Foto do Documento
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    ) : documentWebcamActive ? (
+                      /* 🆕 CAMERA CAPTURE: Interface de captura */
+                      <div className="space-y-4">
+                        <div className="relative bg-black rounded-lg overflow-hidden">
+                          <video
+                            ref={documentVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full rounded-lg"
+                            style={{ minHeight: '300px', maxHeight: '500px' }}
                           />
-                        </Label>
+                          <div className="absolute top-2 left-2 bg-green-600 text-white px-3 py-1 rounded-full text-xs flex items-center gap-2 shadow-lg">
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                            Câmera Ativa
+                          </div>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-full text-xs">
+                            Posicione o documento na tela
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={cancelDocumentCapture}
+                            className="flex-1"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={captureDocument}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                          >
+                            <Camera className="mr-2 h-4 w-4" />
+                            Capturar Foto
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="relative">
