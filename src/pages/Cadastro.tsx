@@ -335,8 +335,16 @@ export default function Cadastro() {
       setDocumentWebcamActive(false);
       
       try {
-        const response = await fetch(photo);
-        const blob = await response.blob();
+        // Converter base64 diretamente em Blob sem usar fetch (evita CSP violation)
+        const base64Data = photo.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+        
         const timestamp = new Date().getTime();
         const file = new File([blob], `documento_${timestamp}.jpg`, { type: 'image/jpeg' });
         
