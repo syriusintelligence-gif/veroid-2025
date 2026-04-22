@@ -1003,7 +1003,7 @@ export default function Cadastro() {
                       <span className="w-full border-t-2 border-gray-300" />
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-background px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full">
+                      <span className="bg-white px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full shadow-sm">
                         Em seguida
                       </span>
                     </div>
@@ -1087,7 +1087,7 @@ export default function Cadastro() {
                       <span className="w-full border-t-2 border-gray-300" />
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-background px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full">
+                      <span className="bg-white px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full shadow-sm">
                         Por último
                       </span>
                     </div>
