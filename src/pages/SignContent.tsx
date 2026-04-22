@@ -16,6 +16,8 @@ import { signContent } from '@/lib/services/supabase-crypto-enhanced';
 import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { compressImage, isImageDataUrl } from '@/lib/image-compression';
+// 🆕 CAMERA CAPTURE - Componente para captura de foto pela câmera
+import { CameraCapture } from '@/components/CameraCapture';
 // 🆕 RATE LIMITING - Imports adicionados
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
@@ -146,6 +148,14 @@ export default function SignContent() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   // ========================================
   // FIM: ESTADOS PARA STORAGE
+  // ========================================
+  
+  // ========================================
+  // 🆕 CAMERA CAPTURE - Estados para modo de captura
+  // ========================================
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  // ========================================
+  // FIM: CAMERA CAPTURE
   // ========================================
   
   // ========================================
@@ -548,6 +558,49 @@ export default function SignContent() {
     setVideoThumbnail(null);
     setTempFilePath(null); // 🆕 Limpa path temporário
     setUploadProgress(0); // 🆕 Reseta progresso do upload
+    setShowCameraCapture(false); // 🆕 Fecha modo de câmera
+  };
+  
+  /**
+   * 🆕 CAMERA CAPTURE: Handler para foto capturada pela câmera
+   * Converte a foto em um File object e processa como upload normal
+   */
+  const handleCameraCapture = async (imageDataUrl: string) => {
+    try {
+      console.log('📸 [CAMERA CAPTURE] Processando foto capturada...');
+      
+      // Fecha o modo de câmera
+      setShowCameraCapture(false);
+      
+      // Converte data URL em Blob
+      const response = await fetch(imageDataUrl);
+      const blob = await response.blob();
+      
+      // Cria um File object a partir do Blob
+      const timestamp = new Date().getTime();
+      const file = new File([blob], `documento_${timestamp}.jpg`, { type: 'image/jpeg' });
+      
+      console.log('✅ [CAMERA CAPTURE] Foto convertida em arquivo:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      
+      // Processa o arquivo usando o fluxo normal de validação e upload
+      // Cria um evento sintético para simular o upload de arquivo
+      const syntheticEvent = {
+        target: {
+          files: [file],
+          value: ''
+        }
+      } as React.ChangeEvent<HTMLInputElement>;
+      
+      await handleFileUpload(syntheticEvent);
+      
+    } catch (error) {
+      console.error('❌ [CAMERA CAPTURE] Erro ao processar foto:', error);
+      setFileValidationError('Erro ao processar foto capturada. Tente novamente.');
+    }
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
@@ -1065,38 +1118,68 @@ ${content}
                   {contentType === 'video' && <span className="text-blue-600 font-medium"> - Apenas thumbnail será gerada (vídeo não será enviado)</span>}
                 </Label>
                 <div className="space-y-3">
-                  {!uploadedFile ? (
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
-                      <input
-                        id="file-upload"
-                        type="file"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                        disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                        accept={getAcceptString(getFileCategoryFromContentType(contentType))}
-                      />
-                      <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
-                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Clique para fazer upload ou arraste o arquivo aqui
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
-                          {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
-                          {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
-                          {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
-                          {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
-                        </p>
-                        {contentType === 'video' && (
-                          <p className="text-xs text-blue-600 mt-2 font-medium">
-                            🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
+                  {!uploadedFile && !showCameraCapture ? (
+                    <>
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
+                        <input
+                          id="file-upload"
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                          accept={getAcceptString(getFileCategoryFromContentType(contentType))}
+                        />
+                        <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                          <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Clique para fazer upload ou arraste o arquivo aqui
                           </p>
-                        )}
-                      </label>
-                    </div>
+                          <p className="text-xs text-muted-foreground">
+                            {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
+                            {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
+                            {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
+                            {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
+                            {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
+                          </p>
+                          {contentType === 'video' && (
+                            <p className="text-xs text-blue-600 mt-2 font-medium">
+                              🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
+                            </p>
+                          )}
+                        </label>
+                      </div>
+                      
+                      {/* 🆕 CAMERA CAPTURE: Botão para ativar câmera (apenas para imagens e documentos) */}
+                      {(contentType === 'image' || contentType === 'document') && (
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">
+                              ou
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(contentType === 'image' || contentType === 'document') && (
+                        <CameraCapture
+                          onCapture={handleCameraCapture}
+                          onCancel={() => setShowCameraCapture(false)}
+                          isDisabled={isBlocked || isProcessingVideo || isUploadingFile}
+                        />
+                      )}
+                    </>
+                  ) : showCameraCapture ? (
+                    <CameraCapture
+                      onCapture={handleCameraCapture}
+                      onCancel={() => setShowCameraCapture(false)}
+                      isDisabled={isBlocked || isProcessingVideo || isUploadingFile}
+                    />
                   ) : (
                     <div className="border rounded-lg p-4 bg-muted/50">
                       <div className="flex items-start gap-4">
@@ -1182,7 +1265,8 @@ ${content}
                         </Button>
                       </div>
                     </div>
-                  )}
+                  )
+                  }
                 </div>
               </div>
               
