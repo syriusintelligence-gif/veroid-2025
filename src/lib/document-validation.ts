@@ -63,39 +63,7 @@ export async function validateDocument(
         confidence: 0,
         error: errorMessage
       };
-    }</to_replace>
-</Editor.edit_file_by_replace>
-
-<Editor.edit_file_by_replace>
-<file_name>src/lib/document-validation.ts</file_name>
-<to_replace>/**
- * Formata as mensagens de erro para o usuário
- */
-export function formatValidationIssues(issues: string[]): string {
-  if (!issues || issues.length === 0) {
-    return 'Documento não validado';
-  }
-  
-  return issues.join('. ');
-}</to_replace>
-<new_content>/**
- * Formata as mensagens de erro para o usuário
- */
-export function formatValidationIssues(issues: string[]): string {
-  if (!issues || issues.length === 0) {
-    return 'Documento não validado. Por favor, tente novamente com melhor iluminação e posicionamento.';
-  }
-  
-  // Adiciona dicas de captura ao final das mensagens de erro
-  const baseIssues = issues.join('. ');
-  const tips = '\n\n💡 Dicas para melhorar a captura:\n' +
-    '• Use boa iluminação (luz natural ou ambiente bem iluminado)\n' +
-    '• Posicione o documento paralelo à câmera\n' +
-    '• Evite sombras e reflexos\n' +
-    '• Mantenha a câmera estável';
-  
-  return baseIssues + tips;
-}
+    }
 
     console.log('✅ [DOCUMENT-VALIDATION] Resposta recebida:', {
       success: data.success,
@@ -122,8 +90,16 @@ export function formatValidationIssues(issues: string[]): string {
  */
 export function formatValidationIssues(issues: string[]): string {
   if (!issues || issues.length === 0) {
-    return 'Documento não validado';
+    return 'Documento não validado. Por favor, tente novamente com melhor iluminação e posicionamento.';
   }
   
-  return issues.join('. ');
+  // Adiciona dicas de captura ao final das mensagens de erro
+  const baseIssues = issues.join('. ');
+  const tips = '\n\n💡 Dicas para melhorar a captura:\n' +
+    '• Use boa iluminação (luz natural ou ambiente bem iluminado)\n' +
+    '• Posicione o documento paralelo à câmera\n' +
+    '• Evite sombras e reflexos\n' +
+    '• Mantenha a câmera estável';
+  
+  return baseIssues + tips;
 }
