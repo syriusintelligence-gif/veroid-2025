@@ -40,6 +40,8 @@ import {
 } from '@/lib/document-validator';
 // 🔐 AWS Textract: Verificação de idade via documento
 import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
+// 🤖 Gemini AI: Validação de documento com IA
+import { validateDocument as validateDocumentWithAI, formatValidationIssues } from '@/lib/document-validation';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,6 +113,10 @@ export default function Cadastro() {
   const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
   const [verifiedBirthDate, setVerifiedBirthDate] = useState<string | null>(null);
+  
+  // 🆕 ETAPA 1: Validação de documento com IA
+  const [documentAIValidationStatus, setDocumentAIValidationStatus] = useState<'idle' | 'validating' | 'validated' | 'failed'>('idle');
+  const [documentAIValidationResult, setDocumentAIValidationResult] = useState<{ isValid: boolean; confidence: number; documentType?: string; issues?: string[] } | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -237,6 +243,94 @@ export default function Cadastro() {
     
     const base64 = await fileToBase64(file);
     setDocumentoUrl(base64);
+    
+    // 🆕 ETAPA 1: Valida documento com IA após upload
+    await performAIValidation(base64);
+  };
+</to_replace>
+</Editor.edit_file_by_replace>
+
+Agora vou adicionar a função de validação com IA:
+
+<Editor.edit_file_by_replace>
+<file_name>
+/workspace/github-deploy/src/pages/Cadastro.tsx
+</file_name>
+<to_replace>
+  const cancelDocumentCapture = () => {
+    if (documentStream) {
+      documentStream.getTracks().forEach(track => track.stop());
+      setDocumentStream(null);
+    }
+    setDocumentWebcamActive(false);
+  };
+</to_replace>
+<new_content>
+  const cancelDocumentCapture = () => {
+    if (documentStream) {
+      documentStream.getTracks().forEach(track => track.stop());
+      setDocumentStream(null);
+    }
+    setDocumentWebcamActive(false);
+  };
+  
+  // 🆕 ETAPA 1: Validação de documento com IA
+  const performAIValidation = async (documentBase64: string) => {
+    console.log('🤖 [AI-VALIDATION] Iniciando validação de documento com IA...');
+    
+    setDocumentAIValidationStatus('validating');
+    setDocumentAIValidationResult(null);
+    
+    try {
+      const result = await validateDocumentWithAI(documentBase64);
+      
+      console.log('✅ [AI-VALIDATION] Resultado da validação:', result);
+      
+      setDocumentAIValidationResult({
+        isValid: result.isValid,
+        confidence: result.confidence,
+        documentType: result.documentType,
+        issues: result.issues
+      });
+      
+      if (result.isValid) {
+        setDocumentAIValidationStatus('validated');
+        
+        toast({
+          title: '✅ Documento Validado',
+          description: `Documento identificado: ${result.documentType || 'Documento brasileiro'}. Confiança: ${(result.confidence * 100).toFixed(0)}%`,
+          variant: 'default',
+        });
+      } else {
+        setDocumentAIValidationStatus('failed');
+        
+        const issuesText = formatValidationIssues(result.issues || ['Documento não passou na validação']);
+        
+        setFileValidationError(issuesText);
+        setError(issuesText);
+        
+        // Limpa o documento inválido
+        setDocumentoUrl('');
+        setDocumentoFile(null);
+        
+        toast({
+          title: '❌ Documento Inválido',
+          description: issuesText,
+          variant: 'destructive',
+        });
+      }
+      
+    } catch (err) {
+      console.error('❌ [AI-VALIDATION] Erro na validação:', err);
+      
+      setDocumentAIValidationStatus('failed');
+      
+      toast({
+        title: '⚠️ Erro na Validação',
+        description: 'Não foi possível validar o documento. Tente novamente.',
+        variant: 'default',
+      });
+    }
   };
   
   const startWebcam = async () => {
@@ -479,6 +573,17 @@ export default function Cadastro() {
     
     if (!documentoUrl) {
       setError('Documento de identificação é obrigatório');
+      return false;
+    }
+    
+    // 🆕 ETAPA 1: Verifica se documento foi validado pela IA
+    if (documentAIValidationStatus !== 'validated') {
+      setError('O documento enviado não passou na validação de segurança. Envie uma foto real e clara do seu documento.');
+      return false;
+    }
+    
+    if (!documentAIValidationResult?.isValid) {
+      setError('Documento inválido. Certifique-se de enviar uma foto REAL do documento físico (CNH, RG ou Passaporte).');
       return false;
     }
     
@@ -983,11 +1088,37 @@ export default function Cadastro() {
                             alt="Documento"
                             className="w-full rounded-lg"
                           />
-                          <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                            <Image className="h-3 w-3" />
-                            Documento Validado
-                          </div>
+                          {documentAIValidationStatus === 'validating' && (
+                            <div className="absolute top-2 right-2 bg-amber-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Validando com IA...
+                            </div>
+                          )}
+                          {documentAIValidationStatus === 'validated' && documentAIValidationResult?.isValid && (
+                            <div className="absolute top-2 right-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {documentAIValidationResult.documentType || 'Validado'}
+                            </div>
+                          )}
+                          {documentAIValidationStatus === 'failed' && (
+                            <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <XCircle className="h-3 w-3" />
+                              Inválido
+                            </div>
+                          )}
                         </div>
+                        
+                        {documentAIValidationStatus === 'validated' && documentAIValidationResult?.isValid && (
+                          <Alert className="mt-3 border-green-500 bg-green-50">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <AlertDescription className="text-green-800 text-sm">
+                              ✅ Documento validado com sucesso! Tipo: <strong>{documentAIValidationResult.documentType}</strong>
+                              <br />
+                              Confiança: <strong>{(documentAIValidationResult.confidence * 100).toFixed(0)}%</strong>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
                         <Button
                           variant="outline"
                           size="sm"
@@ -997,6 +1128,8 @@ export default function Cadastro() {
                             setDocumentoFile(null);
                             setFileValidationError('');
                             setDocumentoHash('');
+                            setDocumentAIValidationStatus('idle');
+                            setDocumentAIValidationResult(null);
                           }}
                         >
                           Trocar Documento
