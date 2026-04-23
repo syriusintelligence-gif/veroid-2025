@@ -247,32 +247,6 @@ export default function Cadastro() {
     // 🆕 ETAPA 1: Valida documento com IA após upload
     await performAIValidation(base64);
   };
-</to_replace>
-</Editor.edit_file_by_replace>
-
-Agora vou adicionar a função de validação com IA:
-
-<Editor.edit_file_by_replace>
-<file_name>
-/workspace/github-deploy/src/pages/Cadastro.tsx
-</file_name>
-<to_replace>
-  const cancelDocumentCapture = () => {
-    if (documentStream) {
-      documentStream.getTracks().forEach(track => track.stop());
-      setDocumentStream(null);
-    }
-    setDocumentWebcamActive(false);
-  };
-</to_replace>
-<new_content>
-  const cancelDocumentCapture = () => {
-    if (documentStream) {
-      documentStream.getTracks().forEach(track => track.stop());
-      setDocumentStream(null);
-    }
-    setDocumentWebcamActive(false);
-  };
   
   // 🆕 ETAPA 1: Validação de documento com IA
   const performAIValidation = async (documentBase64: string) => {
@@ -613,8 +587,23 @@ Agora vou adicionar a função de validação com IA:
       return false;
     }
     
+    if (!confirmarSenha) {
+      setError('Confirmação de senha é obrigatória');
+      return false;
+    }
+    
     if (senha !== confirmarSenha) {
       setError('As senhas não coincidem');
+      return false;
+    }
+    
+    if (!privacyPolicyAccepted) {
+      setError('Você deve aceitar a Política de Privacidade para continuar');
+      return false;
+    }
+    
+    if (!termsAccepted) {
+      setError('Você deve aceitar os Termos de Uso para continuar');
       return false;
     }
     
