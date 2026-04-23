@@ -1,3 +1,4 @@
+// Build Version: 2026-04-23-v1.0.0 - Syntax fixes applied
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
