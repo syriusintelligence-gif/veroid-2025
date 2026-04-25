@@ -1,4 +1,3 @@
-// Build Version: 2026-04-23-v1.0.0 - Syntax fixes applied
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,8 +42,6 @@ import {
 import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
 // 🤖 Gemini AI: Validação de documento com IA
 import { validateDocument as validateDocumentWithAI, formatValidationIssues } from '@/lib/document-validation';
-// 🤖 Gemini AI: Validação de selfie com detecção de rosto humano
-import { validateSelfie, formatSelfieValidationIssues } from '@/lib/selfie-validation';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,24 +107,8 @@ export default function Cadastro() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [ageDeclarationAccepted, setAgeDeclarationAccepted] = useState(false);
-  const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [documentoHash, setDocumentoHash] = useState<string>('');
-  const [fileValidationError, setFileValidationError] = useState<string>('');</to_replace>
-</Editor.edit_file_by_replace>
-
-<Editor.edit_file_by_replace>
-<file_name>
-src/pages/Cadastro.tsx
-</file_name>
-<to_replace>                  <PasswordStrengthIndicator password={senha} />
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmarSenha">Confirmar Senha *</Label></to_replace>
-<new_content>                  <PasswordStrengthIndicator password={senha} />
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
+  const [fileValidationError, setFileValidationError] = useState<string>('');
   
   const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
@@ -136,10 +117,6 @@ src/pages/Cadastro.tsx
   // 🆕 ETAPA 1: Validação de documento com IA
   const [documentAIValidationStatus, setDocumentAIValidationStatus] = useState<'idle' | 'validating' | 'validated' | 'failed'>('idle');
   const [documentAIValidationResult, setDocumentAIValidationResult] = useState<{ isValid: boolean; confidence: number; documentType?: string; issues?: string[] } | null>(null);
-  
-  // 🆕 ETAPA 2: Validação de selfie com detecção de rosto humano
-  const [selfieAIValidationStatus, setSelfieAIValidationStatus] = useState<'idle' | 'validating' | 'validated' | 'failed'>('idle');
-  const [selfieAIValidationResult, setSelfieAIValidationResult] = useState<{ isValid: boolean; hasHumanFace: boolean; confidence: number; issues?: string[] } | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -270,6 +247,15 @@ src/pages/Cadastro.tsx
     // 🆕 ETAPA 1: Valida documento com IA após upload
     await performAIValidation(base64);
   };
+
+  const cancelDocumentCapture = () => {
+  const cancelDocumentCapture = () => {
+    if (documentStream) {
+      documentStream.getTracks().forEach(track => track.stop());
+      setDocumentStream(null);
+    }
+    setDocumentWebcamActive(false);
+  };
   
   // 🆕 ETAPA 1: Validação de documento com IA
   const performAIValidation = async (documentBase64: string) => {
@@ -373,76 +359,12 @@ src/pages/Cadastro.tsx
       stream.getTracks().forEach(track => track.stop());
       setWebcamActive(false);
       setStream(null);
-      
-      // 🆕 ETAPA 2: Valida selfie com IA após captura
-      await performSelfieAIValidation(photo);
-    }
-  };
-  
-  // 🆕 ETAPA 2: Validação de selfie com IA
-  const performSelfieAIValidation = async (selfieBase64: string) => {
-    console.log('🤖 [SELFIE-AI-VALIDATION] Iniciando validação de rosto humano...');
-    
-    setSelfieAIValidationStatus('validating');
-    setSelfieAIValidationResult(null);
-    
-    try {
-      const result = await validateSelfie(selfieBase64);
-      
-      console.log('✅ [SELFIE-AI-VALIDATION] Resultado da validação:', result);
-      
-      setSelfieAIValidationResult({
-        isValid: result.isValid,
-        hasHumanFace: result.hasHumanFace,
-        confidence: result.confidence,
-        issues: result.issues
-      });
-      
-      if (result.isValid && result.hasHumanFace) {
-        setSelfieAIValidationStatus('validated');
-        
-        toast({
-          title: '✅ Selfie Validada',
-          description: `Rosto humano detectado com sucesso! Confiança: ${(result.confidence * 100).toFixed(0)}%`,
-          variant: 'default',
-        });
-      } else {
-        setSelfieAIValidationStatus('failed');
-        
-        const issuesText = formatSelfieValidationIssues(result.issues || ['A selfie não contém um rosto humano visível']);
-        
-        setError(issuesText);
-        
-        // Limpa a selfie inválida
-        setSelfieUrl('');
-        setSelfieCaptured(false);
-        
-        toast({
-          title: '❌ Selfie Inválida',
-          description: 'Por favor, tire uma foto do seu rosto. Objetos, paredes ou outras coisas não são aceitas.',
-          variant: 'destructive',
-        });
-      }
-      
-    } catch (err) {
-      console.error('❌ [SELFIE-AI-VALIDATION] Erro na validação:', err);
-      
-      setSelfieAIValidationStatus('failed');
-      
-      toast({
-        title: '⚠️ Erro na Validação',
-        description: 'Não foi possível validar a selfie. Tente novamente.',
-        variant: 'default',
-      });
     }
   };
   
   const retakeSelfie = () => {
     setSelfieUrl('');
     setSelfieCaptured(false);
-    setSelfieAIValidationStatus('idle');
-    setSelfieAIValidationResult(null);
-    setError('');
     startWebcam();
   };
   
@@ -525,13 +447,6 @@ src/pages/Cadastro.tsx
     }
   };
   
-  const cancelDocumentCapture = () => {
-    if (documentStream) {
-      documentStream.getTracks().forEach(track => track.stop());
-      setDocumentStream(null);
-    }
-    setDocumentWebcamActive(false);
-  };
   
   const handleCpfCnpjChange = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -653,17 +568,6 @@ src/pages/Cadastro.tsx
       return false;
     }
     
-    // 🆕 ETAPA 2: Verifica se selfie foi validada pela IA
-    if (selfieAIValidationStatus !== 'validated') {
-      setError('A selfie não passou na validação. Por favor, tire uma foto do seu rosto.');
-      return false;
-    }
-    
-    if (!selfieAIValidationResult?.hasHumanFace) {
-      setError('A selfie não contém um rosto humano visível. Tire uma foto do seu rosto, não de objetos ou paredes.');
-      return false;
-    }
-    
     if (!ageDeclarationAccepted) {
       setError('Você deve aceitar a declaração de maioridade para continuar');
       return false;
@@ -685,23 +589,8 @@ src/pages/Cadastro.tsx
       return false;
     }
     
-    if (!confirmarSenha) {
-      setError('Confirmação de senha é obrigatória');
-      return false;
-    }
-    
     if (senha !== confirmarSenha) {
       setError('As senhas não coincidem');
-      return false;
-    }
-    
-    if (!privacyPolicyAccepted) {
-      setError('Você deve aceitar a Política de Privacidade para continuar');
-      return false;
-    }
-    
-    if (!termsAccepted) {
-      setError('Você deve aceitar os Termos de Uso para continuar');
       return false;
     }
     
@@ -1297,43 +1186,11 @@ src/pages/Cadastro.tsx
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="relative">
-                          <img
-                            src={selfieUrl}
-                            alt="Selfie"
-                            className="w-full rounded-lg border-2 border-green-400"
-                          />
-                          {selfieAIValidationStatus === 'validating' && (
-                            <div className="absolute top-2 right-2 bg-amber-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Validando rosto...
-                            </div>
-                          )}
-                          {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.hasHumanFace && (
-                            <div className="absolute top-2 right-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Rosto Detectado
-                            </div>
-                          )}
-                          {selfieAIValidationStatus === 'failed' && (
-                            <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <XCircle className="h-3 w-3" />
-                              Inválida
-                            </div>
-                          )}
-                        </div>
-                        
-                        {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.hasHumanFace && (
-                          <Alert className="border-green-500 bg-green-50">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800 text-sm">
-                              ✅ Rosto humano detectado com sucesso!
-                              <br />
-                              Confiança: <strong>{(selfieAIValidationResult.confidence * 100).toFixed(0)}%</strong>
-                            </AlertDescription>
-                          </Alert>
-                        )}
-                        
+                        <img
+                          src={selfieUrl}
+                          alt="Selfie"
+                          className="w-full rounded-lg border-2 border-green-400"
+                        />
                         <Button variant="outline" onClick={retakeSelfie} className="w-full">
                           Tirar Nova Foto
                         </Button>
@@ -1480,54 +1337,6 @@ src/pages/Cadastro.tsx
                     </div>
                   </div>
                   
-                  <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start space-x-3">
-                      <Checkbox
-                        id="privacyPolicy"
-                        checked={privacyPolicyAccepted}
-                        onCheckedChange={(checked) => setPrivacyPolicyAccepted(checked === true)}
-                        className="mt-1"
-                      />
-                      <Label 
-                        htmlFor="privacyPolicy" 
-                        className="text-sm cursor-pointer"
-                      >
-                        Aceito a{' '}
-                        <a 
-                          href="/privacy" 
-                          target="_blank" 
-                          className="text-blue-600 hover:underline font-medium"
-                        >
-                          Política de Privacidade
-                        </a>
-                        {' '}*
-                      </Label>
-                    </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <Checkbox
-                        id="terms"
-                        checked={termsAccepted}
-                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
-                        className="mt-1"
-                      />
-                      <Label 
-                        htmlFor="terms" 
-                        className="text-sm cursor-pointer"
-                      >
-                        Aceito os{' '}
-                        <a 
-                          href="/terms" 
-                          target="_blank" 
-                          className="text-blue-600 hover:underline font-medium"
-                        >
-                          Termos de Uso
-                        </a>
-                        {' '}*
-                      </Label>
-                    </div>
-                  </div>
-                  
                   {!isBlocked && remaining !== undefined && remaining <= 1 && (
                     <p className="text-xs text-center text-amber-600 font-medium">
                       ⚠️ Última tentativa disponível nesta hora
@@ -1572,4 +1381,5 @@ src/pages/Cadastro.tsx
       </div>
     </div>
   );
+}
 }
