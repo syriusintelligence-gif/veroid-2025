@@ -42,6 +42,8 @@ import {
 import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
 // 🤖 Gemini AI: Validação de documento com IA
 import { validateDocument as validateDocumentWithAI, formatValidationIssues } from '@/lib/document-validation';
+// 🤖 Gemini AI: Validação de selfie com IA
+import { validateSelfie, formatSelfieValidationIssues } from '@/lib/selfie-validation';
 
 // Última atualização: 2026-04-25 07:41:43.284211 - Sistema de cadastro Vero iD
 
@@ -74,15 +76,9 @@ async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.8);
 }
 
-function compareFaces(doc: string, selfie: string): { match: boolean; confidence: number } {
-  return {
-    match: true,
-    confidence: 0.95
-  };
-}
+// Função removida - validação de selfie agora é feita via Gemini AI no momento da captura
 
 export default function Cadastro() {
-  console.log('🚀 CADASTRO COMPONENT MOUNTED - Debug log adicionado');
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
@@ -122,6 +118,10 @@ export default function Cadastro() {
   // 🆕 ETAPA 1: Validação de documento com IA
   const [documentAIValidationStatus, setDocumentAIValidationStatus] = useState<'idle' | 'validating' | 'validated' | 'failed'>('idle');
   const [documentAIValidationResult, setDocumentAIValidationResult] = useState<{ isValid: boolean; confidence: number; documentType?: string; issues?: string[] } | null>(null);
+  
+  // 🆕 ETAPA 2: Validação de selfie com IA
+  const [selfieAIValidationStatus, setSelfieAIValidationStatus] = useState<'idle' | 'validating' | 'validated' | 'failed'>('idle');
+  const [selfieAIValidationResult, setSelfieAIValidationResult] = useState<{ isValid: boolean; confidence: number; hasHumanFace: boolean; issues?: string[] } | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -320,6 +320,64 @@ export default function Cadastro() {
     }
   };
   
+  // 🆕 ETAPA 2: Validação de selfie com IA
+  const performSelfieAIValidation = async (selfieBase64: string) => {
+    console.log('🤖 [SELFIE-VALIDATION] Iniciando validação de selfie com IA...');
+    
+    setSelfieAIValidationStatus('validating');
+    setSelfieAIValidationResult(null);
+    
+    try {
+      const result = await validateSelfie(selfieBase64);
+      
+      console.log('✅ [SELFIE-VALIDATION] Resultado da validação:', result);
+      
+      setSelfieAIValidationResult({
+        isValid: result.isValid,
+        confidence: result.confidence,
+        hasHumanFace: result.hasHumanFace,
+        issues: result.issues
+      });
+      
+      if (result.isValid && result.hasHumanFace) {
+        setSelfieAIValidationStatus('validated');
+        
+        toast({
+          title: '✅ Selfie Validada',
+          description: `Rosto humano detectado. Confiança: ${(result.confidence * 100).toFixed(0)}%`,
+          variant: 'default',
+        });
+      } else {
+        setSelfieAIValidationStatus('failed');
+        
+        const issuesText = formatSelfieValidationIssues(result.issues || ['Selfie não passou na validação']);
+        
+        setError(issuesText);
+        
+        // Limpa a selfie inválida
+        setSelfieUrl('');
+        setSelfieCaptured(false);
+        
+        toast({
+          title: '❌ Selfie Inválida',
+          description: issuesText,
+          variant: 'destructive',
+        });
+      }
+      
+    } catch (err) {
+      console.error('❌ [SELFIE-VALIDATION] Erro na validação:', err);
+      
+      setSelfieAIValidationStatus('failed');
+      
+      toast({
+        title: '⚠️ Erro na Validação',
+        description: 'Não foi possível validar a selfie. Tente novamente.',
+        variant: 'default',
+      });
+    }
+  };
+  
   const startWebcam = async () => {
     try {
       setError('');
@@ -363,6 +421,9 @@ export default function Cadastro() {
       stream.getTracks().forEach(track => track.stop());
       setWebcamActive(false);
       setStream(null);
+      
+      // 🆕 Valida selfie com IA após captura
+      await performSelfieAIValidation(photo);
     }
   };
   
@@ -572,6 +633,17 @@ export default function Cadastro() {
       return false;
     }
     
+    // 🆕 ETAPA 2: Verifica se selfie foi validada pela IA
+    if (selfieAIValidationStatus !== 'validated') {
+      setError('A selfie enviada não passou na validação de segurança. Tire uma foto do seu rosto com boa iluminação.');
+      return false;
+    }
+    
+    if (!selfieAIValidationResult?.isValid || !selfieAIValidationResult?.hasHumanFace) {
+      setError('Selfie inválida. Certifique-se de que seu rosto está visível e bem iluminado na foto.');
+      return false;
+    }
+    
     if (!ageDeclarationAccepted) {
       setError('Você deve aceitar a declaração de maioridade para continuar');
       return false;
@@ -608,85 +680,13 @@ export default function Cadastro() {
         setStep(2);
       }
     } else if (step === 2 && validateStep2()) {
-      setIsLoading(true);
-      setError('');
-      setAgeVerificationStatus('verifying');
+      // Verificação simplificada: apenas checkbox de declaração de maioridade
+      console.log('✅ [CADASTRO] Validações concluídas com sucesso');
+      console.log('📄 [CADASTRO] Documento validado pela IA');
+      console.log('🤳 [CADASTRO] Selfie validada pela IA');
+      console.log('✅ [CADASTRO] Declaração de maioridade aceita');
       
-      try {
-        console.log('🔍 [CADASTRO] Iniciando verificação de idade via AWS Textract...');
-        
-        const ageResult = await verifyAgeFromDocument(documentoUrl);
-        
-        if (!ageResult.success) {
-          console.error('❌ [CADASTRO] Falha na verificação de idade:', ageResult.error);
-          setAgeVerificationStatus('failed');
-          
-          toast({
-            title: '⚠️ Verificação automática indisponível',
-            description: 'Não foi possível verificar a idade automaticamente. Sua declaração de maioridade será considerada.',
-            variant: 'default',
-          });
-          
-          const comparison = compareFaces(documentoUrl, selfieUrl);
-          if (comparison.match) {
-            setStep(3);
-          } else {
-            setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
-          }
-          return;
-        }
-        
-        setVerifiedAge(ageResult.age || null);
-        setVerifiedBirthDate(ageResult.birthDate || null);
-        
-        if (!ageResult.isAdult) {
-          console.warn('🚫 [CADASTRO] Usuário menor de idade detectado:', ageResult.age);
-          setAgeVerificationStatus('failed');
-          setError(`Cadastro não permitido. De acordo com o documento, você tem ${ageResult.age} anos. É necessário ter 18 anos ou mais para se cadastrar.`);
-          
-          toast({
-            title: '🚫 Cadastro Bloqueado',
-            description: `Idade verificada: ${ageResult.age} anos. Apenas maiores de 18 anos podem se cadastrar.`,
-            variant: 'destructive',
-          });
-          return;
-        }
-        
-        console.log('✅ [CADASTRO] Usuário maior de idade confirmado:', ageResult.age, 'anos');
-        setAgeVerificationStatus('verified');
-        
-        toast({
-          title: '✅ Idade Verificada',
-          description: `Idade confirmada: ${ageResult.age} anos (nascido em ${formatBirthDate(ageResult.birthDate!)})`,
-          variant: 'default',
-        });
-        
-        const comparison = compareFaces(documentoUrl, selfieUrl);
-        if (comparison.match) {
-          setStep(3);
-        } else {
-          setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
-        }
-        
-      } catch (err) {
-        console.error('❌ [CADASTRO] Erro na verificação de idade:', err);
-        setAgeVerificationStatus('failed');
-        
-        toast({
-          title: '⚠️ Verificação automática indisponível',
-          description: 'Erro ao verificar idade. Sua declaração de maioridade será considerada.',
-          variant: 'default',
-        });
-        
-        const comparison = compareFaces(documentoUrl, selfieUrl);
-        if (comparison.match) {
-          setStep(3);
-        } else {
-          setError('A selfie não corresponde ao documento. Por favor, tente novamente.');
-        }
-      } finally {
-        setIsLoading(false);
-      }
+      setStep(3);
     }
   };
   

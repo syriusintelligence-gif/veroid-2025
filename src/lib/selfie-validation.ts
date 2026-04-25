@@ -1,6 +1,6 @@
 // =====================================================
 // SELFIE VALIDATION - Gemini Vision AI Integration
-// Vero iD - Validação de selfie com detecção de rosto humano
+// Vero iD - Validação de selfies com detecção de rosto
 // =====================================================
 
 import { supabase } from './supabase';
@@ -8,8 +8,8 @@ import { supabase } from './supabase';
 export interface SelfieValidationResult {
   success: boolean;
   isValid: boolean;
-  hasHumanFace: boolean;
   confidence: number;
+  hasHumanFace: boolean;
   issues?: string[];
   message?: string;
   error?: string;
@@ -17,7 +17,14 @@ export interface SelfieValidationResult {
 
 /**
  * Valida se a selfie contém um rosto humano real
- * usando Gemini Vision AI para detectar rostos humanos.
+ * usando Gemini Vision AI para detectar fraudes e verificar autenticidade.
+ * 
+ * Rejeita:
+ * - Objetos inanimados
+ * - Paredes ou fundos vazios
+ * - Animais
+ * - Fotos de documentos
+ * - Screenshots ou fotos de outras fotos
  * 
  * @param selfieBase64 - Imagem da selfie em base64
  * @returns Resultado da validação
@@ -26,7 +33,7 @@ export async function validateSelfie(
   selfieBase64: string
 ): Promise<SelfieValidationResult> {
   try {
-    console.log('🔍 [SELFIE-VALIDATION] Iniciando validação de rosto humano...');
+    console.log('🔍 [SELFIE-VALIDATION] Iniciando validação com IA...');
 
     // Chama a Edge Function
     const { data, error } = await supabase.functions.invoke('validate-selfie', {
@@ -39,24 +46,24 @@ export async function validateSelfie(
       console.error('❌ [SELFIE-VALIDATION] Erro ao chamar Edge Function:', error);
       
       const errorMessage = 'Não foi possível validar a selfie. Dicas para melhorar a captura:\n\n' +
-        '📸 Posicionamento:\n' +
-        '• Centralize seu rosto na câmera\n' +
-        '• Mantenha uma distância de 30-50cm\n' +
+        '👤 Posicionamento:\n' +
+        '• Posicione seu rosto no centro da câmera\n' +
+        '• Mantenha uma distância adequada (não muito perto ou longe)\n' +
         '• Olhe diretamente para a câmera\n\n' +
         '💡 Iluminação:\n' +
         '• Use luz natural ou ambiente bem iluminado\n' +
-        '• Evite contraluz (luz forte atrás de você)\n' +
-        '• Ilumine seu rosto de frente\n\n' +
+        '• Evite contra-luz (luz atrás de você)\n' +
+        '• Ilumine uniformemente seu rosto\n\n' +
         '✨ Qualidade:\n' +
-        '• Mantenha a câmera estável\n' +
+        '• Remova óculos escuros ou objetos que cubram o rosto\n' +
         '• Certifique-se que seu rosto está visível\n' +
-        '• Remova óculos escuros ou objetos que cubram o rosto';
+        '• Mantenha a câmera estável';
       
       return {
         success: false,
         isValid: false,
-        hasHumanFace: false,
         confidence: 0,
+        hasHumanFace: false,
         error: errorMessage
       };
     }
@@ -75,8 +82,8 @@ export async function validateSelfie(
     return {
       success: false,
       isValid: false,
-      hasHumanFace: false,
       confidence: 0,
+      hasHumanFace: false,
       error: err instanceof Error ? err.message : 'Erro desconhecido'
     };
   }
@@ -87,14 +94,14 @@ export async function validateSelfie(
  */
 export function formatSelfieValidationIssues(issues: string[]): string {
   if (!issues || issues.length === 0) {
-    return 'Selfie não validada. Por favor, tire uma foto do seu rosto.';
+    return 'Selfie não validada. Por favor, tire uma nova foto com seu rosto visível e bem iluminado.';
   }
   
   const baseIssues = issues.join('. ');
-  const tips = '\n\n💡 Dicas para uma boa selfie:\n' +
-    '• Tire a foto em ambiente bem iluminado\n' +
-    '• Posicione seu rosto no centro da câmera\n' +
-    '• Remova óculos escuros, bonés ou máscaras\n' +
+  const tips = '\n\n💡 Dicas:\n' +
+    '• Certifique-se que é você na foto (não aceita fotos de documentos)\n' +
+    '• Use boa iluminação\n' +
+    '• Posicione seu rosto no centro\n' +
     '• Olhe diretamente para a câmera';
   
   return baseIssues + tips;
