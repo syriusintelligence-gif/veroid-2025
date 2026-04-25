@@ -82,6 +82,7 @@ function compareFaces(doc: string, selfie: string): { match: boolean; confidence
 }
 
 export default function Cadastro() {
+  console.log('🚀 CADASTRO COMPONENT MOUNTED - Debug log adicionado');
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
@@ -1385,5 +1386,4 @@ export default function Cadastro() {
       </div>
     </div>
   );
-}
 }
