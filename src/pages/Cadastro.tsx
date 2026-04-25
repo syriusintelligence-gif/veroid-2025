@@ -1190,11 +1190,43 @@ export default function Cadastro() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <img
-                          src={selfieUrl}
-                          alt="Selfie"
-                          className="w-full rounded-lg border-2 border-green-400"
-                        />
+                        <div className="relative group">
+                          <img
+                            src={selfieUrl}
+                            alt="Selfie"
+                            className="w-full rounded-lg border-2 border-green-400"
+                          />
+                          {selfieAIValidationStatus === 'validating' && (
+                            <div className="absolute top-2 right-2 bg-amber-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Validando com IA...
+                            </div>
+                          )}
+                          {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.isValid && (
+                            <div className="absolute top-2 right-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Rosto Validado
+                            </div>
+                          )}
+                          {selfieAIValidationStatus === 'failed' && (
+                            <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                              <XCircle className="h-3 w-3" />
+                              Inválida
+                            </div>
+                          )}
+                        </div>
+                        
+                        {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.isValid && (
+                          <Alert className="border-green-500 bg-green-50">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <AlertDescription className="text-green-800 text-sm">
+                              ✅ Selfie validada com sucesso! Rosto humano detectado.
+                              <br />
+                              Confiança: <strong>{(selfieAIValidationResult.confidence * 100).toFixed(0)}%</strong>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
                         <Button variant="outline" onClick={retakeSelfie} className="w-full">
                           Tirar Nova Foto
                         </Button>
