@@ -110,8 +110,24 @@ export default function Cadastro() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [ageDeclarationAccepted, setAgeDeclarationAccepted] = useState(false);
+  const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [documentoHash, setDocumentoHash] = useState<string>('');
-  const [fileValidationError, setFileValidationError] = useState<string>('');
+  const [fileValidationError, setFileValidationError] = useState<string>('');</to_replace>
+</Editor.edit_file_by_replace>
+
+<Editor.edit_file_by_replace>
+<file_name>
+src/pages/Cadastro.tsx
+</file_name>
+<to_replace>                  <PasswordStrengthIndicator password={senha} />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmarSenha">Confirmar Senha *</Label></to_replace>
+<new_content>                  <PasswordStrengthIndicator password={senha} />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
   
   const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
@@ -1461,6 +1477,54 @@ export default function Cadastro() {
                           <Eye className="h-4 w-4" />
                         )}
                       </button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="privacyPolicy"
+                        checked={privacyPolicyAccepted}
+                        onCheckedChange={(checked) => setPrivacyPolicyAccepted(checked === true)}
+                        className="mt-1"
+                      />
+                      <Label 
+                        htmlFor="privacyPolicy" 
+                        className="text-sm cursor-pointer"
+                      >
+                        Aceito a{' '}
+                        <a 
+                          href="/privacy" 
+                          target="_blank" 
+                          className="text-blue-600 hover:underline font-medium"
+                        >
+                          Política de Privacidade
+                        </a>
+                        {' '}*
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="terms"
+                        checked={termsAccepted}
+                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                        className="mt-1"
+                      />
+                      <Label 
+                        htmlFor="terms" 
+                        className="text-sm cursor-pointer"
+                      >
+                        Aceito os{' '}
+                        <a 
+                          href="/terms" 
+                          target="_blank" 
+                          className="text-blue-600 hover:underline font-medium"
+                        >
+                          Termos de Uso
+                        </a>
+                        {' '}*
+                      </Label>
                     </div>
                   </div>
                   
