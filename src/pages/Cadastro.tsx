@@ -254,7 +254,6 @@ export default function Cadastro() {
   };
 
   const cancelDocumentCapture = () => {
-  const cancelDocumentCapture = () => {
     if (documentStream) {
       documentStream.getTracks().forEach(track => track.stop());
       setDocumentStream(null);
@@ -1386,5 +1385,4 @@ export default function Cadastro() {
       </div>
     </div>
   );
-}
 }
