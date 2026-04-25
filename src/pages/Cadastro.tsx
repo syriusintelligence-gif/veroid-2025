@@ -42,6 +42,8 @@ import {
 import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
 // 🤖 Gemini AI: Validação de documento com IA
 import { validateDocument as validateDocumentWithAI, formatValidationIssues } from '@/lib/document-validation';
+// Última atualização: 2026-04-25 07:26:37 - Correção de chaves duplicadas
+
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
