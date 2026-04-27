@@ -7,14 +7,16 @@ import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
 import { useState, useRef, useEffect } from 'react';
 import ShareButtons from '@/components/ShareButtons';
-import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4
+import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4 - Para criadores autenticados
+import { PublicDownloadButton } from '@/components/PublicDownloadButton'; // 🆕 Para verificadores públicos
 
 interface ContentCardProps {
   content: SignedContent;
   onVerify?: (id: string) => void;
+  isCreator?: boolean; // 🆕 Indica se o usuário atual é o criador do certificado
 }
 
-export default function ContentCard({ content: initialContent, onVerify }: ContentCardProps) {
+export default function ContentCard({ content: initialContent, onVerify, isCreator = false }: ContentCardProps) {
   // 🆕 Estado local para conteúdo com links sociais
   const [content, setContent] = useState<SignedContent>(initialContent);
   const [isLoadingSocialLinks, setIsLoadingSocialLinks] = useState(false);
@@ -271,9 +273,14 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
               Documento Original Anexado
             </p>
             
-            {/* Mostra botão de download APENAS se allowFileDownload for true */}
-            {content.allowFileDownload ? (
+            {/* 🔒 LÓGICA DE DOWNLOAD:
+                1. Se é o CRIADOR: sempre pode baixar (DownloadButton com auth)
+                2. Se NÃO é o criador E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
+                3. Se NÃO é o criador E allowFileDownload=false: mostra mensagem de restrição
+            */}
+            {isCreator ? (
               <>
+                {/* Criador: sempre pode baixar com autenticação */}
                 <DownloadButton
                   filePath={content.filePath}
                   fileName={content.fileName}
@@ -285,18 +292,39 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
                   showFileInfo={true}
                 />
                 <p className="text-xs text-green-700 mt-3">
-                  ✅ Este documento foi verificado e armazenado de forma segura
+                  ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
                 </p>
               </>
             ) : (
-              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-                <p className="text-sm text-yellow-800 font-medium mb-2">
-                  🔒 Download Restrito
-                </p>
-                <p className="text-xs text-yellow-700">
-                  O criador optou por não permitir o download do arquivo original. Apenas o preview está disponível para verificação.
-                </p>
-              </div>
+              <>
+                {/* Verificador: download depende de allowFileDownload */}
+                {content.allowFileDownload ? (
+                  <>
+                    <PublicDownloadButton
+                      filePath={content.filePath}
+                      fileName={content.fileName}
+                      mimeType={content.mimeType}
+                      fileSize={content.fileSize}
+                      bucket={content.storageBucket || 'signed-documents'}
+                      variant="default"
+                      size="default"
+                      showFileInfo={true}
+                    />
+                    <p className="text-xs text-green-700 mt-3">
+                      ✅ Este documento foi verificado e o criador permite download público
+                    </p>
+                  </>
+                ) : (
+                  <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800 font-medium mb-2">
+                      🔒 Download Restrito
+                    </p>
+                    <p className="text-xs text-yellow-700">
+                      O criador optou por não permitir o download do arquivo original. Apenas o preview está disponível para verificação.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -354,22 +382,24 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
           </div>
         </div>
         
-        {/* Botões de Ação */}
+        {/* Botões de Ação - Download QR Code APENAS para o criador */}
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadQR}
-            className="w-full"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            QR Code
-          </Button>
+          {isCreator && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadQR}
+              className="w-full"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              QR Code
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownloadCertificate}
-            className="w-full"
+            className={isCreator ? "w-full" : "col-span-2 w-full"}
           >
             <Download className="h-4 w-4 mr-2" />
             Certificado

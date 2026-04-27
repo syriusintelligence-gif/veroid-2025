@@ -825,7 +825,11 @@ export default function Dashboard() {
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredContents.map((content) => (
-                      <ContentCard key={content.id} content={content} />
+                      <ContentCard 
+                        key={content.id} 
+                        content={content} 
+                        isCreator={true} 
+                      />
                     ))}
                   </div>
                 )}
