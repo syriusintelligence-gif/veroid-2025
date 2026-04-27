@@ -87,7 +87,7 @@ import { useSignatureStatus, consumeSignature } from '@/hooks/useSubscription';
 // ========================================
 
 type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
-type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'Website' | 'Outros';
+type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'Website' | 'Outros';
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
   { value: 'text', label: 'Texto', icon: <FileText className="h-5 w-5" /> },
@@ -104,6 +104,7 @@ const socialPlatforms: { value: SocialPlatform; label: string; logo: string }[] 
   { value: 'TikTok', label: 'TikTok', logo: '🎵' },
   { value: 'Facebook', label: 'Facebook', logo: '👥' },
   { value: 'LinkedIn', label: 'LinkedIn', logo: '💼' },
+  { value: 'WhatsApp', label: 'WhatsApp', logo: '💬' },
   { value: 'Website', label: 'Website', logo: '🌐' },
   { value: 'Outros', label: 'Outros', logo: '📱' },
 ];
