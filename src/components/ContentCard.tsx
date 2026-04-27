@@ -274,11 +274,11 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
             </p>
             
             {/* 🔒 LÓGICA DE DOWNLOAD:
-                1. Se é o CRIADOR: sempre pode baixar (DownloadButton com auth)
-                2. Se NÃO é o criador E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
-                3. Se NÃO é o criador E allowFileDownload=false: mostra mensagem de restrição
+                1. Se é o CRIADOR (isCreator === true): sempre pode baixar (DownloadButton com auth)
+                2. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
+                3. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=false: mostra mensagem de restrição
             */}
-            {isCreator ? (
+            {isCreator === true ? (
               <>
                 {/* Criador: sempre pode baixar com autenticação */}
                 <DownloadButton

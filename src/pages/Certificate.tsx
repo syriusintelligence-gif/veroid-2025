@@ -7,6 +7,8 @@ import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, In
 import { generateCertificate, decodeContentFromUrl, generateQRData } from '@/lib/qrcode';
 import { QRCodeSVG } from 'qrcode.react';
 import VerificationLoadingScreen from '@/components/VerificationLoadingScreen';
+import { PublicDownloadButton } from '@/components/PublicDownloadButton'; // 🆕 Para download público de arquivos
+import { DownloadButton } from '@/components/DownloadButton'; // 🆕 Para download autenticado (criador)
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -116,6 +118,12 @@ export default function Certificate() {
             hasSocialLinks: !!fullContent.creatorSocialLinks,
             socialLinksCount: fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0,
             socialLinks: fullContent.creatorSocialLinks,
+            // 🆕 LOGS DE DEBUG PARA ARQUIVO
+            hasFilePath: !!fullContent.filePath,
+            filePath: fullContent.filePath,
+            fileName: fullContent.fileName,
+            fileSize: fullContent.fileSize,
+            allowFileDownload: fullContent.allowFileDownload,
           });
           
           setContent(fullContent);
@@ -722,6 +730,75 @@ export default function Certificate() {
               </div>
               <div className="text-sm sm:text-base bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
                 {description}
+              </div>
+            </div>
+          )}
+
+          {/* 🆕 SEÇÃO DE DOWNLOAD DE ARQUIVO ORIGINAL */}
+          {content.filePath && content.fileName && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                📄 Documento Original
+              </div>
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-6 rounded-xl border-2 border-green-200 shadow-lg">
+                <p className="text-sm font-semibold text-green-900 mb-4 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Arquivo Anexado ao Certificado
+                </p>
+                
+                {/* 🔒 LÓGICA DE DOWNLOAD:
+                    1. Se é o CRIADOR (isCreator === true): sempre pode baixar (DownloadButton com auth)
+                    2. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
+                    3. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=false: mostra mensagem de restrição
+                */}
+                {isCreator === true ? (
+                  <>
+                    {/* Criador: sempre pode baixar com autenticação */}
+                    <DownloadButton
+                      filePath={content.filePath}
+                      fileName={content.fileName}
+                      mimeType={content.mimeType}
+                      fileSize={content.fileSize}
+                      bucket={content.storageBucket || 'signed-documents'}
+                      variant="default"
+                      size="default"
+                      showFileInfo={true}
+                    />
+                    <p className="text-xs text-green-700 mt-3">
+                      ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {/* Verificador (logado ou não logado): download depende de allowFileDownload */}
+                    {content.allowFileDownload ? (
+                      <>
+                        <PublicDownloadButton
+                          filePath={content.filePath}
+                          fileName={content.fileName}
+                          mimeType={content.mimeType}
+                          fileSize={content.fileSize}
+                          bucket={content.storageBucket || 'signed-documents'}
+                          variant="default"
+                          size="default"
+                          showFileInfo={true}
+                        />
+                        <p className="text-xs text-green-700 mt-3">
+                          ✅ Este documento foi verificado e o criador permite download público
+                        </p>
+                      </>
+                    ) : (
+                      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                        <p className="text-sm text-yellow-800 font-medium mb-2">
+                          🔒 Download Restrito
+                        </p>
+                        <p className="text-xs text-yellow-700">
+                          O criador optou por não permitir o download do arquivo original. Apenas as informações do certificado estão disponíveis para verificação.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}
