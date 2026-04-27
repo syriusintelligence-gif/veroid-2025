@@ -116,7 +116,8 @@ export async function signContentEnhanced(
   thumbnail?: string,
   platforms?: string[],
   fileMetadata?: FileMetadata,
-  creatorSocialLinks?: SocialLinks
+  creatorSocialLinks?: SocialLinks,
+  allowFileDownload?: boolean
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -305,6 +306,8 @@ export async function signContentEnhanced(
       storage_bucket: fileMetadata?.storage_bucket || null,
       // 🆕 SOLUÇÃO DEFINITIVA: Salvar links sociais no certificado
       creator_social_links: creatorSocialLinks || null,
+      // 🆕 Controle de download - default TRUE se arquivo existir
+      allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -389,6 +392,8 @@ function dbSignedContentToAppSignedContent(
     fileSize: dbContent.file_size || undefined,
     mimeType: dbContent.mime_type || undefined,
     storageBucket: dbContent.storage_bucket || undefined,
+    // 🆕 Controle de download - default TRUE para retrocompatibilidade
+    allowFileDownload: dbContent.allow_file_download ?? true,
   };
 }
 

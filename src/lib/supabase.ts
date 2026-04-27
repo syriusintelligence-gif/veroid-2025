@@ -129,6 +129,7 @@ export interface Database {
           thumbnail: string | null;
           platforms: string[] | null;
           verification_count: number;
+          allow_file_download: boolean;
         };
         Insert: {
           id?: string;
@@ -143,6 +144,7 @@ export interface Database {
           thumbnail?: string | null;
           platforms?: string[] | null;
           verification_count?: number;
+          allow_file_download?: boolean;
         };
         Update: {
           id?: string;
@@ -157,6 +159,7 @@ export interface Database {
           thumbnail?: string | null;
           platforms?: string[] | null;
           verification_count?: number;
+          allow_file_download?: boolean;
         };
       };
       key_pairs: {

@@ -43,6 +43,8 @@ export interface SignedContent {
   fileSize?: number;
   mimeType?: string;
   storageBucket?: string;
+  // 🆕 Controle de download pelo criador
+  allowFileDownload?: boolean;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -81,6 +83,8 @@ function dbSignedContentToAppSignedContent(
     fileSize: 'file_size' in dbContent ? (dbContent.file_size as number | null) || undefined : undefined,
     mimeType: 'mime_type' in dbContent ? (dbContent.mime_type as string | null) || undefined : undefined,
     storageBucket: 'storage_bucket' in dbContent ? (dbContent.storage_bucket as string | null) || undefined : undefined,
+    // 🆕 Controle de download - default TRUE para retrocompatibilidade
+    allowFileDownload: 'allow_file_download' in dbContent ? (dbContent.allow_file_download as boolean | null) ?? true : true,
   };
 }
 
