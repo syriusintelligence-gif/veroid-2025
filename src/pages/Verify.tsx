@@ -211,15 +211,7 @@ export default function Verify() {
               </ul>
             </div>
             
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm font-medium text-green-900 mb-2">✓ O que acontecerá:</p>
-              <ul className="text-xs text-green-800 space-y-1 list-disc list-inside">
-                <li>Você será redirecionado para a página do certificado completo</li>
-                <li>Verá todos os dados da publicação</li>
-                <li>Poderá baixar o certificado em HTML</li>
-                <li>O contador de verificações será incrementado automaticamente</li>
-              </ul>
-            </div>
+
             
             <Button 
               onClick={handleVerify} 
