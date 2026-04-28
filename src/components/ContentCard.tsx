@@ -5,6 +5,7 @@ import { SignedContent } from '@/lib/supabase-crypto';
 import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye, FileText, Image as ImageIcon, Video, Music, File, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
+import { generateCertificateWithEmbeddedFile } from '@/lib/services/certificate-generator'; // 🆕 Para certificados com arquivo embutido
 import { useState, useRef, useEffect } from 'react';
 import ShareButtons from '@/components/ShareButtons';
 import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4 - Para criadores autenticados
@@ -56,18 +57,28 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
     });
   }
   
-  const handleDownloadCertificate = () => {
-    console.log('📥 [ContentCard] Gerando certificado com links sociais:', !!content.creatorSocialLinks);
-    const certificate = generateCertificate(content);
-    const blob = new Blob([certificate], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `veroId-certificate-${content.verificationCode}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownloadCertificate = async () => {
+    try {
+      console.log('📥 [ContentCard] Gerando certificado com arquivo embutido...');
+      
+      // 🆕 SOLUÇÃO: Gera certificado com arquivo embutido como base64
+      // Isso resolve o problema de CORS quando o HTML é aberto localmente (file://)
+      const certificate = await generateCertificateWithEmbeddedFile(content);
+      
+      const blob = new Blob([certificate], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `veroId-certificate-${content.verificationCode}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('✅ [ContentCard] Certificado baixado com sucesso');
+    } catch (error) {
+      console.error('❌ [ContentCard] Erro ao gerar certificado:', error);
+    }
   };
   
   const handleDownloadQR = async () => {
