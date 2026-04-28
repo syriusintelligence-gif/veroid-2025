@@ -34,7 +34,7 @@ export default function ShareButtons({
 }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
   
-  const shareText = `${title}\n\n${description}\n\nVerifique a autenticidade: ${certificateUrl}`;
+  const shareText = `📜 *${title}*\n\n${description}\n\n🔍 *Verifique a autenticidade aqui:*\n👉 ${certificateUrl}`;
   
   const handleCopyLink = async () => {
     try {
