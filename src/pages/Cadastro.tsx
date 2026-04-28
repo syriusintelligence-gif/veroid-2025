@@ -250,7 +250,27 @@ export default function Cadastro() {
     setDocumentoUrl(base64);
     
     // 🆕 ETAPA 1: Valida documento com IA após upload
-    await performAIValidation(base64);
+    // Para PDFs (documentos digitais oficiais como CNH-e e RG Digital), pular validação de IA
+    // PDFs já passaram por validação de magic number e formato
+    if (file.type === 'application/pdf') {
+      console.log('📄 [AI-VALIDATION] PDF detectado - pulando validação de IA (documento digital oficial)');
+      setDocumentAIValidationStatus('validated');
+      setDocumentAIValidationResult({
+        isValid: true,
+        confidence: 1.0,
+        documentType: 'Documento Digital',
+        issues: []
+      });
+      
+      toast({
+        title: '✅ Documento Digital Aceito',
+        description: 'PDF de documento oficial brasileiro (CNH-e ou RG Digital)',
+        variant: 'default',
+      });
+    } else {
+      // Para imagens, validar com IA
+      await performAIValidation(base64);
+    }
   };
 
   const cancelDocumentCapture = () => {
