@@ -26,6 +26,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
 import Empresas from './pages/Empresas';
 import TrialExpired from './pages/TrialExpired';
+import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { TrialExpiredGuard } from './components/TrialExpiredGuard';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
@@ -243,7 +244,7 @@ function App() {
             }
           />
           <Route path="/certificate" element={<Certificate />} />
-          <Route path="/c" element={<Certificate />} />
+          <Route path="/c/:shortCode" element={<ShortUrlRedirect />} />
           <Route path="/verify" element={<Verify />} />
           <Route
             path="/admin/users"
