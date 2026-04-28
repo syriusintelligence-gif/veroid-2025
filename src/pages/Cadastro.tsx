@@ -957,13 +957,13 @@ export default function Cadastro() {
                     
                     <div className="space-y-2 mb-4">
                       <p className="text-sm text-blue-800">
-                        📷 Envie uma <strong>FOTO</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
+                        📷 Envie uma <strong>FOTO ou PDF</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
                       </p>
                       <p className="text-xs text-blue-600">
                         Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
                       </p>
-                      <p className="text-xs text-amber-700 font-medium">
-                        ⚠️ <strong>PDFs não são aceitos</strong> - tire uma foto do documento com seu celular
+                      <p className="text-xs text-green-700 font-medium">
+                        ✅ <strong>Documentos digitais aceitos</strong> - CNH-e e RG Digital em PDF
                       </p>
                     </div>
                     
@@ -978,8 +978,8 @@ export default function Cadastro() {
                             <p className="text-xs text-muted-foreground mt-2">
                               🔒 Validação de segurança ativa
                             </p>
-                            <p className="text-xs text-amber-600 mt-1 font-medium">
-                              ⚠️ Apenas CNH, RG ou Passaporte são aceitos
+                            <p className="text-xs text-green-600 mt-1 font-medium">
+                              ✅ Aceita fotos (JPG/PNG) e documentos digitais (PDF)
                             </p>
                             <Input
                               id="documento"

@@ -31,18 +31,19 @@ import { validateFile, FileValidationResult } from './file-validator';
 
 /**
  * Extensões permitidas para documentos de identidade
- * ⚠️ PDF REMOVIDO - AWS Textract DetectDocumentText não suporta PDF
+ * ✅ PDF REATIVADO - Aceita documentos digitais (CNH-e, RG Digital)
  */
-const ALLOWED_DOCUMENT_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
+const ALLOWED_DOCUMENT_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf'];
 
 /**
  * MIME types permitidos para documentos de identidade
- * ⚠️ PDF REMOVIDO - AWS Textract DetectDocumentText não suporta PDF
+ * ✅ PDF REATIVADO - Aceita documentos digitais (CNH-e, RG Digital)
  */
 const ALLOWED_DOCUMENT_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
-  'image/png'
+  'image/png',
+  'application/pdf'
 ];
 
 /**
@@ -166,23 +167,10 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   }
   
   // =====================================================
-  // VALIDAÇÃO 3: Rejeitar PDFs explicitamente
+  // VALIDAÇÃO 3: PDF agora é aceito para documentos digitais
   // =====================================================
-  if (extension === '.pdf' || mimeType === 'application/pdf') {
-    console.error('❌ [DOCUMENT VALIDATOR] PDF não suportado:', extension);
-    
-    return {
-      valid: false,
-      message: '📷 PDFs não são aceitos. Por favor, tire uma FOTO (JPG ou PNG) do seu documento (CNH, RG ou Passaporte) e envie a imagem.',
-      isDocument: false,
-      details: {
-        fileName,
-        fileSize,
-        fileType: mimeType,
-        extension
-      }
-    };
-  }
+  // PDF reativado para suportar CNH-e e RG Digital
+  // Validação de extensão/MIME type continua nas próximas etapas
   
   // =====================================================
   // VALIDAÇÃO 4: Extensão permitida
@@ -280,17 +268,17 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
 
 /**
  * Retorna string de extensões permitidas para atributo accept do input
- * ⚠️ PDF REMOVIDO - apenas imagens são aceitas
+ * ✅ PDF INCLUÍDO - aceita documentos digitais (CNH-e, RG Digital)
  */
 export function getDocumentAcceptString(): string {
-  return ALLOWED_DOCUMENT_EXTENSIONS.join(',') + ',image/jpeg,image/png';
+  return ALLOWED_DOCUMENT_EXTENSIONS.join(',') + ',image/jpeg,image/png,application/pdf';
 }
 
 /**
  * Retorna descrição legível das extensões permitidas
  */
 export function getDocumentExtensionDescription(): string {
-  return 'JPG, PNG (apenas fotos, PDF não aceito)';
+  return 'JPG, PNG, PDF';
 }
 
 /**
