@@ -148,40 +148,66 @@ export function DownloadButton({
   const FileIcon = getFileIcon(mimeType);
 
   return (
-    <div className="space-y-2">
-      {/* Botão de Download */}
-      <Button
-        onClick={handleDownload}
-        disabled={isDownloading}
-        variant={variant}
-        size={size}
-        className="w-full sm:w-auto"
-      >
-        {isDownloading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Baixando...
-          </>
-        ) : (
-          <>
-            <Download className="mr-2 h-4 w-4" />
-            Baixar Documento
-          </>
-        )}
-      </Button>
+    <div className="space-y-3">
+      {/* 🆕 Card de Arquivo Estilo Certificado Baixado */}
+      {showFileInfo && (
+        <div className="bg-white p-4 rounded-lg border-2 border-green-500 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">📎</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-gray-900 text-sm truncate">
+                {fileName}
+              </div>
+              {fileSize && (
+                <div className="text-xs text-gray-600 mt-1">
+                  {formatFileSize(fileSize)}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Botão de Download Estilizado */}
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Baixando...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-xl">⬇️</span>
+                <span>Baixar Arquivo Original</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
-      {/* Informações do Arquivo */}
-      {showFileInfo && (mimeType || fileSize) && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <FileIcon className="h-4 w-4" />
-          <span className="truncate max-w-[200px]">{fileName}</span>
-          {fileSize && (
+      {/* Versão Compacta (sem showFileInfo) */}
+      {!showFileInfo && (
+        <Button
+          onClick={handleDownload}
+          disabled={isDownloading}
+          variant={variant}
+          size={size}
+          className="w-full sm:w-auto"
+        >
+          {isDownloading ? (
             <>
-              <span>•</span>
-              <span>{formatFileSize(fileSize)}</span>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Baixando...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar Documento
             </>
           )}
-        </div>
+        </Button>
       )}
 
       {/* Mensagem de Erro */}

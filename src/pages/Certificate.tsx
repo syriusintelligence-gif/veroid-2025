@@ -746,16 +746,15 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* 🆕 SEÇÃO DE DOWNLOAD DE ARQUIVO ORIGINAL */}
+          {/* 🆕 SEÇÃO DE DOWNLOAD DE ARQUIVO ORIGINAL - LAYOUT PADRONIZADO */}
           {content.filePath && content.fileName && (
             <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-                📄 Documento Original
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                📄 Documento Original Anexado
               </div>
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-6 rounded-xl border-2 border-green-200 shadow-lg">
-                <p className="text-sm font-semibold text-green-900 mb-4 flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Arquivo Anexado ao Certificado
+              <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-l-4 border-green-500 shadow-md">
+                <p className="text-sm text-green-800 mb-4 leading-relaxed">
+                  📝 Este certificado contém o arquivo original anexado. Clique no botão abaixo para baixar:
                 </p>
                 
                 {/* 🔒 LÓGICA DE DOWNLOAD:
@@ -776,8 +775,8 @@ export default function Certificate() {
                       size="default"
                       showFileInfo={true}
                     />
-                    <p className="text-xs text-green-700 mt-3">
-                      ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
+                    <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
+                      ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
                     </p>
                   </>
                 ) : (
@@ -795,8 +794,8 @@ export default function Certificate() {
                           size="default"
                           showFileInfo={true}
                         />
-                        <p className="text-xs text-green-700 mt-3">
-                          ✅ Este documento foi verificado e o criador permite download público
+                        <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
+                          ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
                         </p>
                       </>
                     ) : (
