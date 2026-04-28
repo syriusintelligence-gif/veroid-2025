@@ -78,15 +78,49 @@ export async function getPublicSignedDownloadUrl(
   }
   
   // =====================================================
-  // GERAR URL ASSINADA PÚBLICA
+  // MÉTODO 1: TENTAR URL PÚBLICA DIRETA PRIMEIRO
   // =====================================================
   
   try {
+    console.log('🔄 [Public Storage] Método 1: Tentando URL pública direta...');
+    
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+    
+    if (publicUrlData && publicUrlData.publicUrl) {
+      console.log('✅ [Public Storage] URL pública direta obtida:', {
+        publicUrl: publicUrlData.publicUrl,
+        executionTime: `${Date.now() - startTime}ms`
+      });
+      
+      return {
+        success: true,
+        signedUrl: publicUrlData.publicUrl,
+        expiresAt: undefined, // URL pública não expira
+        executionTime: Date.now() - startTime
+      };
+    }
+  } catch (publicUrlError) {
+    console.warn('⚠️ [Public Storage] URL pública falhou, tentando URL assinada...', publicUrlError);
+  }
+  
+  // =====================================================
+  // MÉTODO 2: FALLBACK PARA URL ASSINADA
+  // =====================================================
+  
+  try {
+    console.log('🔄 [Public Storage] Método 2: Tentando gerar URL assinada...');
+    
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(filePath, expiresIn);
     
     if (error) {
+      console.error('❌ [Public Storage] Erro ao criar URL assinada:', {
+        message: error.message,
+        name: error.name,
+      });
       throw error;
     }
     
@@ -97,7 +131,7 @@ export async function getPublicSignedDownloadUrl(
     const executionTime = Date.now() - startTime;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
     
-    console.log('✅ [Public Storage] URL assinada pública gerada com sucesso:', {
+    console.log('✅ [Public Storage] URL assinada gerada com sucesso:', {
       expiresAt: expiresAt.toISOString(),
       executionTime: `${executionTime}ms`
     });
@@ -111,11 +145,11 @@ export async function getPublicSignedDownloadUrl(
     
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error('❌ [Public Storage] Erro ao gerar URL assinada pública:', error);
+    console.error('❌ [Public Storage] Método 2 também falhou:', error);
     
     return {
       success: false,
-      error: (error as Error).message || 'Erro desconhecido ao gerar URL',
+      error: 'Não foi possível gerar URL de download. O arquivo pode não estar acessível publicamente.',
       executionTime
     };
   }
