@@ -213,10 +213,11 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
   // =====================================================
   // VALIDAÇÃO 6: Validação completa com file-validator
   // (inclui validação de Magic Numbers)
+  // ✅ PDF REATIVADO: Incluída categoria 'document' para aceitar PDFs
   // =====================================================
   const validationResult = await validateFile(file, {
     maxSizeBytes: MAX_DOCUMENT_SIZE_BYTES,
-    allowedCategories: ['image'],
+    allowedCategories: ['image', 'document'],
     strictMode: true,
     validateMagicNumbers: true
   });
