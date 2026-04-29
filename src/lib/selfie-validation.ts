@@ -45,35 +45,9 @@ export async function validateSelfie(
     if (error) {
       console.error('❌ [SELFIE-VALIDATION] Erro ao chamar Edge Function:', error);
       
-      // 🆕 MODO ULTRA PERMISSIVO: Em caso de erro na Edge Function,
-      // validar localmente de forma básica e aprovar automaticamente
-      console.log('⚠️ [SELFIE-VALIDATION] Ativando modo de validação local permissivo...');
-      
-      // Validação básica local: verifica se é uma imagem válida
-      const isValidImage = selfieBase64 && 
-                          selfieBase64.length > 100 && 
-                          (selfieBase64.startsWith('data:image/') || selfieBase64.length > 1000);
-      
-      if (isValidImage) {
-        console.log('✅ [SELFIE-VALIDATION] Validação local aprovada automaticamente');
-        
-        // Aprovar automaticamente com confiança moderada
-        return {
-          success: true,
-          isValid: true,
-          confidence: 0.75,
-          hasHumanFace: true,
-          issues: [],
-          message: 'Selfie aprovada (validação local)'
-        };
-      }
-      
-      // Se nem a validação básica passou, pedir nova foto
-      const errorMessage = 'Por favor, tire uma nova foto.\n\n' +
-        '💡 Dicas rápidas:\n\n' +
-        '📸 Posicione seu rosto no centro\n' +
-        '💡 Use boa iluminação\n' +
-        '✨ Certifique-se que seu rosto está visível';
+      // Em caso de erro de conexão/servidor, informar o usuário
+      const errorMessage = 'Erro temporário na validação. Por favor, tente novamente.\n\n' +
+        'Se o problema persistir, entre em contato com o suporte.';
       
       return {
         success: false,
@@ -96,31 +70,12 @@ export async function validateSelfie(
   } catch (err) {
     console.error('❌ [SELFIE-VALIDATION] Erro inesperado:', err);
     
-    // 🆕 MODO ULTRA PERMISSIVO: Em caso de erro, aprovar automaticamente
-    console.log('⚠️ [SELFIE-VALIDATION] Erro inesperado, ativando aprovação automática...');
-    
-    // Validação básica: se tem conteúdo de imagem, aprovar
-    const hasImageContent = selfieBase64 && selfieBase64.length > 1000;
-    
-    if (hasImageContent) {
-      console.log('✅ [SELFIE-VALIDATION] Selfie aprovada automaticamente devido a erro do sistema');
-      
-      return {
-        success: true,
-        isValid: true,
-        confidence: 0.75,
-        hasHumanFace: true,
-        issues: [],
-        message: 'Selfie aprovada (validação automática)'
-      };
-    }
-    
     return {
       success: false,
       isValid: false,
       confidence: 0,
       hasHumanFace: false,
-      error: 'Por favor, tire uma nova foto e tente novamente.'
+      error: 'Erro temporário na validação. Por favor, tente novamente.'
     };
   }
 }
