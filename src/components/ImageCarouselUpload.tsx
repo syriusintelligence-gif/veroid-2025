@@ -130,10 +130,42 @@ export default function ImageCarouselUpload({
     }
 
     const filesArray = Array.from(files);
-    setSelectedFiles(filesArray);
-    await generatePreviews(filesArray);
-    onImagesSelected(filesArray);
-  }, [validateFiles, generatePreviews, onImagesSelected]);
+    
+    // 🔧 FIX: Filter out null/undefined files before processing
+    const validFiles = filesArray.filter(file => {
+      const isValid = file && file.name && file.type && file.size !== undefined;
+      if (!isValid) {
+        console.warn('[ImageCarouselUpload] Filtered out invalid file:', file);
+      }
+      return isValid;
+    });
+    
+    if (validFiles.length === 0) {
+      setLocalError('Nenhum arquivo válido foi selecionado');
+      return;
+    }
+    
+    if (validFiles.length < filesArray.length) {
+      setLocalError(`${filesArray.length - validFiles.length} arquivo(s) inválido(s) foram removidos`);
+    }
+    
+    // Generate previews FIRST, then set state atomically
+    const previewPromises = validFiles.map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      });
+    });
+
+    const newPreviews = await Promise.all(previewPromises);
+    
+    // 🔧 FIX: Set both states atomically to prevent race conditions
+    setSelectedFiles(validFiles);
+    setPreviews(newPreviews);
+    onImagesSelected(validFiles);
+  }, [validateFiles, onImagesSelected]);
 
   /**
    * Manipula mudança de input
@@ -301,14 +333,24 @@ export default function ImageCarouselUpload({
             {previews.map((preview, index) => {
               const file = selectedFiles[index];
               
-              // 🔧 FIX: Early return com verificação mais rigorosa
+              // 🔧 FIX: Comprehensive validation before rendering
               if (!file || !preview) {
                 console.warn(`[ImageCarouselUpload] Skipping render for index ${index}: file or preview is null`);
                 return null;
               }
               
-              // 🔧 FIX: Use index as fallback for key to prevent null reference
-              const fileKey = file?.name ? `${file.name}-${index}` : `file-${index}`;
+              // 🔧 FIX: Validate file properties
+              if (!file.name || !file.type || file.size === undefined) {
+                console.warn(`[ImageCarouselUpload] Skipping render for index ${index}: file properties are invalid`, {
+                  hasName: !!file.name,
+                  hasType: !!file.type,
+                  hasSize: file.size !== undefined
+                });
+                return null;
+              }
+              
+              // Use index as fallback for key
+              const fileKey = `${file.name}-${index}`;
               
               return (
                 <div key={fileKey} className="relative group">
