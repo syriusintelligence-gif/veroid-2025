@@ -595,7 +595,7 @@ export default function SignContent() {
   
   /**
    * 🆕 INSTAGRAM-STYLE: Adicionar UMA imagem por vez
-   * 🔧 FIX DEFINITIVO: Adiciona arquivo ao estado IMEDIATAMENTE, remove se falhar
+   * ✅ LÓGICA ESTÁVEL: Adiciona ao estado SOMENTE após upload bem-sucedido
    */
   const handleAddSingleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -611,7 +611,7 @@ export default function SignContent() {
     
     setCarouselError('');
     
-    // 🔧 FIX: Filtra arquivos válidos ANTES de validar o tamanho
+    // Filtra arquivos válidos do estado atual
     const currentValidFiles = carouselFiles.filter(f => f !== null && f !== undefined && f instanceof File);
     
     // Validação: máximo 15 imagens
@@ -643,11 +643,6 @@ export default function SignContent() {
       newFile: file.name
     });
     
-    // 🔧 FIX DEFINITIVO: Adiciona a nova imagem ao estado IMEDIATAMENTE
-    // Isso garante que a UI sempre tenha um File válido para renderizar
-    const newFiles = [...currentValidFiles, file];
-    setCarouselFiles(newFiles);
-    
     setIsUploadingCarousel(true);
     setCarouselUploadProgress(0);
     
@@ -663,10 +658,13 @@ export default function SignContent() {
         });
       }, 200);
       
-      console.log('📤 [SINGLE IMAGE] Fazendo upload de', newFiles.length, 'imagens');
+      // Cria array com TODAS as imagens (antigas + nova)
+      const allFiles = [...currentValidFiles, file];
+      
+      console.log('📤 [SINGLE IMAGE] Fazendo upload de', allFiles.length, 'imagens');
       
       // Faz upload de TODAS as imagens juntas
-      const result = await uploadCarouselImages(newFiles, currentUser.id);
+      const result = await uploadCarouselImages(allFiles, currentUser.id);
       
       clearInterval(progressInterval);
       setCarouselUploadProgress(100);
@@ -676,6 +674,9 @@ export default function SignContent() {
       }
       
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
+      
+      // ✅ Atualiza estado SOMENTE após upload bem-sucedido
+      setCarouselFiles(allFiles);
       setCarouselMetadata(result.metadata!);
       
       // Limpa estados de upload único
@@ -686,9 +687,7 @@ export default function SignContent() {
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      
-      // 🔧 FIX: Remove o arquivo que falhou do array
-      setCarouselFiles(currentValidFiles);
+      // NÃO altera o array de arquivos - mantém o estado anterior
     } finally {
       setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
