@@ -1126,50 +1126,7 @@ export default function Cadastro() {
                     )}
                   </div>
                   
-                  {/* 🎯 DIVISOR VISUAL ENTRE SEÇÕES */}
-                  <div className="relative py-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t-2 border-gray-300" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-white px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full shadow-sm">
-                        Em seguida
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* 🤳 SEÇÃO 2: SELFIE EM TEMPO REAL - DESABILITADA */}
-                  <div className="space-y-4 p-6 bg-gray-50/50 border-2 border-gray-300 rounded-xl opacity-60">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold text-sm">
-                        2
-                      </div>
-                      <Label className="text-lg font-semibold text-gray-600">Selfie em Tempo Real (Opcional - Desabilitada)</Label>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      ⚠️ A verificação por selfie foi temporariamente desabilitada
-                    </p>
-                    <Alert className="border-gray-400 bg-gray-100">
-                      <AlertCircle className="h-4 w-4 text-gray-600" />
-                      <AlertDescription className="text-gray-700 text-sm">
-                        A validação por selfie está temporariamente desabilitada. Você pode prosseguir apenas com o documento de identificação.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                  
-                  {/* 🎯 DIVISOR VISUAL ENTRE SELFIE E DECLARAÇÃO */}
-                  <div className="relative py-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t-2 border-gray-300" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-white px-4 py-2 text-sm font-medium text-gray-600 border-2 border-gray-300 rounded-full shadow-sm">
-                        Por último
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* ✅ SEÇÃO 3: DECLARAÇÃO DE MAIORIDADE */}
+                  {/* ✅ DECLARAÇÃO DE MAIORIDADE */}
                   <div className="space-y-3 p-6 bg-amber-50 border-2 border-amber-300 rounded-xl">
                     <div className="flex items-start space-x-3">
                       <Checkbox
