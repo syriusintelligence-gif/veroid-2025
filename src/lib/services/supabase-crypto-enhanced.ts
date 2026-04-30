@@ -329,8 +329,8 @@ export async function signContentEnhanced(
       storage_bucket: fileMetadata?.storage_bucket || null,
       // 🆕 SOLUÇÃO DEFINITIVA: Salvar links sociais no certificado
       creator_social_links: creatorSocialLinks || null,
-      // 🆕 Controle de download - default TRUE se arquivo existir
-      allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
+      // 🆕 Controle de download - default TRUE se arquivo existir (único OU carrossel)
+      allow_file_download: (fileMetadata || carouselMetadata) ? (allowFileDownload ?? true) : false,
       // 🔧 FASE 5: Aplicar constraint do banco corretamente
       total_images: totalImages,
       carousel_metadata: shouldIncludeCarouselMetadata ? carouselMetadata : null,
