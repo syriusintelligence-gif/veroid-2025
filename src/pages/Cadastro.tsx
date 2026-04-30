@@ -648,21 +648,9 @@ export default function Cadastro() {
       return false;
     }
     
-    if (!selfieUrl) {
-      setError('Selfie é obrigatória');
-      return false;
-    }
-    
-    // 🆕 ETAPA 2: Verifica se selfie foi validada pela IA
-    if (selfieAIValidationStatus !== 'validated') {
-      setError('A selfie enviada não passou na validação de segurança. Tire uma foto do seu rosto com boa iluminação.');
-      return false;
-    }
-    
-    if (!selfieAIValidationResult?.isValid || !selfieAIValidationResult?.hasHumanFace) {
-      setError('Selfie inválida. Certifique-se de que seu rosto está visível e bem iluminado na foto.');
-      return false;
-    }
+    // ⚠️ SELFIE DESABILITADA - Não é mais obrigatória
+    // A validação de selfie foi temporariamente removida devido a dificuldades
+    // em encontrar um equilíbrio adequado entre segurança e usabilidade
     
     if (!ageDeclarationAccepted) {
       setError('Você deve aceitar a declaração de maioridade para continuar');
@@ -1150,108 +1138,23 @@ export default function Cadastro() {
                     </div>
                   </div>
                   
-                  {/* 🤳 SEÇÃO 2: SELFIE EM TEMPO REAL */}
-                  <div className="space-y-4 p-6 bg-purple-50/50 border-2 border-purple-200 rounded-xl">
+                  {/* 🤳 SEÇÃO 2: SELFIE EM TEMPO REAL - DESABILITADA */}
+                  <div className="space-y-4 p-6 bg-gray-50/50 border-2 border-gray-300 rounded-xl opacity-60">
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm">
+                      <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold text-sm">
                         2
                       </div>
-                      <Label className="text-lg font-semibold text-purple-900">Selfie em Tempo Real *</Label>
+                      <Label className="text-lg font-semibold text-gray-600">Selfie em Tempo Real (Opcional - Desabilitada)</Label>
                     </div>
-                    <p className="text-sm text-purple-800">
-                      Tire uma foto do seu rosto para verificação
+                    <p className="text-sm text-gray-600">
+                      ⚠️ A verificação por selfie foi temporariamente desabilitada
                     </p>
-                    
-                    {!selfieCaptured ? (
-                      <div className="space-y-4">
-                        {!webcamActive ? (
-                          <Button 
-                            onClick={startWebcam} 
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Iniciando câmera...
-                              </>
-                            ) : (
-                              <>
-                                <Camera className="mr-2 h-4 w-4" />
-                                Ativar Câmera
-                              </>
-                            )}
-                          </Button>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="relative bg-black rounded-lg overflow-hidden">
-                              <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full rounded-lg"
-                                style={{ minHeight: '300px' }}
-                              />
-                              <div className="absolute top-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                                Câmera Ativa
-                              </div>
-                            </div>
-                            <Button 
-                              onClick={captureSelfie} 
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                            >
-                              <Camera className="mr-2 h-4 w-4" />
-                              Capturar Foto
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="relative group">
-                          <img
-                            src={selfieUrl}
-                            alt="Selfie"
-                            className="w-full rounded-lg border-2 border-green-400"
-                          />
-                          {selfieAIValidationStatus === 'validating' && (
-                            <div className="absolute top-2 right-2 bg-amber-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Validando com IA...
-                            </div>
-                          )}
-                          {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.isValid && (
-                            <div className="absolute top-2 right-2 bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Rosto Validado
-                            </div>
-                          )}
-                          {selfieAIValidationStatus === 'failed' && (
-                            <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                              <XCircle className="h-3 w-3" />
-                              Inválida
-                            </div>
-                          )}
-                        </div>
-                        
-                        {selfieAIValidationStatus === 'validated' && selfieAIValidationResult?.isValid && (
-                          <Alert className="border-green-500 bg-green-50">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800 text-sm">
-                              ✅ Selfie validada com sucesso! Rosto humano detectado.
-                              <br />
-                              Confiança: <strong>{(selfieAIValidationResult.confidence * 100).toFixed(0)}%</strong>
-                            </AlertDescription>
-                          </Alert>
-                        )}
-                        
-                        <Button variant="outline" onClick={retakeSelfie} className="w-full">
-                          Tirar Nova Foto
-                        </Button>
-                      </div>
-                    )}
+                    <Alert className="border-gray-400 bg-gray-100">
+                      <AlertCircle className="h-4 w-4 text-gray-600" />
+                      <AlertDescription className="text-gray-700 text-sm">
+                        A validação por selfie está temporariamente desabilitada. Você pode prosseguir apenas com o documento de identificação.
+                      </AlertDescription>
+                    </Alert>
                   </div>
                   
                   {/* 🎯 DIVISOR VISUAL ENTRE SELFIE E DECLARAÇÃO */}
@@ -1306,7 +1209,7 @@ export default function Cadastro() {
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Verificando idade...
+                          Verificando...
                         </>
                       ) : (
                         'Próximo'
