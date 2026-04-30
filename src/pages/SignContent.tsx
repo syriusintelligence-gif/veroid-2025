@@ -1388,14 +1388,43 @@ ${content}
                       {/* Preview da Primeira Imagem */}
                       <div className="space-y-3">
                         {(() => {
+                          // 🔧 CRITICAL FIX: Validação defensiva completa
                           const firstImage = carouselFiles?.[0];
-                          if (!firstImage || !(firstImage instanceof File)) return null;
+                          
+                          // Validação 1: Existe?
+                          if (!firstImage) {
+                            console.warn('[SignContent] firstImage is null/undefined');
+                            return null;
+                          }
+                          
+                          // Validação 2: É um File válido?
+                          if (!(firstImage instanceof File)) {
+                            console.warn('[SignContent] firstImage is not a File instance:', typeof firstImage);
+                            return null;
+                          }
+                          
+                          // Validação 3: Tem propriedades obrigatórias?
+                          if (!firstImage.name || !firstImage.type || firstImage.size === undefined) {
+                            console.warn('[SignContent] firstImage missing required properties');
+                            return null;
+                          }
+                          
+                          // 🔧 SAFE: Todas as validações passaram
+                          let imageUrl: string | null = null;
+                          try {
+                            imageUrl = URL.createObjectURL(firstImage);
+                          } catch (error) {
+                            console.error('[SignContent] Error creating object URL:', error);
+                            return null;
+                          }
+                          
+                          if (!imageUrl) return null;
                           
                           return (
                             <div className="relative">
                               <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
                                 <img
-                                  src={URL.createObjectURL(firstImage)}
+                                  src={imageUrl}
                                   alt="Preview principal"
                                   className="w-full h-full object-cover"
                                 />
@@ -1405,8 +1434,8 @@ ${content}
                                 Imagem Principal
                               </div>
                               
-                              <p className="text-xs text-gray-600 mt-2" title={firstImage.name || ''}>
-                                📁 {firstImage.name || 'Imagem'}
+                              <p className="text-xs text-gray-600 mt-2" title={firstImage.name}>
+                                📁 {firstImage.name}
                               </p>
                             </div>
                           );
