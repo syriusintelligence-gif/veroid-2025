@@ -622,8 +622,8 @@ export default function SignContent() {
     
     console.log('✅ [SINGLE IMAGE] Imagem válida, adicionando ao array');
     
-    // Adiciona ao array
-    const newFiles = [...carouselFiles, file];
+    // Adiciona ao array - FILTRA NULLS ANTES
+    const newFiles = [...carouselFiles.filter(f => f !== null), file];
     setCarouselFiles(newFiles);
     
     // Se for a primeira imagem OU já tiver metadata, faz upload imediatamente
@@ -669,8 +669,8 @@ export default function SignContent() {
         console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
         setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
         
-        // Remove a imagem que falhou
-        setCarouselFiles(carouselFiles);
+        // Remove a imagem que falhou - volta para o array antigo SEM a nova imagem
+        setCarouselFiles(carouselFiles.filter(f => f !== null));
       } finally {
         setIsUploadingCarousel(false);
       }
