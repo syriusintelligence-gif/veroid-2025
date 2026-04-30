@@ -5,8 +5,11 @@
  * Suporta drag & drop, preview, reordenação e validação.
  * 
  * @module ImageCarouselUpload
- * @version 1.0.0
+ * @version 1.0.1
  * @date 2026-04-30
+ * 
+ * CHANGELOG:
+ * - 1.0.1: Fixed null reference error in file.name rendering
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -295,37 +298,49 @@ export default function ImageCarouselUpload({
 
           {/* Grid de Previews */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {previews.map((preview, index) => (
-              <div key={index} className="relative group">
-                <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
-                  <img
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                
-                {/* Número da ordem */}
-                <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                  {index + 1}
-                </div>
+            {previews.map((preview, index) => {
+              const file = selectedFiles[index];
+              
+              // 🔧 FIX: Early return com verificação mais rigorosa
+              if (!file || !preview) {
+                console.warn(`[ImageCarouselUpload] Skipping render for index ${index}: file or preview is null`);
+                return null;
+              }
+              
+              return (
+                <div key={`${file.name}-${index}`} className="relative group">
+                  <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                    <img
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  
+                  {/* Número da ordem */}
+                  <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
+                    {index + 1}
+                  </div>
 
-                {/* Botão remover */}
-                <button
-                  onClick={() => handleRemoveImage(index)}
-                  disabled={disabled || isUploading}
-                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Remover imagem"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                  {/* Botão remover */}
+                  <button
+                    onClick={() => handleRemoveImage(index)}
+                    disabled={disabled || isUploading}
+                    className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Remover imagem"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
 
-                {/* Nome do arquivo */}
-                <p className="text-xs text-gray-600 mt-1 truncate" title={selectedFiles[index].name}>
-                  {selectedFiles[index].name}
-                </p>
-              </div>
-            ))}
+                  {/* Nome do arquivo - 🔧 FIX: Added null check */}
+                  {file?.name && (
+                    <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
+                      {file.name}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Info sobre reordenação */}

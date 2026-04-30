@@ -10,6 +10,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import VerificationLoadingScreen from '@/components/VerificationLoadingScreen';
 import { PublicDownloadButton } from '@/components/PublicDownloadButton'; // 🆕 Para download público de arquivos
 import { DownloadButton } from '@/components/DownloadButton'; // 🆕 Para download autenticado (criador)
+import ImageCarouselViewer from '@/components/ImageCarouselViewer'; // 🆕 Para exibir carrossel de imagens
+import type { CarouselMetadata } from '@/lib/types/carousel'; // 🆕 Tipos do carrossel
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -662,8 +664,39 @@ export default function Certificate() {
             </div>
           </div>
 
-          {/* 🔒 SOLUÇÃO 1: HASH VISUAL - Thumbnail Destacada com Aviso */}
-          {content.thumbnail && !imageError && (
+          {/* 🆕 CARROSSEL DE IMAGENS - Se houver múltiplas imagens */}
+          {content.carouselMetadata && content.carouselMetadata.carousel_images && content.carouselMetadata.carousel_images.length > 0 && (
+            <div className="mb-8 sm:mb-10">
+              <div className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <span className="text-xl">📸</span>
+                Carrossel de Imagens ORIGINAIS Autenticadas ({content.carouselMetadata.total_images} imagens)
+              </div>
+              <div className="relative bg-gradient-to-br from-blue-100 to-purple-100 p-4 sm:p-6 rounded-xl border-4 border-blue-500 shadow-xl">
+                {/* Badge de autenticação no canto */}
+                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  ORIGINAIS
+                </div>
+                
+                {/* Componente do Carrossel */}
+                <ImageCarouselViewer 
+                  images={content.carouselMetadata.carousel_images}
+                  showCounter={true}
+                  allowFullscreen={true}
+                />
+                
+                {/* Aviso abaixo do carrossel */}
+                <div className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-center">
+                  <p className="text-xs sm:text-sm font-medium">
+                    ✅ Estas são as <strong>{content.carouselMetadata.total_images} imagens originais completas</strong> que foram autenticadas
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🔒 SOLUÇÃO 1: HASH VISUAL - Thumbnail Destacada com Aviso (quando NÃO há carrossel) */}
+          {!content.carouselMetadata && content.thumbnail && !imageError && (
             <div className="mb-8 sm:mb-10">
               <div className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <span className="text-xl">📸</span>
@@ -697,7 +730,7 @@ export default function Certificate() {
           )}
           
           {/* 🆕 CORREÇÃO: Fallback quando thumbnail falha */}
-          {content.thumbnail && imageError && (
+          {!content.carouselMetadata && content.thumbnail && imageError && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
                 📸 Preview do Conteúdo
