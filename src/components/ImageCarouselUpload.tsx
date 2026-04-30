@@ -12,7 +12,7 @@
  * - 1.0.1: Fixed null reference error in file.name rendering
  */
 
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -119,8 +119,10 @@ export default function ImageCarouselUpload({
 
   /**
    * Manipula seleção de arquivos
+   * 🔧 CRITICAL FIX: Sincronização completa para evitar race conditions
    */
   const handleFileSelect = useCallback(async (files: FileList | File[]) => {
+    console.log('[ImageCarouselUpload] handleFileSelect iniciado:', files.length);
     setLocalError('');
     
     const validation = validateFiles(files);
@@ -140,6 +142,8 @@ export default function ImageCarouselUpload({
       return isValid;
     });
     
+    console.log('[ImageCarouselUpload] Arquivos válidos:', validFiles.length);
+    
     if (validFiles.length === 0) {
       setLocalError('Nenhum arquivo válido foi selecionado');
       return;
@@ -149,22 +153,40 @@ export default function ImageCarouselUpload({
       setLocalError(`${filesArray.length - validFiles.length} arquivo(s) inválido(s) foram removidos`);
     }
     
-    // Generate previews FIRST, then set state atomically
+    // 🔧 CRITICAL FIX: Gera previews E atualiza estados ANTES de chamar onImagesSelected
+    console.log('[ImageCarouselUpload] Gerando previews...');
     const previewPromises = validFiles.map(file => {
       return new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve('');
+        reader.onerror = () => {
+          console.error('[ImageCarouselUpload] Erro ao ler arquivo:', file.name);
+          resolve('');
+        };
         reader.readAsDataURL(file);
       });
     });
 
-    const newPreviews = await Promise.all(previewPromises);
-    
-    // 🔧 FIX: Set both states atomically to prevent race conditions
-    setSelectedFiles(validFiles);
-    setPreviews(newPreviews);
-    onImagesSelected(validFiles);
+    try {
+      const newPreviews = await Promise.all(previewPromises);
+      console.log('[ImageCarouselUpload] Previews gerados:', newPreviews.length);
+      
+      // 🔧 CRITICAL FIX: Atualiza estados de forma SÍNCRONA usando React.startTransition
+      // Isso garante que ambos os estados sejam atualizados antes da próxima renderização
+      React.startTransition(() => {
+        setSelectedFiles(validFiles);
+        setPreviews(newPreviews);
+      });
+      
+      // 🔧 CRITICAL FIX: Aguarda próximo tick para garantir que estados foram atualizados
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      console.log('[ImageCarouselUpload] Estados atualizados, chamando onImagesSelected');
+      onImagesSelected(validFiles);
+    } catch (error) {
+      console.error('[ImageCarouselUpload] Erro ao processar arquivos:', error);
+      setLocalError('Erro ao processar arquivos. Tente novamente.');
+    }
   }, [validateFiles, onImagesSelected]);
 
   /**
@@ -331,62 +353,71 @@ export default function ImageCarouselUpload({
           {/* Grid de Previews */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {selectedFiles.map((file, index) => {
-              // 🔧 CRITICAL FIX: Use selectedFiles instead of previews for iteration
-              // This ensures we only iterate over files that exist
-              const preview = previews[index];
-              
-              // 🔧 FIX: Comprehensive validation before rendering
-              if (!file || !preview) {
-                console.warn(`[ImageCarouselUpload] Skipping render for index ${index}: file or preview is null`);
-                return null;
-              }
-              
-              // 🔧 FIX: Validate file properties
-              if (!file.name || !file.type || file.size === undefined) {
-                console.warn(`[ImageCarouselUpload] Skipping render for index ${index}: file properties are invalid`, {
-                  hasName: !!file.name,
-                  hasType: !!file.type,
-                  hasSize: file.size !== undefined
-                });
-                return null;
-              }
-              
-              // Use safe key generation
-              const fileKey = `${file.name}-${file.size}-${index}`;
-              
-              return (
-                <div key={fileKey} className="relative group">
-                  <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  
-                  {/* Número da ordem */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                    {index + 1}
-                  </div>
+              // 🔧 CRITICAL FIX: Validação defensiva completa antes de qualquer acesso
+              try {
+                // Validação 1: File existe?
+                if (!file) {
+                  console.warn(`[ImageCarouselUpload] Skipping index ${index}: file is null/undefined`);
+                  return null;
+                }
+                
+                // Validação 2: File tem propriedades obrigatórias?
+                if (typeof file !== 'object' || !file.name || !file.type || file.size === undefined) {
+                  console.warn(`[ImageCarouselUpload] Skipping index ${index}: invalid file properties`, {
+                    isObject: typeof file === 'object',
+                    hasName: !!(file as any)?.name,
+                    hasType: !!(file as any)?.type,
+                    hasSize: (file as any)?.size !== undefined,
+                  });
+                  return null;
+                }
+                
+                // Validação 3: Preview existe?
+                const preview = previews[index];
+                if (!preview) {
+                  console.warn(`[ImageCarouselUpload] Skipping index ${index}: preview is null/undefined`);
+                  return null;
+                }
+                
+                // 🔧 SAFE: Todas as validações passaram, podemos acessar propriedades
+                const fileKey = `${file.name}-${file.size}-${index}`;
+                const fileName = file.name;
+                
+                return (
+                  <div key={fileKey} className="relative group">
+                    <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    
+                    {/* Número da ordem */}
+                    <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
+                      {index + 1}
+                    </div>
 
-                  {/* Botão remover */}
-                  <button
-                    onClick={() => handleRemoveImage(index)}
-                    disabled={disabled || isUploading}
-                    className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Remover imagem"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                    {/* Botão remover */}
+                    <button
+                      onClick={() => handleRemoveImage(index)}
+                      disabled={disabled || isUploading}
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Remover imagem"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
 
-                  {/* Nome do arquivo - 🔧 FIX: Added null check */}
-                  {file?.name && (
-                    <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
-                      {file.name}
+                    {/* Nome do arquivo */}
+                    <p className="text-xs text-gray-600 mt-1 truncate" title={fileName}>
+                      {fileName}
                     </p>
-                  )}
-                </div>
-              );
+                  </div>
+                );
+              } catch (error) {
+                console.error(`[ImageCarouselUpload] Erro ao renderizar index ${index}:`, error);
+                return null;
+              }
             })}
           </div>
 
