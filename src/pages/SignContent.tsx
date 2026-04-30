@@ -21,6 +21,10 @@ import { CameraCapture } from '@/components/CameraCapture';
 // 🆕 RATE LIMITING - Imports adicionados
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
+// 🆕 CAROUSEL UPLOAD - Componente de upload múltiplo de imagens
+import ImageCarouselUpload from '@/components/ImageCarouselUpload';
+import { uploadCarouselImages, moveCarouselToSignedDocuments } from '@/lib/services/carousel-storage';
+import type { CarouselMetadata } from '@/lib/types/carousel';
 // 🔒 SEGURANÇA: Validação de arquivos com lista branca
 import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 import type { FileCategory } from '@/lib/file-validator';
@@ -159,6 +163,18 @@ export default function SignContent() {
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   // ========================================
   // FIM: CAMERA CAPTURE
+  // ========================================
+  
+  // ========================================
+  // 🆕 CAROUSEL UPLOAD - Estados para múltiplas imagens
+  // ========================================
+  const [carouselFiles, setCarouselFiles] = useState<File[]>([]);
+  const [carouselMetadata, setCarouselMetadata] = useState<CarouselMetadata | null>(null);
+  const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
+  const [carouselUploadProgress, setCarouselUploadProgress] = useState(0);
+  const [carouselError, setCarouselError] = useState('');
+  // ========================================
+  // FIM: CAROUSEL UPLOAD
   // ========================================
   
   // ========================================
@@ -563,6 +579,79 @@ export default function SignContent() {
     setUploadProgress(0); // 🆕 Reseta progresso do upload
     setShowCameraCapture(false); // 🆕 Fecha modo de câmera
     setAllowFileDownload(true); // 🆕 Reseta permissão de download
+    // 🆕 CAROUSEL: Limpa estados de carrossel
+    setCarouselFiles([]);
+    setCarouselMetadata(null);
+    setCarouselError('');
+    setCarouselUploadProgress(0);
+  };
+  
+  /**
+   * 🆕 CAROUSEL UPLOAD: Handler para múltiplas imagens selecionadas
+   */
+  const handleCarouselImagesSelected = async (files: File[]) => {
+    console.log('📸 [CAROUSEL] Imagens selecionadas:', files.length);
+    
+    setCarouselError('');
+    setCarouselFiles(files);
+    
+    if (!currentUser) {
+      setCarouselError('Usuário não autenticado');
+      return;
+    }
+    
+    // Inicia upload para temp-uploads
+    setIsUploadingCarousel(true);
+    setCarouselUploadProgress(0);
+    
+    try {
+      // Simula progresso durante o upload
+      const progressInterval = setInterval(() => {
+        setCarouselUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+      
+      const result = await uploadCarouselImages(files, currentUser.id);
+      
+      clearInterval(progressInterval);
+      setCarouselUploadProgress(100);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao fazer upload das imagens');
+      }
+      
+      console.log('✅ [CAROUSEL] Upload concluído:', result.metadata);
+      setCarouselMetadata(result.metadata!);
+      
+      // Limpa estados de upload único
+      setUploadedFile(null);
+      setFilePreview(null);
+      setTempFilePath(null);
+      
+    } catch (error) {
+      console.error('❌ [CAROUSEL] Erro no upload:', error);
+      setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
+      setCarouselFiles([]);
+      setCarouselMetadata(null);
+    } finally {
+      setIsUploadingCarousel(false);
+    }
+  };
+  
+  /**
+   * 🆕 CAROUSEL UPLOAD: Handler para limpar imagens
+   */
+  const handleCarouselImagesCleared = () => {
+    console.log('🗑️ [CAROUSEL] Limpando imagens');
+    setCarouselFiles([]);
+    setCarouselMetadata(null);
+    setCarouselError('');
+    setCarouselUploadProgress(0);
   };
   
   /**
@@ -621,7 +710,7 @@ export default function SignContent() {
       return;
     }
     
-    if (!content.trim() && !uploadedFile) {
+    if (!content.trim() && !uploadedFile && carouselFiles.length === 0) {
       alert('Por favor, insira o conteúdo ou faça upload de um arquivo');
       return;
     }
@@ -709,13 +798,33 @@ export default function SignContent() {
     // 🆕 FASE 2: VARIÁVEL PARA TRACKING DE FILE PATH
     // ========================================
     let finalFilePath: string | null = null;
+    let finalCarouselMetadata: CarouselMetadata | null = null;
     // ========================================
     
     try {
       // ========================================
-      // 🆕 FASE 2: MOVER ARQUIVO PARA BUCKET PERMANENTE
+      // 🆕 CAROUSEL: MOVER IMAGENS DO CARROSSEL PARA BUCKET PERMANENTE
       // ========================================
-      if (tempFilePath && uploadedFile) {
+      if (carouselMetadata && carouselFiles.length > 0) {
+        console.log('🔄 [CAROUSEL] Movendo carrossel para signed-documents...');
+        
+        const moveResult = await moveCarouselToSignedDocuments(carouselMetadata, currentUser.id);
+        
+        if (!moveResult.success) {
+          throw new Error(moveResult.error || 'Erro ao mover carrossel para storage permanente');
+        }
+        
+        console.log('✅ [CAROUSEL] Carrossel movido:', {
+          totalImages: moveResult.metadata!.total_images,
+          executionTime: moveResult.executionTime + 'ms'
+        });
+        
+        finalCarouselMetadata = moveResult.metadata!;
+      }
+      // ========================================
+      // 🆕 FASE 2: MOVER ARQUIVO ÚNICO PARA BUCKET PERMANENTE
+      // ========================================
+      else if (tempFilePath && uploadedFile) {
         console.log('🔄 [STORAGE] Movendo arquivo para signed-documents...');
         
         const moveResult = await moveToSignedDocuments(tempFilePath, currentUser.id);
@@ -760,6 +869,12 @@ ${content}
       
       // 🎬 VIDEO: Usa thumbnail do vídeo se disponível
       let finalThumbnail = videoThumbnail || filePreview;
+      
+      // 🆕 CAROUSEL: Se tiver carrossel, usa primeira imagem como thumbnail
+      if (finalCarouselMetadata && finalCarouselMetadata.carousel_images.length > 0) {
+        finalThumbnail = finalCarouselMetadata.carousel_images[0].thumbnail || null;
+        console.log('📸 [CAROUSEL] Usando primeira imagem do carrossel como thumbnail');
+      }
       
       // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)
       if (finalThumbnail && isImageDataUrl(finalThumbnail)) {
@@ -810,7 +925,8 @@ ${content}
         selectedPlatforms,
         fileMetadata, // 🆕 Passa metadados de arquivo
         creatorSocialLinks, // 🆕 SOLUÇÃO DEFINITIVA: Sempre passa links sociais do criador
-        allowFileDownload // 🆕 Controle de download pelo criador
+        allowFileDownload, // 🆕 Controle de download pelo criador
+        finalCarouselMetadata || undefined // 🆕 FASE 5: Passa metadados do carrossel
       );
       
       if (!result.success) {
@@ -886,6 +1002,11 @@ ${content}
     setTempFilePath(null); // 🆕 Limpa path temporário
     setUploadProgress(0); // 🆕 Reseta progresso do upload
     setAllowFileDownload(true); // 🆕 Reseta permissão de download
+    // 🆕 CAROUSEL: Limpa estados de carrossel
+    setCarouselFiles([]);
+    setCarouselMetadata(null);
+    setCarouselError('');
+    setCarouselUploadProgress(0);
   };
   
   if (isLoading) {
@@ -1122,9 +1243,22 @@ ${content}
                 <Label htmlFor="file-upload">
                   03 - Upload do Arquivo (Opcional - será validado e processado automaticamente)
                   {contentType === 'video' && <span className="text-blue-600 font-medium"> - Apenas thumbnail será gerada (vídeo não será enviado)</span>}
+                  {contentType === 'image' && <span className="text-blue-600 font-medium"> - Você pode fazer upload de até 15 imagens em carrossel</span>}
                 </Label>
                 <div className="space-y-3">
-                  {!uploadedFile && !showCameraCapture ? (
+                  {/* 🆕 CAROUSEL: Usa componente especial para múltiplas imagens quando tipo é 'image' */}
+                  {contentType === 'image' && !uploadedFile && !showCameraCapture && carouselFiles.length === 0 ? (
+                    <ImageCarouselUpload
+                      onImagesSelected={handleCarouselImagesSelected}
+                      onImagesCleared={handleCarouselImagesCleared}
+                      maxImages={15}
+                      maxSizeMB={10}
+                      isUploading={isUploadingCarousel}
+                      uploadProgress={carouselUploadProgress}
+                      error={carouselError}
+                      disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                    />
+                  ) : !uploadedFile && !showCameraCapture && carouselFiles.length === 0 ? (
                     <>
                       <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
                         <input
@@ -1357,6 +1491,7 @@ ${content}
                   isBlocked || 
                   isProcessingVideo || 
                   isUploadingFile || 
+                  isUploadingCarousel || 
                   !title.trim() || 
                   selectedPlatforms.length === 0 ||
                   (signatureStatus && !signatureStatus.has_active_subscription) ||
@@ -1369,6 +1504,11 @@ ${content}
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Assinando...
+                  </>
+                ) : isUploadingCarousel ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Fazendo upload do carrossel...
                   </>
                 ) : isUploadingFile ? (
                   <>
