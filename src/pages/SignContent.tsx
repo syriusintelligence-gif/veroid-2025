@@ -1413,7 +1413,7 @@ ${content}
                       
                       {/* Preview da Primeira Imagem */}
                       <div className="space-y-3">
-                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && (
+                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && carouselFiles[0].name && (
                           <div className="relative">
                             <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
                               <img
@@ -1423,14 +1423,14 @@ ${content}
                               />
                             </div>
                             
-                            {/* Badge "Principal" */}
+                            {/* Badge "Principal" - Imagem selecionada com sucesso */}
                             <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
-                              Imagem Principal
+                              Imagem Principal ✓
                             </div>
                             
-                            {/* Nome do arquivo */}
-                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0]?.name || ''}>
-                              📁 {carouselFiles[0]?.name || 'Imagem'}
+                            {/* Nome do arquivo - Validado e pronto */}
+                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0].name}>
+                              📁 {carouselFiles[0].name}
                             </p>
                           </div>
                         )}
