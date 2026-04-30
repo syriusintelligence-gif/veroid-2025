@@ -21,8 +21,7 @@ import { CameraCapture } from '@/components/CameraCapture';
 // 🆕 RATE LIMITING - Imports adicionados
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
-// 🆕 CAROUSEL UPLOAD - Componente de upload múltiplo de imagens
-import ImageCarouselUpload from '@/components/ImageCarouselUpload';
+// 🆕 MULTIPLE IMAGES - Upload múltiplo com input nativo
 import { uploadCarouselImages, moveCarouselToSignedDocuments } from '@/lib/services/carousel-storage';
 import type { CarouselMetadata } from '@/lib/types/carousel';
 // 🔒 SEGURANÇA: Validação de arquivos com lista branca
@@ -587,41 +586,61 @@ export default function SignContent() {
   };
   
   /**
-   * 🆕 CAROUSEL UPLOAD: Handler para múltiplas imagens selecionadas
+   * 🆕 MULTIPLE IMAGES: Handler para múltiplas imagens (INPUT NATIVO)
    */
-  const handleCarouselImagesSelected = async (files: File[]) => {
-    console.log('📸 [CAROUSEL] Imagens selecionadas:', files.length);
+  const handleMultipleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
     
-    setCarouselError('');
-    
-    // 🔧 CRITICAL FIX: Validação defensiva para remover null/undefined do array
-    const validFiles = files.filter((file): file is File => {
-      if (!file) {
-        console.warn('📸 [CAROUSEL] Filtered out null/undefined file');
-        return false;
-      }
-      if (!file.name || !file.type || file.size === undefined) {
-        console.warn('📸 [CAROUSEL] Filtered out file with missing properties:', {
-          hasName: !!file.name,
-          hasType: !!file.type,
-          hasSize: file.size !== undefined,
-        });
-        return false;
-      }
-      return true;
-    });
-    
-    console.log('📸 [CAROUSEL] Arquivos válidos após filtro:', validFiles.length);
-    
-    if (validFiles.length === 0) {
-      setCarouselError('Nenhum arquivo válido foi selecionado');
+    if (!files || files.length === 0) {
       return;
     }
     
-    if (validFiles.length < files.length) {
-      console.warn(`📸 [CAROUSEL] ${files.length - validFiles.length} arquivo(s) inválido(s) foram removidos`);
+    console.log('📸 [MULTIPLE IMAGES] Imagens selecionadas:', files.length);
+    
+    setCarouselError('');
+    
+    // Converte FileList para Array e valida
+    const filesArray = Array.from(files);
+    const validFiles: File[] = [];
+    
+    for (const file of filesArray) {
+      // Validação básica
+      if (!file || !file.name || !file.type || file.size === undefined) {
+        console.warn('📸 [MULTIPLE IMAGES] Arquivo inválido ignorado');
+        continue;
+      }
+      
+      // Valida tipo (apenas imagens)
+      if (!file.type.startsWith('image/')) {
+        setCarouselError(`Arquivo "${file.name}" não é uma imagem`);
+        e.target.value = '';
+        return;
+      }
+      
+      // Valida tamanho (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setCarouselError(`Imagem "${file.name}" excede 10MB`);
+        e.target.value = '';
+        return;
+      }
+      
+      validFiles.push(file);
     }
     
+    // Valida quantidade (máximo 15)
+    if (validFiles.length > 15) {
+      setCarouselError(`Máximo de 15 imagens. Você selecionou ${validFiles.length}`);
+      e.target.value = '';
+      return;
+    }
+    
+    if (validFiles.length === 0) {
+      setCarouselError('Nenhuma imagem válida foi selecionada');
+      e.target.value = '';
+      return;
+    }
+    
+    console.log('📸 [MULTIPLE IMAGES] Imagens válidas:', validFiles.length);
     setCarouselFiles(validFiles);
     
     if (!currentUser) {
@@ -654,7 +673,7 @@ export default function SignContent() {
         throw new Error(result.error || 'Erro ao fazer upload das imagens');
       }
       
-      console.log('✅ [CAROUSEL] Upload concluído:', result.metadata);
+      console.log('✅ [MULTIPLE IMAGES] Upload concluído:', result.metadata);
       setCarouselMetadata(result.metadata!);
       
       // Limpa estados de upload único
@@ -663,20 +682,34 @@ export default function SignContent() {
       setTempFilePath(null);
       
     } catch (error) {
-      console.error('❌ [CAROUSEL] Erro no upload:', error);
+      console.error('❌ [MULTIPLE IMAGES] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
       setCarouselFiles([]);
       setCarouselMetadata(null);
+      e.target.value = '';
     } finally {
       setIsUploadingCarousel(false);
     }
   };
   
   /**
-   * 🆕 CAROUSEL UPLOAD: Handler para limpar imagens
+   * 🆕 MULTIPLE IMAGES: Handler para remover uma imagem específica
    */
-  const handleCarouselImagesCleared = () => {
-    console.log('🗑️ [CAROUSEL] Limpando imagens');
+  const handleRemoveCarouselImage = (index: number) => {
+    const newFiles = carouselFiles.filter((_, i) => i !== index);
+    setCarouselFiles(newFiles);
+    
+    if (newFiles.length === 0) {
+      setCarouselMetadata(null);
+      setCarouselError('');
+    }
+  };
+  
+  /**
+   * 🆕 MULTIPLE IMAGES: Handler para limpar todas as imagens
+   */
+  const handleClearAllCarouselImages = () => {
+    console.log('🗑️ [MULTIPLE IMAGES] Limpando todas as imagens');
     setCarouselFiles([]);
     setCarouselMetadata(null);
     setCarouselError('');
@@ -1280,18 +1313,146 @@ ${content}
                   {contentType === 'image' && <span className="text-blue-600 font-medium"> - Você pode fazer upload de até 15 imagens em carrossel</span>}
                 </Label>
                 <div className="space-y-3">
-                  {/* 🆕 CAROUSEL: Usa componente especial para múltiplas imagens quando tipo é 'image' */}
+                  {/* 🆕 MULTIPLE IMAGES: Input nativo para múltiplas imagens quando tipo é 'image' */}
                   {contentType === 'image' && !uploadedFile && !showCameraCapture && carouselFiles.length === 0 ? (
-                    <ImageCarouselUpload
-                      onImagesSelected={handleCarouselImagesSelected}
-                      onImagesCleared={handleCarouselImagesCleared}
-                      maxImages={15}
-                      maxSizeMB={10}
-                      isUploading={isUploadingCarousel}
-                      uploadProgress={carouselUploadProgress}
-                      error={carouselError}
-                      disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                    />
+                    <div className="space-y-4">
+                      {/* Input para múltiplas imagens */}
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
+                        <input
+                          id="multiple-images-upload"
+                          type="file"
+                          multiple
+                          accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={handleMultipleImagesUpload}
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel}
+                        />
+                        <label htmlFor="multiple-images-upload" className={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                              <Upload className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-base font-semibold text-gray-900 mb-1">
+                                Clique para selecionar múltiplas imagens
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Até 15 imagens • Máximo 10MB cada
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Formatos: JPEG, PNG, WebP, GIF
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-blue-600 font-medium">
+                              <ImageIcon className="h-4 w-4" />
+                              <span>Ideal para carrossel do Instagram</span>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      {/* Alerta de erro */}
+                      {carouselError && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <strong>Erro:</strong> {carouselError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {/* Progresso do Upload */}
+                      {isUploadingCarousel && (
+                        <Alert className="border-blue-500 bg-blue-50">
+                          <div className="w-full">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Loader2 className="h-4 w-4 text-blue-600 animate-spin flex-shrink-0" />
+                              <AlertDescription className="text-blue-800">
+                                <strong>Fazendo upload das imagens...</strong> {carouselUploadProgress}%
+                              </AlertDescription>
+                            </div>
+                            <Progress value={carouselUploadProgress} className="h-2 w-full" />
+                            <p className="text-xs text-blue-600 mt-1">
+                              {carouselUploadProgress < 100 
+                                ? 'Aguarde enquanto as imagens são enviadas para o servidor...' 
+                                : 'Finalizando upload...'}
+                            </p>
+                          </div>
+                        </Alert>
+                      )}
+                    </div>
+                  ) : contentType === 'image' && carouselFiles.length > 0 && !isUploadingCarousel ? (
+                    <div className="space-y-4">
+                      {/* Header com contador */}
+                      <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+                            <ImageIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-blue-900">
+                              {carouselFiles.length} {carouselFiles.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}
+                            </p>
+                            <p className="text-xs text-blue-700">
+                              {carouselMetadata ? 'Upload concluído! Pronto para assinar.' : 'Aguardando upload...'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleClearAllCarouselImages}
+                          variant="outline"
+                          size="sm"
+                          disabled={isUploadingCarousel}
+                          className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Limpar Todas
+                        </Button>
+                      </div>
+                      
+                      {/* Grid de Previews */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {carouselFiles.map((file, index) => (
+                          <div key={`${file.name}-${index}`} className="relative group">
+                            <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            
+                            {/* Número da ordem */}
+                            <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
+                              {index + 1}
+                            </div>
+                            
+                            {/* Botão remover */}
+                            <button
+                              onClick={() => handleRemoveCarouselImage(index)}
+                              disabled={isUploadingCarousel}
+                              className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Remover imagem"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            
+                            {/* Nome do arquivo */}
+                            <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
+                              {file.name}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Info sobre ordem */}
+                      <div className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                        <ImageIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <p>
+                          As imagens aparecerão no certificado na ordem mostrada acima (1, 2, 3...).
+                        </p>
+                      </div>
+                    </div>
                   ) : !uploadedFile && !showCameraCapture && carouselFiles.length === 0 ? (
                     <>
                       <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
