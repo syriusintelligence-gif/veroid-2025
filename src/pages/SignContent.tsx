@@ -1380,7 +1380,7 @@ ${content}
                         </Alert>
                       )}
                     </div>
-                  ) : contentType === 'image' && carouselFiles.length > 0 && !isUploadingCarousel ? (
+                  ) : contentType === 'image' && isCarouselReady && carouselFiles.length > 0 && !isUploadingCarousel ? (
                     <div className="space-y-4">
                       {/* Header com contador */}
                       <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
