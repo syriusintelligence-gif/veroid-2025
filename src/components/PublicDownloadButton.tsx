@@ -119,52 +119,21 @@ export function PublicDownloadButton({
         throw new Error('URL de download não foi gerada');
       }
 
-      console.log('✅ [PublicDownloadButton] URL obtida:', {
-        url: result.signedUrl.substring(0, 100) + '...',
+      console.log('✅ [PublicDownloadButton] URL assinada pública gerada:', {
         expiresAt: result.expiresAt?.toISOString(),
         executionTime: result.executionTime,
       });
 
-      // 2. Tentar download via fetch + blob (mais robusto para CORS)
-      try {
-        console.log('🔄 [PublicDownloadButton] Tentando download via fetch...');
-        
-        const response = await fetch(result.signedUrl);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Limpar blob URL após um pequeno delay
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-        
-        console.log('✅ [PublicDownloadButton] Download via fetch concluído');
-        
-      } catch (fetchError) {
-        console.warn('⚠️ [PublicDownloadButton] Fetch falhou, tentando método direto...', fetchError);
-        
-        // Fallback: download direto via link
-        const link = document.createElement('a');
-        link.href = result.signedUrl;
-        link.download = fileName;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('✅ [PublicDownloadButton] Download via link direto iniciado');
-      }
+      // 2. Download via browser
+      const link = document.createElement('a');
+      link.href = result.signedUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log('✅ [PublicDownloadButton] Download público iniciado com sucesso');
 
     } catch (error) {
       console.error('❌ [PublicDownloadButton] Erro no download:', error);
