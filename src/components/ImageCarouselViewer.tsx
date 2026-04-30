@@ -34,6 +34,19 @@ export default function ImageCarouselViewer({
   showCounter = true,
   allowFullscreen = true,
 }: ImageCarouselViewerProps) {
+  // 🔧 CRITICAL FIX: Filtrar nulls/undefined do array de imagens
+  const validImages = images.filter((img): img is CarouselImage => {
+    if (!img) {
+      console.warn('[ImageCarouselViewer] Filtered out null/undefined image');
+      return false;
+    }
+    if (!img.name || !img.path) {
+      console.warn('[ImageCarouselViewer] Filtered out image with missing name/path:', img);
+      return false;
+    }
+    return true;
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageError, setImageError] = useState<Set<number>>(new Set());
@@ -42,15 +55,15 @@ export default function ImageCarouselViewer({
    * Navega para a próxima imagem
    */
   const handleNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  }, [images.length]);
+    setCurrentIndex((prev) => (prev + 1) % validImages.length);
+  }, [validImages.length]);
 
   /**
    * Navega para a imagem anterior
    */
   const handlePrevious = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  }, [images.length]);
+    setCurrentIndex((prev) => (prev - 1 + validImages.length) % validImages.length);
+  }, [validImages.length]);
 
   /**
    * Vai para uma imagem específica
@@ -82,12 +95,23 @@ export default function ImageCarouselViewer({
     setIsFullscreen(false);
   }, []);
 
-  if (images.length === 0) {
+  // 🔧 CRITICAL FIX: Retorna null se não houver imagens válidas
+  if (validImages.length === 0) {
+    console.warn('[ImageCarouselViewer] No valid images to display');
     return null;
   }
 
-  const currentImage = images[currentIndex];
-  const hasError = imageError.has(currentIndex);
+  // 🔧 CRITICAL FIX: Valida currentIndex e currentImage antes de usar
+  const safeCurrentIndex = Math.min(currentIndex, validImages.length - 1);
+  const currentImage = validImages[safeCurrentIndex];
+  
+  // 🔧 CRITICAL FIX: Se currentImage ainda for null/undefined, retorna null
+  if (!currentImage) {
+    console.error('[ImageCarouselViewer] currentImage is null at index', safeCurrentIndex);
+    return null;
+  }
+
+  const hasError = imageError.has(safeCurrentIndex);
 
   return (
     <>
@@ -98,10 +122,10 @@ export default function ImageCarouselViewer({
           {!hasError ? (
             <img
               src={currentImage.thumbnail || currentImage.path}
-              alt={`Imagem ${currentIndex + 1} de ${images.length}`}
+              alt={`Imagem ${safeCurrentIndex + 1} de ${validImages.length}`}
               className={`w-full h-full object-contain ${allowFullscreen ? 'cursor-zoom-in' : ''}`}
               onClick={handleOpenFullscreen}
-              onError={() => handleImageError(currentIndex)}
+              onError={() => handleImageError(safeCurrentIndex)}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
@@ -113,12 +137,12 @@ export default function ImageCarouselViewer({
           {/* Contador de Imagens */}
           {showCounter && (
             <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold">
-              {currentIndex + 1} / {images.length}
+              {safeCurrentIndex + 1} / {validImages.length}
             </div>
           )}
 
           {/* Controles de Navegação */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <>
               {/* Botão Anterior */}
               <button
@@ -142,39 +166,50 @@ export default function ImageCarouselViewer({
         </div>
 
         {/* Thumbnails para Navegação Rápida */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-            {images.map((image, index) => (
-              <button
-                key={index}
-                onClick={() => handleGoTo(index)}
-                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                  index === currentIndex
-                    ? 'border-blue-600 ring-2 ring-blue-300 scale-110'
-                    : 'border-gray-300 hover:border-blue-400 opacity-70 hover:opacity-100'
-                }`}
-                aria-label={`Ir para imagem ${index + 1}`}
-              >
-                <img
-                  src={image.thumbnail || image.path}
-                  alt={`Thumbnail ${index + 1}`}
-                  className="w-full h-full object-cover"
-                  onError={() => handleImageError(index)}
-                />
-                {/* Número da imagem */}
-                <div className="absolute bottom-1 right-1 w-5 h-5 bg-black/70 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                  {index + 1}
-                </div>
-              </button>
-            ))}
+            {validImages.map((image, index) => {
+              // 🔧 CRITICAL FIX: Validar cada imagem antes de renderizar
+              if (!image || !image.name || !image.path) {
+                console.warn('[ImageCarouselViewer] Skipping invalid thumbnail at index', index);
+                return null;
+              }
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleGoTo(index)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    index === safeCurrentIndex
+                      ? 'border-blue-600 ring-2 ring-blue-300 scale-110'
+                      : 'border-gray-300 hover:border-blue-400 opacity-70 hover:opacity-100'
+                  }`}
+                  aria-label={`Ir para imagem ${index + 1}`}
+                >
+                  <img
+                    src={image.thumbnail || image.path}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={() => handleImageError(index)}
+                  />
+                  {/* Número da imagem */}
+                  <div className="absolute bottom-1 right-1 w-5 h-5 bg-black/70 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {index + 1}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* Info da Imagem Atual */}
         <div className="mt-2 text-center">
-          <p className="text-xs text-gray-600 truncate" title={currentImage.name}>
-            📎 {currentImage.name}
-          </p>
+          {/* 🔧 CRITICAL FIX: Validar currentImage.name antes de usar */}
+          {currentImage?.name && (
+            <p className="text-xs text-gray-600 truncate" title={currentImage.name}>
+              📎 {currentImage.name}
+            </p>
+          )}
         </div>
       </div>
 
@@ -192,20 +227,20 @@ export default function ImageCarouselViewer({
 
           {/* Contador */}
           <div className="absolute top-4 left-4 bg-white/10 text-white px-4 py-2 rounded-full text-sm font-semibold">
-            {currentIndex + 1} / {images.length}
+            {safeCurrentIndex + 1} / {validImages.length}
           </div>
 
           {/* Imagem em Fullscreen */}
           <div className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center">
             <img
               src={currentImage.thumbnail || currentImage.path}
-              alt={`Imagem ${currentIndex + 1} de ${images.length}`}
+              alt={`Imagem ${safeCurrentIndex + 1} de ${validImages.length}`}
               className="max-w-full max-h-full object-contain"
-              onError={() => handleImageError(currentIndex)}
+              onError={() => handleImageError(safeCurrentIndex)}
             />
 
             {/* Controles de Navegação em Fullscreen */}
-            {images.length > 1 && (
+            {validImages.length > 1 && (
               <>
                 <button
                   onClick={handlePrevious}
@@ -227,25 +262,32 @@ export default function ImageCarouselViewer({
           </div>
 
           {/* Thumbnails em Fullscreen */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-full overflow-x-auto px-4">
-              {images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleGoTo(index)}
-                  className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
-                    index === currentIndex
-                      ? 'border-white ring-2 ring-white/50'
-                      : 'border-white/30 hover:border-white/60 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img
-                    src={image.thumbnail || image.path}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+              {validImages.map((image, index) => {
+                // 🔧 CRITICAL FIX: Validar cada imagem antes de renderizar thumbnail
+                if (!image || !image.path) {
+                  return null;
+                }
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleGoTo(index)}
+                    className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
+                      index === safeCurrentIndex
+                        ? 'border-white ring-2 ring-white/50'
+                        : 'border-white/30 hover:border-white/60 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={image.thumbnail || image.path}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

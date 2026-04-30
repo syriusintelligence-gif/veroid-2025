@@ -365,9 +365,9 @@ export default function ImageCarouselUpload({
                 if (typeof file !== 'object' || !file.name || !file.type || file.size === undefined) {
                   console.warn(`[ImageCarouselUpload] Skipping index ${index}: invalid file properties`, {
                     isObject: typeof file === 'object',
-                    hasName: !!(file as any)?.name,
-                    hasType: !!(file as any)?.type,
-                    hasSize: (file as any)?.size !== undefined,
+                    hasName: !!(file as File)?.name,
+                    hasType: !!(file as File)?.type,
+                    hasSize: (file as File)?.size !== undefined,
                   });
                   return null;
                 }
