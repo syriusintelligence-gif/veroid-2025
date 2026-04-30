@@ -595,6 +595,7 @@ export default function SignContent() {
   
   /**
    * 🆕 INSTAGRAM-STYLE: Adicionar UMA imagem por vez
+   * 🔧 FIX DEFINITIVO: Adiciona arquivo ao estado IMEDIATAMENTE, remove se falhar
    */
   const handleAddSingleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -642,6 +643,11 @@ export default function SignContent() {
       newFile: file.name
     });
     
+    // 🔧 FIX DEFINITIVO: Adiciona a nova imagem ao estado IMEDIATAMENTE
+    // Isso garante que a UI sempre tenha um File válido para renderizar
+    const newFiles = [...currentValidFiles, file];
+    setCarouselFiles(newFiles);
+    
     setIsUploadingCarousel(true);
     setCarouselUploadProgress(0);
     
@@ -657,13 +663,10 @@ export default function SignContent() {
         });
       }, 200);
       
-      // 🔧 FIX CRÍTICO: Cria array com TODAS as imagens válidas + nova
-      const allFiles = [...currentValidFiles, file];
-      
-      console.log('📤 [SINGLE IMAGE] Fazendo upload de', allFiles.length, 'imagens');
+      console.log('📤 [SINGLE IMAGE] Fazendo upload de', newFiles.length, 'imagens');
       
       // Faz upload de TODAS as imagens juntas
-      const result = await uploadCarouselImages(allFiles, currentUser.id);
+      const result = await uploadCarouselImages(newFiles, currentUser.id);
       
       clearInterval(progressInterval);
       setCarouselUploadProgress(100);
@@ -672,9 +675,7 @@ export default function SignContent() {
         throw new Error(result.error || 'Erro ao fazer upload da imagem');
       }
       
-      // 🔧 FIX CRÍTICO: Só adiciona ao estado APÓS upload bem-sucedido
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
-      setCarouselFiles(allFiles);
       setCarouselMetadata(result.metadata!);
       
       // Limpa estados de upload único
@@ -685,7 +686,9 @@ export default function SignContent() {
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      // NÃO adiciona ao array se o upload falhou
+      
+      // 🔧 FIX: Remove o arquivo que falhou do array
+      setCarouselFiles(currentValidFiles);
     } finally {
       setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
