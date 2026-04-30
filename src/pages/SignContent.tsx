@@ -1410,39 +1410,50 @@ ${content}
                         </Button>
                       </div>
                       
-                      {/* Grid de Previews */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {carouselFiles.filter(file => file && file.name).map((file, index) => (
-                          <div key={`${file.name}-${index}`} className="relative group">
-                            <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                      {/* Preview da Primeira Imagem */}
+                      <div className="space-y-3">
+                        {carouselFiles.length > 0 && carouselFiles[0] && (
+                          <div className="relative">
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
                               <img
-                                src={URL.createObjectURL(file)}
-                                alt={`Preview ${index + 1}`}
+                                src={URL.createObjectURL(carouselFiles[0])}
+                                alt="Preview principal"
                                 className="w-full h-full object-cover"
                               />
                             </div>
                             
-                            {/* Número da ordem */}
-                            <div className="absolute top-2 left-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                              {index + 1}
+                            {/* Badge "Principal" */}
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
+                              Imagem Principal
                             </div>
                             
-                            {/* Botão remover */}
-                            <button
-                              onClick={() => handleRemoveCarouselImage(index)}
-                              disabled={isUploadingCarousel}
-                              className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Remover imagem"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                            
                             {/* Nome do arquivo */}
-                            <p className="text-xs text-gray-600 mt-1 truncate" title={file.name}>
-                              {file.name}
+                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0].name}>
+                              📁 {carouselFiles[0].name}
                             </p>
                           </div>
-                        ))}
+                        )}
+                        
+                        {/* Contador de imagens restantes */}
+                        {carouselFiles.length > 1 && (
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+                                  <ImageIcon className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-blue-900">
+                                    +{carouselFiles.length - 1} {carouselFiles.length - 1 === 1 ? 'imagem adicional' : 'imagens adicionais'}
+                                  </p>
+                                  <p className="text-xs text-blue-700">
+                                    Todas as imagens serão incluídas no certificado
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Info sobre ordem */}
