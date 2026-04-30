@@ -841,9 +841,13 @@ export default function SignContent() {
     
     try {
       // ========================================
-      // 🆕 CAROUSEL: MOVER IMAGENS DO CARROSSEL PARA BUCKET PERMANENTE
+      // 🔧 CORREÇÃO: DECIDIR ENTRE CARROSSEL OU ARQUIVO ÚNICO
+      // - Se carouselMetadata existe E tem 2+ imagens → usar carrossel
+      // - Se tem arquivo único (tempFilePath) → usar arquivo único
+      // - Carrossel de 1 imagem NÃO é carrossel, é arquivo único
       // ========================================
-      if (carouselMetadata && carouselFiles.length > 0) {
+      if (carouselMetadata && carouselFiles.length > 1) {
+        // 🎠 CARROSSEL: 2+ imagens
         console.log('🔄 [CAROUSEL] Movendo carrossel para signed-documents...');
         
         const moveResult = await moveCarouselToSignedDocuments(carouselMetadata, currentUser.id);
@@ -859,11 +863,9 @@ export default function SignContent() {
         
         finalCarouselMetadata = moveResult.metadata!;
       }
-      // ========================================
-      // 🆕 FASE 2: MOVER ARQUIVO ÚNICO PARA BUCKET PERMANENTE
-      // ========================================
       else if (tempFilePath && uploadedFile) {
-        console.log('🔄 [STORAGE] Movendo arquivo para signed-documents...');
+        // 📄 ARQUIVO ÚNICO: 1 imagem ou qualquer outro tipo de arquivo
+        console.log('🔄 [STORAGE] Movendo arquivo único para signed-documents...');
         
         const moveResult = await moveToSignedDocuments(tempFilePath, currentUser.id);
         
@@ -871,12 +873,37 @@ export default function SignContent() {
           throw new Error(moveResult.error || 'Erro ao mover arquivo para storage permanente');
         }
         
-        console.log('✅ [STORAGE] Arquivo movido:', {
+        console.log('✅ [STORAGE] Arquivo único movido:', {
           path: moveResult.path,
           executionTime: moveResult.executionTime + 'ms'
         });
         
         finalFilePath = moveResult.path!;
+      }
+      else if (carouselMetadata && carouselFiles.length === 1) {
+        // 🔧 EDGE CASE: Carrossel com 1 imagem deve ser tratado como arquivo único
+        console.warn('⚠️ [CAROUSEL] Carrossel com 1 imagem detectado, convertendo para arquivo único...');
+        
+        // Pega a primeira imagem do carrossel
+        const firstImage = carouselMetadata.carousel_images[0];
+        if (firstImage && firstImage.storage_path) {
+          // Move do temp-uploads para signed-documents
+          const moveResult = await moveToSignedDocuments(firstImage.storage_path, currentUser.id);
+          
+          if (!moveResult.success) {
+            throw new Error(moveResult.error || 'Erro ao mover imagem única do carrossel');
+          }
+          
+          console.log('✅ [STORAGE] Imagem única movida do carrossel:', {
+            path: moveResult.path,
+            executionTime: moveResult.executionTime + 'ms'
+          });
+          
+          finalFilePath = moveResult.path!;
+          
+          // Limpa carouselMetadata para forçar uso de fileMetadata
+          finalCarouselMetadata = null;
+        }
       }
       // ========================================
       // FIM: MOVER ARQUIVO
