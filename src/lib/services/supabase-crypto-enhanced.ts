@@ -15,6 +15,7 @@ import { generateHash, generateVerificationCode } from '../crypto';
 import { signContentViaEdgeFunction } from './edge-function-service';
 import { isFeatureEnabled, FeatureFlag } from './feature-flags';
 import type { SignedContent } from '../supabase-crypto';
+import type { CarouselMetadata } from '../types/carousel';
 
 // Re-exporta tipos originais para compatibilidade
 export type {
@@ -96,6 +97,11 @@ interface SignContentResult {
  *    - Salva informações do arquivo no banco
  *    - Mantém compatibilidade retroativa (fileMetadata é opcional)
  * 
+ * 5. **🆕 Suporte a Carrossel (FASE 5):**
+ *    - Aceita metadados de carrossel opcional
+ *    - Salva array de imagens no banco
+ *    - Compatível com upload único existente
+ * 
  * @param content - Conteúdo a ser assinado
  * @param privateKey - Chave privada (usada apenas no fallback)
  * @param publicKey - Chave pública
@@ -105,6 +111,8 @@ interface SignContentResult {
  * @param platforms - Plataformas sociais
  * @param fileMetadata - 🆕 Metadados do arquivo anexado (opcional)
  * @param creatorSocialLinks - 🆕 Links sociais do criador (opcional)
+ * @param allowFileDownload - 🆕 Permitir download do arquivo (opcional)
+ * @param carouselMetadata - 🆕 Metadados do carrossel de imagens (opcional)
  * @returns Resultado da assinatura
  */
 export async function signContentEnhanced(
@@ -117,7 +125,8 @@ export async function signContentEnhanced(
   platforms?: string[],
   fileMetadata?: FileMetadata,
   creatorSocialLinks?: SocialLinks,
-  allowFileDownload?: boolean
+  allowFileDownload?: boolean,
+  carouselMetadata?: CarouselMetadata
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -133,6 +142,8 @@ export async function signContentEnhanced(
       platforms: platforms?.join(', '),
       hasFile: !!fileMetadata,
       hasSocialLinks: !!creatorSocialLinks,
+      hasCarousel: !!carouselMetadata,
+      carouselImagesCount: carouselMetadata?.total_images || 0,
     });
   }
 
@@ -286,7 +297,7 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
-    // 🆕 Preparar objeto de inserção com metadados de arquivo e links sociais
+    // 🆕 Preparar objeto de inserção com metadados de arquivo, links sociais e carrossel
     const signedContent: SignedContentInsert = {
       user_id: userId,
       content,
@@ -308,6 +319,8 @@ export async function signContentEnhanced(
       creator_social_links: creatorSocialLinks || null,
       // 🆕 Controle de download - default TRUE se arquivo existir
       allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
+      // 🆕 FASE 5: Adicionar metadados de carrossel
+      carousel_metadata: carouselMetadata || null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -394,6 +407,8 @@ function dbSignedContentToAppSignedContent(
     storageBucket: dbContent.storage_bucket || undefined,
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: dbContent.allow_file_download ?? true,
+    // 🆕 FASE 5: Adicionar metadados de carrossel
+    carouselMetadata: dbContent.carousel_metadata ? (dbContent.carousel_metadata as CarouselMetadata) : undefined,
   };
 }
 

@@ -130,6 +130,7 @@ export interface Database {
           platforms: string[] | null;
           verification_count: number;
           allow_file_download: boolean;
+          carousel_metadata: Record<string, unknown> | null;
         };
         Insert: {
           id?: string;
@@ -145,6 +146,7 @@ export interface Database {
           platforms?: string[] | null;
           verification_count?: number;
           allow_file_download?: boolean;
+          carousel_metadata?: Record<string, unknown> | null;
         };
         Update: {
           id?: string;
@@ -160,6 +162,7 @@ export interface Database {
           platforms?: string[] | null;
           verification_count?: number;
           allow_file_download?: boolean;
+          carousel_metadata?: Record<string, unknown> | null;
         };
       };
       key_pairs: {
