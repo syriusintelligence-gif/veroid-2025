@@ -1412,7 +1412,7 @@ ${content}
                       
                       {/* Grid de Previews */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {carouselFiles.map((file, index) => (
+                        {carouselFiles.filter(file => file && file.name).map((file, index) => (
                           <div key={`${file.name}-${index}`} className="relative group">
                             <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
                               <img
