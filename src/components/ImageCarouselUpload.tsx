@@ -330,8 +330,10 @@ export default function ImageCarouselUpload({
 
           {/* Grid de Previews */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {previews.map((preview, index) => {
-              const file = selectedFiles[index];
+            {selectedFiles.map((file, index) => {
+              // 🔧 CRITICAL FIX: Use selectedFiles instead of previews for iteration
+              // This ensures we only iterate over files that exist
+              const preview = previews[index];
               
               // 🔧 FIX: Comprehensive validation before rendering
               if (!file || !preview) {
@@ -349,8 +351,8 @@ export default function ImageCarouselUpload({
                 return null;
               }
               
-              // Use index as fallback for key
-              const fileKey = `${file.name}-${index}`;
+              // Use safe key generation
+              const fileKey = `${file.name}-${file.size}-${index}`;
               
               return (
                 <div key={fileKey} className="relative group">
