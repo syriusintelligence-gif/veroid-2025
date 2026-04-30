@@ -610,8 +610,11 @@ export default function SignContent() {
     
     setCarouselError('');
     
+    // 🔧 FIX: Filtra arquivos válidos ANTES de validar o tamanho
+    const currentValidFiles = carouselFiles.filter(f => f !== null && f !== undefined && f instanceof File);
+    
     // Validação: máximo 15 imagens
-    if (carouselFiles.length >= 15) {
+    if (currentValidFiles.length >= 15) {
       setCarouselError('Máximo de 15 imagens atingido');
       return;
     }
@@ -634,6 +637,10 @@ export default function SignContent() {
     }
     
     console.log('✅ [SINGLE IMAGE] Imagem válida, iniciando upload...');
+    console.log('📊 [SINGLE IMAGE] Estado atual:', {
+      currentValidFiles: currentValidFiles.length,
+      newFile: file.name
+    });
     
     setIsUploadingCarousel(true);
     setCarouselUploadProgress(0);
@@ -650,10 +657,10 @@ export default function SignContent() {
         });
       }, 200);
       
-      // 🔧 FIX CRÍTICO: Cria array com TODAS as imagens atuais + nova
-      // Filtra ANTES para garantir que não há null
-      const currentValidFiles = carouselFiles.filter(f => f !== null && f !== undefined);
+      // 🔧 FIX CRÍTICO: Cria array com TODAS as imagens válidas + nova
       const allFiles = [...currentValidFiles, file];
+      
+      console.log('📤 [SINGLE IMAGE] Fazendo upload de', allFiles.length, 'imagens');
       
       // Faz upload de TODAS as imagens juntas
       const result = await uploadCarouselImages(allFiles, currentUser.id);
@@ -678,7 +685,7 @@ export default function SignContent() {
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      // NÃO remove nada do array porque nunca adicionamos antes do sucesso
+      // NÃO adiciona ao array se o upload falhou
     } finally {
       setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
