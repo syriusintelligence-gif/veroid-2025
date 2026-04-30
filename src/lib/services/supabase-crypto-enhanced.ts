@@ -297,6 +297,18 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
+    // 🔧 CRITICAL FIX: Determinar total de imagens e aplicar constraint do banco
+    // CONSTRAINT: (total_images = 1 AND carousel_metadata IS NULL) OR (total_images > 1 AND carousel_metadata IS NOT NULL)
+    const totalImages = carouselMetadata?.total_images || 1;
+    const shouldIncludeCarouselMetadata = totalImages > 1;
+    
+    console.log('🔍 [Enhanced] Análise de carrossel:', {
+      hasCarouselMetadata: !!carouselMetadata,
+      totalImages,
+      shouldIncludeCarouselMetadata,
+      carouselImagesCount: carouselMetadata?.carousel_images?.length || 0,
+    });
+
     // 🆕 Preparar objeto de inserção com metadados de arquivo, links sociais e carrossel
     const signedContent: SignedContentInsert = {
       user_id: userId,
@@ -319,8 +331,9 @@ export async function signContentEnhanced(
       creator_social_links: creatorSocialLinks || null,
       // 🆕 Controle de download - default TRUE se arquivo existir
       allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
-      // 🆕 FASE 5: Adicionar metadados de carrossel
-      carousel_metadata: carouselMetadata || null,
+      // 🔧 FASE 5: Aplicar constraint do banco corretamente
+      total_images: totalImages,
+      carousel_metadata: shouldIncludeCarouselMetadata ? carouselMetadata : null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
