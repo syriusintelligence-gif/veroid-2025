@@ -587,21 +587,18 @@ export default function SignContent() {
   };
   
   /**
-   * 🆕 INSTAGRAM-STYLE: Adicionar UMA imagem por vez
-   * ✅ LÓGICA ESTÁVEL: Adiciona ao estado SOMENTE após upload bem-sucedido
+   * 🔥 SOLUÇÃO DEFINITIVA: Desativa renderização IMEDIATAMENTE
    */
   const handleAddSingleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    
-    // Limpa o input para permitir selecionar o mesmo arquivo novamente
     e.target.value = '';
     
-    if (!file) {
-      return;
-    }
+    if (!file) return;
+    
+    // 🔥 CRÍTICO: Desativa renderização ANTES de qualquer outra operação
+    setIsCarouselReady(false);
     
     console.log('📸 [SINGLE IMAGE] Imagem selecionada:', file.name);
-    
     setCarouselError('');
     
     // Filtra arquivos válidos do estado atual
@@ -668,9 +665,17 @@ export default function SignContent() {
       
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
       
+      // 🔥 AGUARDA 150ms para garantir sincronização total
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
       // ✅ Atualiza estado SOMENTE após upload bem-sucedido
       setCarouselFiles(allFiles);
       setCarouselMetadata(result.metadata!);
+      
+      // 🔥 AGUARDA mais 50ms antes de permitir renderização
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      setIsCarouselReady(true); // 🔥 SÓ AGORA permite renderizar
       
       // Limpa estados de upload único
       setUploadedFile(null);
@@ -680,7 +685,7 @@ export default function SignContent() {
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      // NÃO altera o array de arquivos - mantém o estado anterior
+      setIsCarouselReady(false); // 🔥 Mantém desativado em caso de erro
     } finally {
       setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
