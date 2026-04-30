@@ -650,18 +650,15 @@ export default function SignContent() {
         throw new Error(result.error || 'Erro ao fazer upload da imagem');
       }
       
+      // 🔧 FIX CRÍTICO: Só adiciona ao estado APÓS upload bem-sucedido
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
+      setCarouselFiles(allFiles);
+      setCarouselMetadata(result.metadata!);
       
-      // ✅ CRÍTICO: Aguarda React processar completamente antes de atualizar
-      setTimeout(() => {
-        setCarouselFiles(allFiles);
-        setCarouselMetadata(result.metadata!);
-        
-        // Limpa estados de upload único
-        setUploadedFile(null);
-        setFilePreview(null);
-        setTempFilePath(null);
-      }, 0);
+      // Limpa estados de upload único
+      setUploadedFile(null);
+      setFilePreview(null);
+      setTempFilePath(null);
       
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
@@ -1389,36 +1386,27 @@ ${content}
                         </Button>
                       </div>
                       
-                      {/* Preview da Primeira Imagem - COM VALIDAÇÃO EXTREMA */}
+                      {/* Preview da Primeira Imagem */}
                       <div className="space-y-3">
-                        {(() => {
-                          const firstFile = carouselFiles[0];
-                          if (!firstFile || !(firstFile instanceof File)) return null;
-                          
-                          try {
-                            const previewUrl = URL.createObjectURL(firstFile);
-                            return (
-                              <div className="relative">
-                                <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
-                                  <img
-                                    src={previewUrl}
-                                    alt="Preview principal"
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
-                                  Imagem Principal ✓
-                                </div>
-                                <p className="text-xs text-gray-600 mt-2">
-                                  📁 {firstFile.name || 'Imagem sem nome'}
-                                </p>
-                              </div>
-                            );
-                          } catch (err) {
-                            console.error('Erro ao criar preview:', err);
-                            return null;
-                          }
-                        })()}
+                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && (
+                          <div className="relative">
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
+                              <img
+                                src={URL.createObjectURL(carouselFiles[0])}
+                                alt="Preview principal"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
+                              Imagem Principal
+                            </div>
+                            
+                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0]?.name || ''}>
+                              📁 {carouselFiles[0]?.name || 'Imagem'}
+                            </p>
+                          </div>
+                        )}
                         
                         {/* Contador de imagens restantes */}
                         {carouselFiles.length > 1 && (
