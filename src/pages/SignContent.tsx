@@ -628,60 +628,60 @@ export default function SignContent() {
       return;
     }
     
-    console.log('✅ [SINGLE IMAGE] Imagem válida, adicionando ao array');
+    if (!currentUser) {
+      setCarouselError('Usuário não autenticado');
+      return;
+    }
     
-    // Adiciona ao array - FILTRA NULLS ANTES
-    const newFiles = [...carouselFiles.filter(f => f !== null), file];
-    setCarouselFiles(newFiles);
+    console.log('✅ [SINGLE IMAGE] Imagem válida, iniciando upload...');
     
-    // Se for a primeira imagem OU já tiver metadata, faz upload imediatamente
-    if (!carouselMetadata || carouselFiles.length === 0) {
-      if (!currentUser) {
-        setCarouselError('Usuário não autenticado');
-        return;
+    setIsUploadingCarousel(true);
+    setCarouselUploadProgress(0);
+    
+    try {
+      // Simula progresso
+      const progressInterval = setInterval(() => {
+        setCarouselUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+      
+      // 🔧 FIX CRÍTICO: Cria array com TODAS as imagens atuais + nova
+      // Filtra ANTES para garantir que não há null
+      const currentValidFiles = carouselFiles.filter(f => f !== null && f !== undefined);
+      const allFiles = [...currentValidFiles, file];
+      
+      // Faz upload de TODAS as imagens juntas
+      const result = await uploadCarouselImages(allFiles, currentUser.id);
+      
+      clearInterval(progressInterval);
+      setCarouselUploadProgress(100);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao fazer upload da imagem');
       }
       
-      setIsUploadingCarousel(true);
+      // 🔧 FIX CRÍTICO: Só adiciona ao estado APÓS upload bem-sucedido
+      console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
+      setCarouselFiles(allFiles);
+      setCarouselMetadata(result.metadata!);
+      
+      // Limpa estados de upload único
+      setUploadedFile(null);
+      setFilePreview(null);
+      setTempFilePath(null);
+      
+    } catch (error) {
+      console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
+      setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
+      // NÃO remove nada do array porque nunca adicionamos antes do sucesso
+    } finally {
+      setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
-      
-      try {
-        // Simula progresso
-        const progressInterval = setInterval(() => {
-          setCarouselUploadProgress(prev => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 200);
-        
-        const result = await uploadCarouselImages(newFiles, currentUser.id);
-        
-        clearInterval(progressInterval);
-        setCarouselUploadProgress(100);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Erro ao fazer upload da imagem');
-        }
-        
-        console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
-        setCarouselMetadata(result.metadata!);
-        
-        // Limpa estados de upload único
-        setUploadedFile(null);
-        setFilePreview(null);
-        setTempFilePath(null);
-        
-      } catch (error) {
-        console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
-        setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-        
-        // Remove a imagem que falhou - volta para o array antigo SEM a nova imagem
-        setCarouselFiles(carouselFiles.filter(f => f !== null));
-      } finally {
-        setIsUploadingCarousel(false);
-      }
     }
   };
   
