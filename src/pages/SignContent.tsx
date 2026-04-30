@@ -172,7 +172,6 @@ export default function SignContent() {
   const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
   const [carouselUploadProgress, setCarouselUploadProgress] = useState(0);
   const [carouselError, setCarouselError] = useState('');
-  const [isCarouselReady, setIsCarouselReady] = useState(false); // 🔥 NOVA FLAG - Controla quando pode renderizar
   // ========================================
   // FIM: CAROUSEL UPLOAD
   // ========================================
@@ -1357,7 +1356,7 @@ ${content}
                         </Alert>
                       )}
                     </div>
-                  ) : contentType === 'image' && isCarouselReady && carouselFiles.length > 0 && !isUploadingCarousel ? (
+                  ) : contentType === 'image' && carouselFiles.length > 0 && !isUploadingCarousel ? (
                     <div className="space-y-4">
                       {/* Header com contador */}
                       <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
