@@ -587,7 +587,7 @@ export default function SignContent() {
   };
   
   /**
-   * 🔥 SOLUÇÃO DEFINITIVA: Desativa renderização IMEDIATAMENTE
+   * ✅ SOLUÇÃO SIMPLES: Upload de UMA imagem por vez
    */
   const handleAddSingleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -595,14 +595,11 @@ export default function SignContent() {
     
     if (!file) return;
     
-    // 🔥 CRÍTICO: Desativa renderização ANTES de qualquer outra operação
-    setIsCarouselReady(false);
-    
     console.log('📸 [SINGLE IMAGE] Imagem selecionada:', file.name);
     setCarouselError('');
     
     // Filtra arquivos válidos do estado atual
-    const currentValidFiles = carouselFiles.filter(f => f !== null && f !== undefined && f instanceof File);
+    const currentValidFiles = carouselFiles.filter(f => f && f instanceof File);
     
     // Validação: máximo 15 imagens
     if (currentValidFiles.length >= 15) {
@@ -628,10 +625,6 @@ export default function SignContent() {
     }
     
     console.log('✅ [SINGLE IMAGE] Imagem válida, iniciando upload...');
-    console.log('📊 [SINGLE IMAGE] Estado atual:', {
-      currentValidFiles: currentValidFiles.length,
-      newFile: file.name
-    });
     
     setIsUploadingCarousel(true);
     setCarouselUploadProgress(0);
@@ -639,13 +632,7 @@ export default function SignContent() {
     try {
       // Simula progresso
       const progressInterval = setInterval(() => {
-        setCarouselUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
+        setCarouselUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
       
       // Cria array com TODAS as imagens (antigas + nova)
@@ -665,17 +652,9 @@ export default function SignContent() {
       
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
       
-      // 🔥 AGUARDA 150ms para garantir sincronização total
-      await new Promise(resolve => setTimeout(resolve, 150));
-      
       // ✅ Atualiza estado SOMENTE após upload bem-sucedido
       setCarouselFiles(allFiles);
       setCarouselMetadata(result.metadata!);
-      
-      // 🔥 AGUARDA mais 50ms antes de permitir renderização
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      setIsCarouselReady(true); // 🔥 SÓ AGORA permite renderizar
       
       // Limpa estados de upload único
       setUploadedFile(null);
@@ -685,7 +664,6 @@ export default function SignContent() {
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
       setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      setIsCarouselReady(false); // 🔥 Mantém desativado em caso de erro
     } finally {
       setIsUploadingCarousel(false);
       setCarouselUploadProgress(0);
@@ -1409,29 +1387,36 @@ ${content}
                         </Button>
                       </div>
                       
-                      {/* Preview da Primeira Imagem */}
+                      {/* Preview da Primeira Imagem - COM VALIDAÇÃO EXTREMA */}
                       <div className="space-y-3">
-                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && carouselFiles[0].name && (
-                          <div className="relative">
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
-                              <img
-                                src={URL.createObjectURL(carouselFiles[0])}
-                                alt="Preview principal"
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            
-                            {/* Badge "Principal" - Imagem selecionada com sucesso */}
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
-                              Imagem Principal ✓
-                            </div>
-                            
-                            {/* Nome do arquivo - Validado e pronto */}
-                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0].name}>
-                              📁 {carouselFiles[0].name}
-                            </p>
-                          </div>
-                        )}
+                        {(() => {
+                          const firstFile = carouselFiles[0];
+                          if (!firstFile || !(firstFile instanceof File)) return null;
+                          
+                          try {
+                            const previewUrl = URL.createObjectURL(firstFile);
+                            return (
+                              <div className="relative">
+                                <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
+                                  <img
+                                    src={previewUrl}
+                                    alt="Preview principal"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
+                                  Imagem Principal ✓
+                                </div>
+                                <p className="text-xs text-gray-600 mt-2">
+                                  📁 {firstFile.name || 'Imagem sem nome'}
+                                </p>
+                              </div>
+                            );
+                          } catch (err) {
+                            console.error('Erro ao criar preview:', err);
+                            return null;
+                          }
+                        })()}
                         
                         {/* Contador de imagens restantes */}
                         {carouselFiles.length > 1 && (
