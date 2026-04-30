@@ -307,8 +307,11 @@ export default function ImageCarouselUpload({
                 return null;
               }
               
+              // 🔧 FIX: Use index as fallback for key to prevent null reference
+              const fileKey = file?.name ? `${file.name}-${index}` : `file-${index}`;
+              
               return (
-                <div key={`${file.name}-${index}`} className="relative group">
+                <div key={fileKey} className="relative group">
                   <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
                     <img
                       src={preview}

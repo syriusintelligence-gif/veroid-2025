@@ -145,6 +145,50 @@ export async function uploadCarouselImages(
     const file = files[i];
     const order = i + 1;
     
+    // 🔧 FIX: Verificação robusta de null/undefined
+    if (!file) {
+      console.error(`❌ [CarouselStorage] Arquivo ${order} é null ou undefined`);
+      
+      // Limpar imagens já enviadas
+      for (const uploadedImage of carouselImages) {
+        try {
+          await supabase.storage.from(bucket).remove([uploadedImage.path]);
+        } catch (cleanupError) {
+          console.warn('⚠️ [CarouselStorage] Erro ao limpar imagem:', cleanupError);
+        }
+      }
+      
+      return {
+        success: false,
+        error: `Arquivo ${order} é inválido ou corrompido`,
+        executionTime: Date.now() - startTime,
+      };
+    }
+    
+    // 🔧 FIX: Verificar propriedades essenciais do arquivo
+    if (!file.name || !file.type || file.size === undefined) {
+      console.error(`❌ [CarouselStorage] Arquivo ${order} não possui propriedades válidas:`, {
+        hasName: !!file.name,
+        hasType: !!file.type,
+        hasSize: file.size !== undefined,
+      });
+      
+      // Limpar imagens já enviadas
+      for (const uploadedImage of carouselImages) {
+        try {
+          await supabase.storage.from(bucket).remove([uploadedImage.path]);
+        } catch (cleanupError) {
+          console.warn('⚠️ [CarouselStorage] Erro ao limpar imagem:', cleanupError);
+        }
+      }
+      
+      return {
+        success: false,
+        error: `Arquivo ${order} está corrompido ou incompleto`,
+        executionTime: Date.now() - startTime,
+      };
+    }
+    
     console.log(`📤 [CarouselStorage] Fazendo upload da imagem ${order}/${files.length}:`, file.name);
 
     try {
