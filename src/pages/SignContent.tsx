@@ -168,6 +168,14 @@ export default function SignContent() {
   // 🆕 CAROUSEL UPLOAD - Estados para múltiplas imagens
   // ========================================
   const [carouselFiles, setCarouselFiles] = useState<File[]>([]);
+  
+  // 🛡️ Proteção: Remove valores null do array de carrossel sempre que mudar
+  useEffect(() => {
+    if (carouselFiles.some(f => f === null || f === undefined)) {
+      console.warn('⚠️ [CAROUSEL] Valores null/undefined detectados, limpando...');
+      setCarouselFiles(prev => prev.filter(f => f !== null && f !== undefined));
+    }
+  }, [carouselFiles]);
   const [carouselMetadata, setCarouselMetadata] = useState<CarouselMetadata | null>(null);
   const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
   const [carouselUploadProgress, setCarouselUploadProgress] = useState(0);
@@ -681,7 +689,7 @@ export default function SignContent() {
    * 🆕 MULTIPLE IMAGES: Handler para remover uma imagem específica
    */
   const handleRemoveCarouselImage = (index: number) => {
-    const newFiles = carouselFiles.filter((_, i) => i !== index);
+    const newFiles = carouselFiles.filter((file, i) => i !== index && file !== null);
     setCarouselFiles(newFiles);
     
     if (newFiles.length === 0) {
@@ -1396,7 +1404,7 @@ ${content}
                       
                       {/* Preview da Primeira Imagem */}
                       <div className="space-y-3">
-                        {carouselFiles.length > 0 && carouselFiles[0] && (
+                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && (
                           <div className="relative">
                             <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
                               <img
@@ -1412,8 +1420,8 @@ ${content}
                             </div>
                             
                             {/* Nome do arquivo */}
-                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0].name}>
-                              📁 {carouselFiles[0].name}
+                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0]?.name || ''}>
+                              📁 {carouselFiles[0]?.name || 'Imagem'}
                             </p>
                           </div>
                         )}
