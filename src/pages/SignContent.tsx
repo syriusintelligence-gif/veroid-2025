@@ -586,109 +586,94 @@ export default function SignContent() {
   };
   
   /**
-   * 🆕 MULTIPLE IMAGES: Handler para múltiplas imagens (INPUT NATIVO)
+   * 🆕 INSTAGRAM-STYLE: Adicionar UMA imagem por vez
    */
-  const handleMultipleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleAddSingleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     
-    if (!files || files.length === 0) {
+    // Limpa o input para permitir selecionar o mesmo arquivo novamente
+    e.target.value = '';
+    
+    if (!file) {
       return;
     }
     
-    console.log('📸 [MULTIPLE IMAGES] Imagens selecionadas:', files.length);
+    console.log('📸 [SINGLE IMAGE] Imagem selecionada:', file.name);
     
     setCarouselError('');
     
-    // Converte FileList para Array e valida
-    const filesArray = Array.from(files);
-    const validFiles: File[] = [];
+    // Validação: máximo 15 imagens
+    if (carouselFiles.length >= 15) {
+      setCarouselError('Máximo de 15 imagens atingido');
+      return;
+    }
     
-    for (const file of filesArray) {
-      // Validação básica
-      if (!file || !file.name || !file.type || file.size === undefined) {
-        console.warn('📸 [MULTIPLE IMAGES] Arquivo inválido ignorado');
-        continue;
-      }
-      
-      // Valida tipo (apenas imagens)
-      if (!file.type.startsWith('image/')) {
-        setCarouselError(`Arquivo "${file.name}" não é uma imagem`);
-        e.target.value = '';
+    // Validação: apenas imagens
+    if (!file.type.startsWith('image/')) {
+      setCarouselError(`"${file.name}" não é uma imagem válida`);
+      return;
+    }
+    
+    // Validação: tamanho máximo 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      setCarouselError(`"${file.name}" excede 10MB`);
+      return;
+    }
+    
+    console.log('✅ [SINGLE IMAGE] Imagem válida, adicionando ao array');
+    
+    // Adiciona ao array
+    const newFiles = [...carouselFiles, file];
+    setCarouselFiles(newFiles);
+    
+    // Se for a primeira imagem OU já tiver metadata, faz upload imediatamente
+    if (!carouselMetadata || carouselFiles.length === 0) {
+      if (!currentUser) {
+        setCarouselError('Usuário não autenticado');
         return;
       }
       
-      // Valida tamanho (10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setCarouselError(`Imagem "${file.name}" excede 10MB`);
-        e.target.value = '';
-        return;
+      setIsUploadingCarousel(true);
+      setCarouselUploadProgress(0);
+      
+      try {
+        // Simula progresso
+        const progressInterval = setInterval(() => {
+          setCarouselUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 200);
+        
+        const result = await uploadCarouselImages(newFiles, currentUser.id);
+        
+        clearInterval(progressInterval);
+        setCarouselUploadProgress(100);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao fazer upload da imagem');
+        }
+        
+        console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
+        setCarouselMetadata(result.metadata!);
+        
+        // Limpa estados de upload único
+        setUploadedFile(null);
+        setFilePreview(null);
+        setTempFilePath(null);
+        
+      } catch (error) {
+        console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
+        setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
+        
+        // Remove a imagem que falhou
+        setCarouselFiles(carouselFiles);
+      } finally {
+        setIsUploadingCarousel(false);
       }
-      
-      validFiles.push(file);
-    }
-    
-    // Valida quantidade (máximo 15)
-    if (validFiles.length > 15) {
-      setCarouselError(`Máximo de 15 imagens. Você selecionou ${validFiles.length}`);
-      e.target.value = '';
-      return;
-    }
-    
-    if (validFiles.length === 0) {
-      setCarouselError('Nenhuma imagem válida foi selecionada');
-      e.target.value = '';
-      return;
-    }
-    
-    console.log('📸 [MULTIPLE IMAGES] Imagens válidas:', validFiles.length);
-    setCarouselFiles(validFiles);
-    
-    if (!currentUser) {
-      setCarouselError('Usuário não autenticado');
-      return;
-    }
-    
-    // Inicia upload para temp-uploads
-    setIsUploadingCarousel(true);
-    setCarouselUploadProgress(0);
-    
-    try {
-      // Simula progresso durante o upload
-      const progressInterval = setInterval(() => {
-        setCarouselUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-      
-      const result = await uploadCarouselImages(validFiles, currentUser.id);
-      
-      clearInterval(progressInterval);
-      setCarouselUploadProgress(100);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao fazer upload das imagens');
-      }
-      
-      console.log('✅ [MULTIPLE IMAGES] Upload concluído:', result.metadata);
-      setCarouselMetadata(result.metadata!);
-      
-      // Limpa estados de upload único
-      setUploadedFile(null);
-      setFilePreview(null);
-      setTempFilePath(null);
-      
-    } catch (error) {
-      console.error('❌ [MULTIPLE IMAGES] Erro no upload:', error);
-      setCarouselError(error instanceof Error ? error.message : 'Erro desconhecido');
-      setCarouselFiles([]);
-      setCarouselMetadata(null);
-      e.target.value = '';
-    } finally {
-      setIsUploadingCarousel(false);
     }
   };
   
@@ -1319,33 +1304,32 @@ ${content}
                       {/* Input para múltiplas imagens */}
                       <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
                         <input
-                          id="multiple-images-upload"
+                          id="add-image-button"
                           type="file"
-                          multiple
                           accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                           className="hidden"
-                          onChange={handleMultipleImagesUpload}
+                          onChange={handleAddSingleImage}
                           disabled={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel}
                         />
-                        <label htmlFor="multiple-images-upload" className={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                        <label htmlFor="add-image-button" className={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                              <Upload className="h-8 w-8 text-blue-600" />
+                              <ImageIcon className="h-8 w-8 text-blue-600" />
                             </div>
                             <div>
                               <p className="text-base font-semibold text-gray-900 mb-1">
-                                Clique para selecionar múltiplas imagens
+                                Adicionar Imagem
                               </p>
                               <p className="text-sm text-gray-600">
-                                Até 15 imagens • Máximo 10MB cada
+                                Adicione imagens uma por vez • Até 15 imagens
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                Formatos: JPEG, PNG, WebP, GIF
+                                Formatos: JPEG, PNG, WebP, GIF • Máximo 10MB cada
                               </p>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-blue-600 font-medium">
                               <ImageIcon className="h-4 w-4" />
-                              <span>Ideal para carrossel do Instagram</span>
+                              <span>Estilo Instagram - Controle total sobre a ordem</span>
                             </div>
                           </div>
                         </label>
@@ -1368,13 +1352,13 @@ ${content}
                             <div className="flex items-center gap-2 mb-2">
                               <Loader2 className="h-4 w-4 text-blue-600 animate-spin flex-shrink-0" />
                               <AlertDescription className="text-blue-800">
-                                <strong>Fazendo upload das imagens...</strong> {carouselUploadProgress}%
+                                <strong>Fazendo upload da imagem...</strong> {carouselUploadProgress}%
                               </AlertDescription>
                             </div>
                             <Progress value={carouselUploadProgress} className="h-2 w-full" />
                             <p className="text-xs text-blue-600 mt-1">
                               {carouselUploadProgress < 100 
-                                ? 'Aguarde enquanto as imagens são enviadas para o servidor...' 
+                                ? 'Aguarde enquanto a imagem é enviada para o servidor...' 
                                 : 'Finalizando upload...'}
                             </p>
                           </div>
@@ -1456,11 +1440,38 @@ ${content}
                         )}
                       </div>
                       
+                      {/* Botão para adicionar mais imagens */}
+                      {carouselFiles.length < 15 && (
+                        <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors bg-blue-50/50">
+                          <input
+                            id="add-more-images"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            onChange={handleAddSingleImage}
+                            disabled={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel}
+                          />
+                          <label htmlFor="add-more-images" className={isBlocked || isProcessingVideo || isUploadingFile || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
+                                <ImageIcon className="h-6 w-6 text-white" />
+                              </div>
+                              <p className="text-sm font-semibold text-blue-900">
+                                Adicionar Mais Imagens
+                              </p>
+                              <p className="text-xs text-blue-700">
+                                {carouselFiles.length} de 15 imagens adicionadas
+                              </p>
+                            </div>
+                          </label>
+                        </div>
+                      )}
+                      
                       {/* Info sobre ordem */}
                       <div className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
                         <ImageIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
                         <p>
-                          As imagens aparecerão no certificado na ordem mostrada acima (1, 2, 3...).
+                          As imagens aparecerão no certificado na ordem em que foram adicionadas (1, 2, 3...). Clique em "Limpar Todas" para recomeçar.
                         </p>
                       </div>
                     </div>
