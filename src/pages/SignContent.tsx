@@ -1387,25 +1387,30 @@ ${content}
                       
                       {/* Preview da Primeira Imagem */}
                       <div className="space-y-3">
-                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && (
-                          <div className="relative">
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
-                              <img
-                                src={URL.createObjectURL(carouselFiles[0])}
-                                alt="Preview principal"
-                                className="w-full h-full object-cover"
-                              />
+                        {(() => {
+                          const firstImage = carouselFiles?.[0];
+                          if (!firstImage || !(firstImage instanceof File)) return null;
+                          
+                          return (
+                            <div className="relative">
+                              <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
+                                <img
+                                  src={URL.createObjectURL(firstImage)}
+                                  alt="Preview principal"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              
+                              <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
+                                Imagem Principal
+                              </div>
+                              
+                              <p className="text-xs text-gray-600 mt-2" title={firstImage.name || ''}>
+                                📁 {firstImage.name || 'Imagem'}
+                              </p>
                             </div>
-                            
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold shadow-lg">
-                              Imagem Principal
-                            </div>
-                            
-                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0]?.name || ''}>
-                              📁 {carouselFiles[0]?.name || 'Imagem'}
-                            </p>
-                          </div>
-                        )}
+                          );
+                        })()}
                         
                         {/* Contador de imagens restantes */}
                         {carouselFiles.length > 1 && (
