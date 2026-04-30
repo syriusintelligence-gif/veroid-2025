@@ -165,21 +165,14 @@ export default function SignContent() {
   // ========================================
   
   // ========================================
-  // 🆕 CAROUSEL UPLOAD - Estados para múltiplas imagens
+  // 🆕 CAROUSEL UPLOAD - Estados SIMPLIFICADOS
   // ========================================
   const [carouselFiles, setCarouselFiles] = useState<File[]>([]);
-  
-  // 🛡️ Proteção: Remove valores null do array de carrossel sempre que mudar
-  useEffect(() => {
-    if (carouselFiles.some(f => f === null || f === undefined)) {
-      console.warn('⚠️ [CAROUSEL] Valores null/undefined detectados, limpando...');
-      setCarouselFiles(prev => prev.filter(f => f !== null && f !== undefined));
-    }
-  }, [carouselFiles]);
   const [carouselMetadata, setCarouselMetadata] = useState<CarouselMetadata | null>(null);
   const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
   const [carouselUploadProgress, setCarouselUploadProgress] = useState(0);
   const [carouselError, setCarouselError] = useState('');
+  const [isCarouselReady, setIsCarouselReady] = useState(false); // 🔥 NOVA FLAG - Controla quando pode renderizar
   // ========================================
   // FIM: CAROUSEL UPLOAD
   // ========================================
