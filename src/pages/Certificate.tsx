@@ -129,6 +129,26 @@ export default function Certificate() {
             allowFileDownload: fullContent.allowFileDownload,
           });
           
+          // 🔍 DEBUG CRÍTICO: Verificar permissão de download
+          console.log('🔍 [CERTIFICATE DEBUG] Estado de download:', {
+            'allowFileDownload (raw)': fullContent.allowFileDownload,
+            'allowFileDownload (type)': typeof fullContent.allowFileDownload,
+            'allowFileDownload (boolean)': Boolean(fullContent.allowFileDownload),
+            'isCreator': user && fullContent.userId === user.id,
+            'userId': fullContent.userId,
+            'currentUserId': user?.id,
+          });
+          
+          // 🔍 DEBUG CRÍTICO: Verificar permissão de download
+          console.log('🔍 [CERTIFICATE DEBUG] Estado de download:', {
+            'allowFileDownload (raw)': fullContent.allowFileDownload,
+            'allowFileDownload (type)': typeof fullContent.allowFileDownload,
+            'allowFileDownload (boolean)': Boolean(fullContent.allowFileDownload),
+            'isCreator': user && fullContent.userId === user.id,
+            'userId': fullContent.userId,
+            'currentUserId': user?.id,
+          });
+          
           setContent(fullContent);
           
           // 🆕 Verifica se o usuário atual é o criador do certificado
@@ -795,6 +815,16 @@ export default function Certificate() {
                     2. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
                     3. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=false: mostra mensagem de restrição
                 */}
+                {(() => {
+                  console.log('🔍 [CERTIFICATE RENDER] Decidindo componente de download:', {
+                    isCreator,
+                    allowFileDownload: content.allowFileDownload,
+                    decision: isCreator === true ? 'DownloadButton (criador)' : 
+                              content.allowFileDownload ? 'PublicDownloadButton (público)' : 
+                              'Mensagem de restrição'
+                  });
+                  return null;
+                })()}
                 {isCreator === true ? (
                   <>
                     {/* Criador: sempre pode baixar com autenticação */}
