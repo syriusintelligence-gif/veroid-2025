@@ -593,7 +593,36 @@ export default function SignContent() {
     console.log('📸 [CAROUSEL] Imagens selecionadas:', files.length);
     
     setCarouselError('');
-    setCarouselFiles(files);
+    
+    // 🔧 CRITICAL FIX: Validação defensiva para remover null/undefined do array
+    const validFiles = files.filter((file): file is File => {
+      if (!file) {
+        console.warn('📸 [CAROUSEL] Filtered out null/undefined file');
+        return false;
+      }
+      if (!file.name || !file.type || file.size === undefined) {
+        console.warn('📸 [CAROUSEL] Filtered out file with missing properties:', {
+          hasName: !!file.name,
+          hasType: !!file.type,
+          hasSize: file.size !== undefined,
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    console.log('📸 [CAROUSEL] Arquivos válidos após filtro:', validFiles.length);
+    
+    if (validFiles.length === 0) {
+      setCarouselError('Nenhum arquivo válido foi selecionado');
+      return;
+    }
+    
+    if (validFiles.length < files.length) {
+      console.warn(`📸 [CAROUSEL] ${files.length - validFiles.length} arquivo(s) inválido(s) foram removidos`);
+    }
+    
+    setCarouselFiles(validFiles);
     
     if (!currentUser) {
       setCarouselError('Usuário não autenticado');
@@ -616,7 +645,7 @@ export default function SignContent() {
         });
       }, 200);
       
-      const result = await uploadCarouselImages(files, currentUser.id);
+      const result = await uploadCarouselImages(validFiles, currentUser.id);
       
       clearInterval(progressInterval);
       setCarouselUploadProgress(100);
