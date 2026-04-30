@@ -1657,8 +1657,8 @@ ${content}
                 )}
               </div>
               
-              {/* 🆕 Controle de Download de Arquivo */}
-              {uploadedFile && tempFilePath && (
+              {/* 🆕 Controle de Download de Arquivo - Agora suporta arquivo único E carrossel */}
+              {((uploadedFile && tempFilePath) || carouselFiles.length > 0) && (
                 <div className="space-y-3 bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -1674,12 +1674,12 @@ ${content}
                         className="text-sm font-semibold text-green-900 cursor-pointer flex items-center gap-2"
                       >
                         <FileType className="h-4 w-4" />
-                        Permitir que outras pessoas baixem o arquivo original?
+                        Permitir que outras pessoas baixem {carouselFiles.length > 0 ? 'as imagens originais' : 'o arquivo original'}?
                       </Label>
                       <p className="text-xs text-green-700 mt-1">
                         {allowFileDownload 
-                          ? '✅ Verificadores poderão baixar o arquivo original anexado ao certificado'
-                          : '🔒 Apenas você poderá baixar o arquivo original. Verificadores verão apenas o preview'}
+                          ? `✅ Verificadores poderão baixar ${carouselFiles.length > 0 ? 'todas as imagens originais' : 'o arquivo original'} anexado ao certificado`
+                          : `🔒 Apenas você poderá baixar ${carouselFiles.length > 0 ? 'as imagens originais' : 'o arquivo original'}. Verificadores verão apenas o preview`}
                       </p>
                     </div>
                   </div>
