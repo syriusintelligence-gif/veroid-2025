@@ -871,9 +871,14 @@ ${content}
       let finalThumbnail = videoThumbnail || filePreview;
       
       // 🆕 CAROUSEL: Se tiver carrossel, usa primeira imagem como thumbnail
-      if (finalCarouselMetadata && finalCarouselMetadata.carousel_images.length > 0) {
-        finalThumbnail = finalCarouselMetadata.carousel_images[0].thumbnail || null;
-        console.log('📸 [CAROUSEL] Usando primeira imagem do carrossel como thumbnail');
+      if (finalCarouselMetadata && finalCarouselMetadata.carousel_images && finalCarouselMetadata.carousel_images.length > 0) {
+        const firstImage = finalCarouselMetadata.carousel_images[0];
+        if (firstImage && firstImage.thumbnail) {
+          finalThumbnail = firstImage.thumbnail;
+          console.log('📸 [CAROUSEL] Usando primeira imagem do carrossel como thumbnail');
+        } else {
+          console.warn('⚠️ [CAROUSEL] Primeira imagem do carrossel não possui thumbnail válido');
+        }
       }
       
       // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)

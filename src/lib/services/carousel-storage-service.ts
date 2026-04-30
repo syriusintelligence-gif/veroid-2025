@@ -173,6 +173,12 @@ export async function moveCarouselToPermanent(
     for (let i = 0; i < metadata.carousel_images.length; i++) {
       const image = metadata.carousel_images[i];
       
+      // Validação de segurança: verifica se image existe e tem as propriedades necessárias
+      if (!image || !image.path) {
+        console.error(`❌ [CAROUSEL] Imagem ${i + 1} inválida ou sem path, pulando...`);
+        continue;
+      }
+      
       console.log(`📦 [CAROUSEL] Movendo imagem ${i + 1}/${metadata.total_images}...`);
 
       const moveResult = await moveToSignedDocuments(image.path, userId);
