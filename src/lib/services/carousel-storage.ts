@@ -142,11 +142,11 @@ export async function uploadCarouselImages(
   const bucket = 'temp-uploads';
 
   for (let i = 0; i < files.length; i++) {
-    const file = files[i];
     const order = i + 1;
+    const file = files[i];
     
-    // 🔧 FIX: Verificação robusta de null/undefined
-    if (!file) {
+    // 🔧 CRITICAL FIX: Verificação IMEDIATA de null/undefined ANTES de qualquer acesso
+    if (!file || file === null || file === undefined) {
       console.error(`❌ [CarouselStorage] Arquivo ${order} é null ou undefined`);
       
       // Limpar imagens já enviadas
@@ -165,13 +165,16 @@ export async function uploadCarouselImages(
       };
     }
     
-    // 🔧 FIX: Verificar propriedades essenciais do arquivo
-    if (!file.name || !file.type || file.size === undefined) {
-      console.error(`❌ [CarouselStorage] Arquivo ${order} não possui propriedades válidas:`, {
-        hasName: !!file.name,
-        hasType: !!file.type,
-        hasSize: file.size !== undefined,
-      });
+    // 🔧 CRITICAL FIX: Verificar propriedades essenciais com try-catch para proteção extra
+    let hasValidProperties = false;
+    try {
+      hasValidProperties = !!(file.name && file.type && file.size !== undefined);
+    } catch (err) {
+      console.error(`❌ [CarouselStorage] Erro ao acessar propriedades do arquivo ${order}:`, err);
+    }
+    
+    if (!hasValidProperties) {
+      console.error(`❌ [CarouselStorage] Arquivo ${order} não possui propriedades válidas`);
       
       // Limpar imagens já enviadas
       for (const uploadedImage of carouselImages) {
