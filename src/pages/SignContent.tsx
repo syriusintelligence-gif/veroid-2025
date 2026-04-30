@@ -652,14 +652,16 @@ export default function SignContent() {
       
       console.log('✅ [SINGLE IMAGE] Upload concluído:', result.metadata);
       
-      // ✅ Atualiza estado SOMENTE após upload bem-sucedido
-      setCarouselFiles(allFiles);
-      setCarouselMetadata(result.metadata!);
-      
-      // Limpa estados de upload único
-      setUploadedFile(null);
-      setFilePreview(null);
-      setTempFilePath(null);
+      // ✅ CRÍTICO: Aguarda React processar completamente antes de atualizar
+      setTimeout(() => {
+        setCarouselFiles(allFiles);
+        setCarouselMetadata(result.metadata!);
+        
+        // Limpa estados de upload único
+        setUploadedFile(null);
+        setFilePreview(null);
+        setTempFilePath(null);
+      }, 0);
       
     } catch (error) {
       console.error('❌ [SINGLE IMAGE] Erro no upload:', error);
