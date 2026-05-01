@@ -141,6 +141,32 @@ export default function SignContent() {
   };
   
   const generateVideoThumbnail = async (file: File): Promise<void> => {
+    const FILE_SIZE_MB = file.size / 1024 / 1024;
+    const MAX_SIZE_FOR_THUMBNAIL = 100; // 100MB
+    
+    console.log('🎬 [VIDEO THUMBNAIL] Verificando tamanho do vídeo:', {
+      fileName: file.name,
+      fileSize: `${FILE_SIZE_MB.toFixed(2)} MB`,
+      maxSizeForThumbnail: `${MAX_SIZE_FOR_THUMBNAIL} MB`
+    });
+    
+    // ========================================
+    // 🎯 LÓGICA DE VERIFICAÇÃO DE TAMANHO
+    // Vídeos > 100MB: Pula geração de thumbnail
+    // Vídeos ≤ 100MB: Gera thumbnail normalmente
+    // ========================================
+    if (FILE_SIZE_MB > MAX_SIZE_FOR_THUMBNAIL) {
+      console.log(`⚠️ [VIDEO THUMBNAIL] Vídeo muito grande (${FILE_SIZE_MB.toFixed(2)} MB). Pulando geração de thumbnail.`);
+      setVideoThumbnail(null);
+      setFileValidationError('');
+      // Informa ao usuário que thumbnail não será gerada para vídeos grandes
+      alert(`✅ Vídeo carregado com sucesso!\n\nℹ️ Como o vídeo é grande (${FILE_SIZE_MB.toFixed(2)} MB), a thumbnail não será gerada para evitar problemas de performance.\n\nVocê pode continuar normalmente com a assinatura.`);
+      return;
+    }
+    // ========================================
+    // FIM: LÓGICA DE VERIFICAÇÃO DE TAMANHO
+    // ========================================
+    
     console.log('🎬 [VIDEO THUMBNAIL] Gerando thumbnail do vídeo');
     setIsProcessingVideo(true);
     try {

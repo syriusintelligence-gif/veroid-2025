@@ -162,7 +162,7 @@ function calculateDimensions(
 // =====================================================
 
 /**
- * Gera thumbnail da primeira imagem do vídeo
+ * Gera thumbnail da primeira imagem do vídeo com timeout de 30 segundos
  * 
  * @param videoFile - Arquivo de vídeo
  * @param options - Opções de geração
@@ -196,57 +196,80 @@ export async function generateThumbnail(
   // FIM: SANITIZAÇÃO - PONTO 1/3
   // ========================================
   
-  try {
-    // Carrega o vídeo
-    const video = await loadVideo(videoFile);
-    
-    // Aguarda o vídeo estar pronto para captura
-    await new Promise<void>((resolve) => {
-      video.currentTime = 0.1; // Captura em 0.1s (evita frame preto)
-      video.onseeked = () => resolve();
-    });
-    
-    // Calcula dimensões mantendo aspect ratio
-    const { width, height } = calculateDimensions(
-      video.videoWidth,
-      video.videoHeight,
-      opts.maxWidth,
-      opts.maxHeight
-    );
-    
-    console.log('📐 [VIDEO PROCESSOR] Dimensões da thumbnail:', {
-      original: `${video.videoWidth}x${video.videoHeight}`,
-      thumbnail: `${width}x${height}`
-    });
-    
-    // Cria canvas e desenha o frame
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      throw new Error('Erro ao criar contexto do canvas');
+  // ========================================
+  // 🎯 IMPLEMENTAÇÃO DE TIMEOUT - 30 SEGUNDOS
+  // ========================================
+  const TIMEOUT_MS = 30000; // 30 segundos
+  
+  const thumbnailPromise = (async () => {
+    try {
+      // Carrega o vídeo
+      const video = await loadVideo(videoFile);
+      
+      // Aguarda o vídeo estar pronto para captura
+      await new Promise<void>((resolve) => {
+        video.currentTime = 0.1; // Captura em 0.1s (evita frame preto)
+        video.onseeked = () => resolve();
+      });
+      
+      // Calcula dimensões mantendo aspect ratio
+      const { width, height } = calculateDimensions(
+        video.videoWidth,
+        video.videoHeight,
+        opts.maxWidth,
+        opts.maxHeight
+      );
+      
+      console.log('📐 [VIDEO PROCESSOR] Dimensões da thumbnail:', {
+        original: `${video.videoWidth}x${video.videoHeight}`,
+        thumbnail: `${width}x${height}`
+      });
+      
+      // Cria canvas e desenha o frame
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Erro ao criar contexto do canvas');
+      }
+      
+      // Desenha o frame do vídeo no canvas
+      ctx.drawImage(video, 0, 0, width, height);
+      
+      // Converte para base64
+      const thumbnail = canvas.toDataURL(opts.format, opts.quality);
+      
+      const thumbnailSize = (thumbnail.length * 3) / 4 / 1024; // KB
+      console.log('✅ [VIDEO PROCESSOR] Thumbnail gerada com sucesso:', {
+        size: `${thumbnailSize.toFixed(2)} KB`,
+        format: opts.format,
+        quality: opts.quality
+      });
+      
+      return thumbnail;
+    } catch (error) {
+      console.error('❌ [VIDEO PROCESSOR] Erro ao gerar thumbnail:', error);
+      throw new Error(`Erro ao gerar thumbnail: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
-    
-    // Desenha o frame do vídeo no canvas
-    ctx.drawImage(video, 0, 0, width, height);
-    
-    // Converte para base64
-    const thumbnail = canvas.toDataURL(opts.format, opts.quality);
-    
-    const thumbnailSize = (thumbnail.length * 3) / 4 / 1024; // KB
-    console.log('✅ [VIDEO PROCESSOR] Thumbnail gerada com sucesso:', {
-      size: `${thumbnailSize.toFixed(2)} KB`,
-      format: opts.format,
-      quality: opts.quality
-    });
-    
-    return thumbnail;
+  })();
+  
+  const timeoutPromise = new Promise<string>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Timeout: A geração de thumbnail excedeu o tempo limite de ${TIMEOUT_MS / 1000} segundos. Isso pode ocorrer com vídeos muito grandes. Tente um vídeo menor.`));
+    }, TIMEOUT_MS);
+  });
+  
+  try {
+    return await Promise.race([thumbnailPromise, timeoutPromise]);
   } catch (error) {
-    console.error('❌ [VIDEO PROCESSOR] Erro ao gerar thumbnail:', error);
-    throw new Error(`Erro ao gerar thumbnail: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    console.error('❌ [VIDEO PROCESSOR] Erro ou timeout ao gerar thumbnail:', error);
+    throw error;
   }
+  // ========================================
+  // FIM: IMPLEMENTAÇÃO DE TIMEOUT
+  // ========================================
 }
 
 // =====================================================
