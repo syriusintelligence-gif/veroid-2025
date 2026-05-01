@@ -1414,7 +1414,7 @@ ${content}
                       
                       {/* Preview da Primeira Imagem - Simplificado */}
                       <div className="space-y-3">
-                        {carouselFiles.length > 0 && carouselFiles[0] instanceof File && (
+                        {carouselFiles.length > 0 && carouselFiles[0] && carouselFiles[0] instanceof File && (
                           <div className="relative">
                             <div className="aspect-video rounded-lg overflow-hidden border-2 border-blue-200 bg-gray-100">
                               <img
@@ -1428,8 +1428,8 @@ ${content}
                               Imagem Principal
                             </div>
                             
-                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0].name}>
-                              📁 {carouselFiles[0].name}
+                            <p className="text-xs text-gray-600 mt-2" title={carouselFiles[0]?.name || ''}>
+                              📁 {carouselFiles[0]?.name || 'Sem nome'}
                             </p>
                           </div>
                         )}
