@@ -825,7 +825,7 @@ export default function Certificate() {
                   });
                   return null;
                 })()}
-                {isCreator === true ? (
+                {isCreator ? (
                   <>
                     {/* Criador: sempre pode baixar com autenticação */}
                     <DownloadButton
@@ -839,7 +839,7 @@ export default function Certificate() {
                       showFileInfo={true}
                     />
                     <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
-                      ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
+                      ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
                     </p>
                   </>
                 ) : (
@@ -858,7 +858,7 @@ export default function Certificate() {
                           showFileInfo={true}
                         />
                         <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
-                          ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
+                          ✅ Este documento foi verificado e o criador permite download público
                         </p>
                       </>
                     ) : (
