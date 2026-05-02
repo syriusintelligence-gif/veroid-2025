@@ -430,27 +430,30 @@ export default function SignContent() {
   
   /**
    * Lida com o upload de múltiplas imagens do carrossel
+   * Agora suporta upload incremental - adiciona novas imagens às existentes
    */
   const handleCarouselUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     setCarouselValidationError('');
-    setCarouselFiles([]);
-    setCarouselPreviews([]);
-    setCarouselMetadata(null);
     
     if (!files || files.length === 0) return;
     
     const fileArray = Array.from(files);
     const MAX_IMAGES = 20;
+    const currentCount = carouselFiles.length;
+    const newCount = fileArray.length;
+    const totalCount = currentCount + newCount;
     
     console.log('📸 [CAROUSEL] Arquivos selecionados:', {
-      count: fileArray.length,
+      currentCount,
+      newCount,
+      totalCount,
       maxAllowed: MAX_IMAGES
     });
     
-    // Validar número de imagens
-    if (fileArray.length > MAX_IMAGES) {
-      setCarouselValidationError(`Máximo de ${MAX_IMAGES} imagens permitidas. Você selecionou ${fileArray.length}.`);
+    // Validar número total de imagens (existentes + novas)
+    if (totalCount > MAX_IMAGES) {
+      setCarouselValidationError(`Você já tem ${currentCount} imagens. Pode adicionar no máximo ${MAX_IMAGES - currentCount} mais. Você tentou adicionar ${newCount}.`);
       e.target.value = '';
       return;
     }
@@ -476,10 +479,9 @@ export default function SignContent() {
     }
     
     console.log('✅ [CAROUSEL] Todas as imagens passaram na validação');
-    setCarouselFiles(fileArray);
     
-    // Gerar previews
-    const previews: string[] = [];
+    // Gerar previews das novas imagens
+    const newPreviews: string[] = [];
     for (const file of fileArray) {
       try {
         const reader = new FileReader();
@@ -488,20 +490,32 @@ export default function SignContent() {
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        previews.push(preview);
+        newPreviews.push(preview);
       } catch (error) {
         console.error('❌ [CAROUSEL] Erro ao gerar preview:', error);
-        previews.push('');
+        newPreviews.push('');
       }
     }
     
-    setCarouselPreviews(previews);
-    console.log('✅ [CAROUSEL] Previews gerados:', previews.length);
+    // Mesclar com imagens existentes (adicionar ao final)
+    const mergedFiles = [...carouselFiles, ...fileArray];
+    const mergedPreviews = [...carouselPreviews, ...newPreviews];
     
-    // Fazer upload automático
+    setCarouselFiles(mergedFiles);
+    setCarouselPreviews(mergedPreviews);
+    
+    console.log('✅ [CAROUSEL] Previews gerados:', {
+      newPreviews: newPreviews.length,
+      totalPreviews: mergedPreviews.length
+    });
+    
+    // Fazer upload automático das novas imagens (será mesclado com existentes no backend)
     if (currentUser) {
-      await uploadCarouselToTemp(fileArray);
+      await uploadCarouselToTemp(mergedFiles);
     }
+    
+    // Limpar input para permitir re-seleção dos mesmos arquivos
+    e.target.value = '';
   };
   
   /**
@@ -1093,16 +1107,43 @@ ${content}
                               </span>
                             )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveCarousel}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            disabled={isBlocked || isUploadingCarousel}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Remover Todas
-                          </Button>
+                          <div className="flex gap-2">
+                            {carouselFiles.length < 20 && (
+                              <div>
+                                <input
+                                  id="carousel-add-more"
+                                  type="file"
+                                  multiple
+                                  className="hidden"
+                                  onChange={handleCarouselUpload}
+                                  disabled={isBlocked || isUploadingCarousel}
+                                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/x-icon"
+                                />
+                                <label htmlFor="carousel-add-more" className={isBlocked || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-purple-400 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
+                                    disabled={isBlocked || isUploadingCarousel}
+                                    type="button"
+                                  >
+                                    <Upload className="h-4 w-4 mr-1" />
+                                    Adicionar Mais ({20 - carouselFiles.length} restantes)
+                                  </Button>
+                                </label>
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRemoveCarousel}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={isBlocked || isUploadingCarousel}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Remover Todas
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2">
