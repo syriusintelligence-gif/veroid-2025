@@ -1119,18 +1119,20 @@ ${content}
                                   disabled={isBlocked || isUploadingCarousel}
                                   accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/x-icon"
                                 />
-                                <label htmlFor="carousel-add-more" className={isBlocked || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="border-purple-400 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
-                                    disabled={isBlocked || isUploadingCarousel}
-                                    type="button"
-                                  >
-                                    <Upload className="h-4 w-4 mr-1" />
-                                    Adicionar Mais ({20 - carouselFiles.length} restantes)
-                                  </Button>
-                                </label>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-purple-400 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
+                                  disabled={isBlocked || isUploadingCarousel}
+                                  type="button"
+                                  onClick={() => {
+                                    const input = document.getElementById('carousel-add-more') as HTMLInputElement;
+                                    if (input) input.click();
+                                  }}
+                                >
+                                  <Upload className="h-4 w-4 mr-1" />
+                                  Adicionar Mais ({20 - carouselFiles.length} restantes)
+                                </Button>
                               </div>
                             )}
                             <Button
