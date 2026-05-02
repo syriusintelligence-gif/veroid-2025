@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle, Images } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -38,8 +38,10 @@ import { logAuditEvent, AuditAction } from '@/lib/audit-logger';
 import { generateDocumentPreview, isDocumentFile } from '@/lib/document-preview-generator';
 import { generateMusicPreview, isMusicFile } from '@/lib/music-preview-generator';
 import { useSignatureStatus, consumeSignature } from '@/hooks/useSubscription';
+import { uploadCarouselImages, moveCarouselToSignedDocuments, deleteCarouselImages } from '@/lib/services/carousel-storage';
+import type { CarouselMetadata } from '@/lib/types/carousel';
 
-type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
+type ContentType = 'text' | 'image' | 'video' | 'document' | 'music' | 'carousel';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'Website' | 'Outros';
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
@@ -48,6 +50,7 @@ const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }
   { value: 'video', label: 'Vídeo', icon: <Video className="h-5 w-5" /> },
   { value: 'document', label: 'Documento', icon: <FileType className="h-5 w-5" /> },
   { value: 'music', label: 'Música', icon: <Music className="h-5 w-5" /> },
+  { value: 'carousel', label: 'Carrossel', icon: <Images className="h-5 w-5" /> },
 ];
 
 const socialPlatforms: { value: SocialPlatform; label: string; logo: string }[] = [
@@ -94,6 +97,15 @@ export default function SignContent() {
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const { status: signatureStatus, loading: statusLoading, refetch: refetchStatus } = useSignatureStatus();
   
+  // ========================================
+  // 🎠 CAROUSEL STATES
+  // ========================================
+  const [carouselFiles, setCarouselFiles] = useState<File[]>([]);
+  const [carouselPreviews, setCarouselPreviews] = useState<string[]>([]);
+  const [carouselMetadata, setCarouselMetadata] = useState<CarouselMetadata | null>(null);
+  const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
+  const [carouselValidationError, setCarouselValidationError] = useState<string>('');
+  
   useEffect(() => {
     loadUserData();
   }, [navigate]);
@@ -135,6 +147,8 @@ export default function SignContent() {
         return ['document'];
       case 'text':
         return ['text', 'document'];
+      case 'carousel':
+        return ['image'];
       default:
         return ['image', 'video', 'audio', 'document', 'text'];
     }
@@ -410,6 +424,153 @@ export default function SignContent() {
     setAllowFileDownload(true);
   };
   
+  // ========================================
+  // 🎠 CAROUSEL FUNCTIONS
+  // ========================================
+  
+  /**
+   * Lida com o upload de múltiplas imagens do carrossel
+   */
+  const handleCarouselUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    setCarouselValidationError('');
+    setCarouselFiles([]);
+    setCarouselPreviews([]);
+    setCarouselMetadata(null);
+    
+    if (!files || files.length === 0) return;
+    
+    const fileArray = Array.from(files);
+    const MAX_IMAGES = 20;
+    
+    console.log('📸 [CAROUSEL] Arquivos selecionados:', {
+      count: fileArray.length,
+      maxAllowed: MAX_IMAGES
+    });
+    
+    // Validar número de imagens
+    if (fileArray.length > MAX_IMAGES) {
+      setCarouselValidationError(`Máximo de ${MAX_IMAGES} imagens permitidas. Você selecionou ${fileArray.length}.`);
+      e.target.value = '';
+      return;
+    }
+    
+    // Validar cada arquivo
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp', 'image/x-icon'];
+    const maxSizePerImage = 10 * 1024 * 1024; // 10MB
+    
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
+        setCarouselValidationError(`Imagem ${i + 1} (${file.name}) não é um formato válido. Formatos aceitos: JPG, JPEG, PNG, GIF, WEBP, SVG, BMP, ICO`);
+        e.target.value = '';
+        return;
+      }
+      
+      if (file.size > maxSizePerImage) {
+        setCarouselValidationError(`Imagem ${i + 1} (${file.name}) excede o tamanho máximo de ${formatFileSize(maxSizePerImage)}`);
+        e.target.value = '';
+        return;
+      }
+    }
+    
+    console.log('✅ [CAROUSEL] Todas as imagens passaram na validação');
+    setCarouselFiles(fileArray);
+    
+    // Gerar previews
+    const previews: string[] = [];
+    for (const file of fileArray) {
+      try {
+        const reader = new FileReader();
+        const preview = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        previews.push(preview);
+      } catch (error) {
+        console.error('❌ [CAROUSEL] Erro ao gerar preview:', error);
+        previews.push('');
+      }
+    }
+    
+    setCarouselPreviews(previews);
+    console.log('✅ [CAROUSEL] Previews gerados:', previews.length);
+    
+    // Fazer upload automático
+    if (currentUser) {
+      await uploadCarouselToTemp(fileArray);
+    }
+  };
+  
+  /**
+   * Faz upload do carrossel para o bucket temporário
+   */
+  const uploadCarouselToTemp = async (files: File[]) => {
+    if (!currentUser) return;
+    
+    setIsUploadingCarousel(true);
+    setCarouselValidationError('');
+    
+    try {
+      console.log('📤 [CAROUSEL] Iniciando upload para temp-uploads...');
+      
+      const result = await uploadCarouselImages(files, currentUser.id, {
+        maxImages: 20,
+        maxSizePerImage: 10 * 1024 * 1024,
+        thumbnailMaxWidth: 800,
+        thumbnailMaxHeight: 600,
+        thumbnailQuality: 0.7,
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao fazer upload do carrossel');
+      }
+      
+      console.log('✅ [CAROUSEL] Upload concluído:', {
+        totalImages: result.metadata?.total_images,
+        executionTime: result.executionTime + 'ms'
+      });
+      
+      setCarouselMetadata(result.metadata!);
+      
+    } catch (error) {
+      console.error('❌ [CAROUSEL] Erro no upload:', error);
+      setCarouselValidationError(`Erro ao fazer upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      setCarouselFiles([]);
+      setCarouselPreviews([]);
+      setCarouselMetadata(null);
+    } finally {
+      setIsUploadingCarousel(false);
+    }
+  };
+  
+  /**
+   * Remove uma imagem específica do carrossel
+   */
+  const handleRemoveCarouselImage = (index: number) => {
+    setCarouselFiles(prev => prev.filter((_, i) => i !== index));
+    setCarouselPreviews(prev => prev.filter((_, i) => i !== index));
+    
+    // Se remover todas, limpar metadados
+    if (carouselFiles.length === 1) {
+      setCarouselMetadata(null);
+      setCarouselValidationError('');
+    }
+  };
+  
+  /**
+   * Remove todo o carrossel
+   */
+  const handleRemoveCarousel = () => {
+    setCarouselFiles([]);
+    setCarouselPreviews([]);
+    setCarouselMetadata(null);
+    setCarouselValidationError('');
+    setIsUploadingCarousel(false);
+  };
+  
   const handleCameraCapture = async (imageDataUrl: string) => {
     try {
       console.log('📸 [CAMERA CAPTURE] Processando foto capturada...');
@@ -631,6 +792,12 @@ ${content}
     setTempFilePath(null);
     setUploadProgress(0);
     setAllowFileDownload(true);
+    // Limpar estados do carrossel
+    setCarouselFiles([]);
+    setCarouselPreviews([]);
+    setCarouselMetadata(null);
+    setCarouselValidationError('');
+    setIsUploadingCarousel(false);
   };
   
   if (isLoading) {
@@ -837,6 +1004,11 @@ ${content}
                         setFileValidationError('');
                         setVideoThumbnail(null);
                         setTempFilePath(null);
+                        // Limpar estados do carrossel ao mudar de tipo
+                        setCarouselFiles([]);
+                        setCarouselPreviews([]);
+                        setCarouselMetadata(null);
+                        setCarouselValidationError('');
                       }}
                       disabled={isBlocked || isProcessingVideo || isUploadingFile}
                     >
@@ -854,110 +1026,236 @@ ${content}
                 <Label htmlFor="file-upload">
                   03 - Upload do Arquivo (Opcional - será validado e processado automaticamente)
                   {contentType === 'video' && <span className="text-blue-600 font-medium"> - Apenas thumbnail será gerada (vídeo não será enviado)</span>}
+                  {contentType === 'carousel' && <span className="text-purple-600 font-medium"> - Selecione múltiplas imagens (máx. 20)</span>}
                 </Label>
-                <div className="space-y-3">
-                  {!uploadedFile && !showCameraCapture ? (
-                    <>
-                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
+                
+                {/* ========================================
+                    🎠 CAROUSEL UPLOAD UI
+                    ======================================== */}
+                {contentType === 'carousel' ? (
+                  <div className="space-y-4">
+                    {carouselValidationError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Erro no carrossel:</strong> {carouselValidationError}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {isUploadingCarousel && (
+                      <Alert className="border-purple-500 bg-purple-50">
+                        <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
+                        <AlertDescription className="text-purple-800">
+                          <strong>Fazendo upload das imagens...</strong> Aguarde enquanto processamos suas imagens.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {carouselFiles.length === 0 ? (
+                      <div className="border-2 border-dashed border-purple-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors bg-gradient-to-br from-purple-50 to-pink-50">
                         <input
-                          id="file-upload"
+                          id="carousel-upload"
                           type="file"
+                          multiple
                           className="hidden"
-                          onChange={handleFileUpload}
-                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                          accept={getAcceptString(getFileCategoryFromContentType(contentType))}
+                          onChange={handleCarouselUpload}
+                          disabled={isBlocked || isUploadingCarousel}
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/x-icon"
                         />
-                        <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
-                          <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Clique para fazer upload ou arraste o arquivo aqui
+                        <label htmlFor="carousel-upload" className={isBlocked || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                          <Images className="h-16 w-16 text-purple-500 mx-auto mb-4" />
+                          <p className="text-lg font-semibold text-purple-900 mb-2">
+                            📸 Upload de Carrossel de Imagens
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
-                            {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
-                            {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
-                            {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
-                            {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
+                          <p className="text-sm text-purple-700 mb-2">
+                            Selecione múltiplas imagens (até 20) para criar um carrossel
                           </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
+                          <p className="text-xs text-purple-600">
+                            Formatos aceitos: JPG, JPEG, PNG, GIF, WEBP, SVG, BMP, ICO
                           </p>
-                          {contentType === 'video' && (
-                            <p className="text-xs text-blue-600 mt-2 font-medium">
-                              🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
-                            </p>
-                          )}
+                          <p className="text-xs text-purple-600 mt-1">
+                            🔒 Máximo: 10MB por imagem | A primeira imagem será a thumbnail principal
+                          </p>
                         </label>
                       </div>
-                    </>
-                  ) : (
-                    <div className="border rounded-lg p-4 bg-muted/50">
-                      <div className="flex items-start gap-4">
-                        {(filePreview || videoThumbnail) ? (
-                          <img
-                            src={videoThumbnail || filePreview || ''}
-                            alt="Preview"
-                            className="w-24 h-24 object-cover rounded-lg"
-                          />
-                        ) : (
-                          <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
-                            <FileType className="h-12 w-12 text-muted-foreground" />
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg border-2 border-purple-300">
+                          <div className="flex items-center gap-2">
+                            <Images className="h-5 w-5 text-purple-700" />
+                            <span className="font-semibold text-purple-900">
+                              {carouselFiles.length} {carouselFiles.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}
+                            </span>
+                            {carouselMetadata && (
+                              <span className="text-xs text-green-700 ml-2">
+                                ✓ Upload concluído
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{sanitizeFileName(uploadedFile.name)}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatFileSize(uploadedFile.size)}
-                          </p>
-                          {tempFilePath && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Arquivo enviado para o servidor
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveCarousel}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            disabled={isBlocked || isUploadingCarousel}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Remover Todas
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2">
+                          {carouselPreviews.map((preview, index) => (
+                            <div key={index} className="relative group">
+                              <div className="aspect-square rounded-lg overflow-hidden border-2 border-purple-200 group-hover:border-purple-400 transition-all">
+                                <img
+                                  src={preview}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="absolute top-1 left-1 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                {index + 1}
+                              </div>
+                              {index === 0 && (
+                                <div className="absolute bottom-1 left-1 right-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold px-2 py-1 rounded text-center">
+                                  🌟 Thumbnail Principal
+                                </div>
+                              )}
+                              <button
+                                onClick={() => handleRemoveCarouselImage(index)}
+                                className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                disabled={isBlocked || isUploadingCarousel}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <Alert className="border-purple-500 bg-purple-50">
+                          <AlertDescription className="text-purple-800 text-sm">
+                            <strong>ℹ️ Informações do Carrossel:</strong>
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                              <li>A <strong>primeira imagem</strong> será usada como thumbnail principal no certificado</li>
+                              <li>Todas as imagens serão salvas no Storage e disponíveis para visualização</li>
+                              <li>O carrossel completo será exibido no certificado digital</li>
+                              <li>Você pode remover imagens individuais clicando no X ao passar o mouse</li>
+                            </ul>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ========================================
+                      ORIGINAL SINGLE FILE UPLOAD UI
+                      ======================================== */
+                  <div className="space-y-3">
+                    {!uploadedFile && !showCameraCapture ? (
+                      <>
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
+                          <input
+                            id="file-upload"
+                            type="file"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                            accept={getAcceptString(getFileCategoryFromContentType(contentType))}
+                          />
+                          <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Clique para fazer upload ou arraste o arquivo aqui
                             </p>
-                          )}
-                          {contentType === 'video' && videoThumbnail && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs text-green-600">
-                                ✓ Thumbnail gerada com sucesso
+                            <p className="text-xs text-muted-foreground">
+                              {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
+                              {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
+                              {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
+                              {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
+                              {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
+                            </p>
+                            {contentType === 'video' && (
+                              <p className="text-xs text-blue-600 mt-2 font-medium">
+                                🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
                               </p>
-                              <p className="text-xs text-blue-600">
-                                ℹ️ Vídeo não será enviado (apenas thumbnail)
-                              </p>
+                            )}
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="border rounded-lg p-4 bg-muted/50">
+                        <div className="flex items-start gap-4">
+                          {(filePreview || videoThumbnail) ? (
+                            <img
+                              src={videoThumbnail || filePreview || ''}
+                              alt="Preview"
+                              className="w-24 h-24 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
+                              <FileType className="h-12 w-12 text-muted-foreground" />
                             </div>
                           )}
-                          {contentType === 'image' && filePreview && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Validado e comprimido para o certificado
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{sanitizeFileName(uploadedFile.name)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatFileSize(uploadedFile.size)}
                             </p>
-                          )}
-                          {contentType === 'music' && filePreview && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Preview da música gerado
-                            </p>
-                          )}
-                          {(contentType === 'document' || contentType === 'text') && filePreview && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Preview do documento gerado
-                            </p>
-                          )}
-                          {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && contentType !== 'music' && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Arquivo validado com sucesso
-                            </p>
-                          )}
+                            {tempFilePath && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Arquivo enviado para o servidor
+                              </p>
+                            )}
+                            {contentType === 'video' && videoThumbnail && (
+                              <div className="mt-2 space-y-1">
+                                <p className="text-xs text-green-600">
+                                  ✓ Thumbnail gerada com sucesso
+                                </p>
+                                <p className="text-xs text-blue-600">
+                                  ℹ️ Vídeo não será enviado (apenas thumbnail)
+                                </p>
+                              </div>
+                            )}
+                            {contentType === 'image' && filePreview && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Validado e comprimido para o certificado
+                              </p>
+                            )}
+                            {contentType === 'music' && filePreview && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Preview da música gerado
+                              </p>
+                            )}
+                            {(contentType === 'document' || contentType === 'text') && filePreview && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Preview do documento gerado
+                              </p>
+                            )}
+                            {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && contentType !== 'music' && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Arquivo validado com sucesso
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRemoveFile}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                          >
+                            <X className="h-5 w-5" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleRemoveFile}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                        >
-                          <X className="h-5 w-5" />
-                        </Button>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="space-y-3">
