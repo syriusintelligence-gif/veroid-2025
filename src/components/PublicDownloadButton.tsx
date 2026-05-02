@@ -150,15 +150,15 @@ export function PublicDownloadButton({
     <div className="space-y-3">
       {/* 🆕 Card de Arquivo Estilo Certificado Baixado */}
       {showFileInfo && (
-        <div className="bg-white p-4 rounded-lg border-2 border-green-500 shadow-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-3xl">📎</span>
+        <div className="bg-white p-3 rounded-lg border-2 border-green-500 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <FileIcon className="h-5 w-5 text-green-600 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-gray-900 text-sm truncate">
+              <div className="font-semibold text-gray-900 text-xs truncate">
                 {fileName}
               </div>
               {fileSize && (
-                <div className="text-xs text-gray-600 mt-1">
+                <div className="text-xs text-gray-600">
                   {formatFileSize(fileSize)}
                 </div>
               )}
@@ -169,17 +169,17 @@ export function PublicDownloadButton({
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-2 px-4 rounded-lg font-semibold text-xs transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isDownloading ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Baixando...</span>
               </>
             ) : (
               <>
-                <span className="text-xl">⬇️</span>
-                <span>Baixar Arquivo Original</span>
+                <Download className="h-4 w-4" />
+                <span>Baixar Original</span>
               </>
             )}
           </button>

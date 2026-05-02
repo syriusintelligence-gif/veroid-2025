@@ -346,7 +346,7 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
                   {/* Verificador: download depende de allowFileDownload */}
                   {content.allowFileDownload ? (
                     <>
-                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-2">
                         {content.carouselMetadata.carousel_images.map((image, index) => (
                           <PublicDownloadButton
                             key={index}
@@ -355,10 +355,7 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
                             mimeType={image.mime_type}
                             fileSize={image.size}
                             bucket={content.carouselMetadata!.storage_bucket}
-                            variant="outline"
-                            size="sm"
                             showFileInfo={true}
-                            className="w-full text-left justify-start"
                           />
                         ))}
                       </div>
