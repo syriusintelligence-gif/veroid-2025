@@ -276,8 +276,114 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
           </div>
         )}
         
+        {/* 🎠 FASE 5: Seção de Carrossel de Imagens (COM CONTROLE DO CRIADOR) */}
+        {content.carouselMetadata && content.carouselMetadata.carousel_images && content.carouselMetadata.carousel_images.length > 0 && (
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border-2 border-purple-200">
+            <p className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Carrossel de Imagens ({content.carouselMetadata.total_images} imagens)
+            </p>
+            
+            {/* Grid de previews das imagens do carrossel */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {content.carouselMetadata.carousel_images.map((image, index) => (
+                <div key={index} className="relative group">
+                  <div className="aspect-square rounded-lg overflow-hidden border-2 border-purple-200 group-hover:border-purple-400 transition-all">
+                    <img
+                      src={image.thumbnail}
+                      alt={`Imagem ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute top-1 left-1 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                    {index + 1}
+                  </div>
+                  {index === 0 && (
+                    <div className="absolute bottom-1 left-1 right-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold px-2 py-1 rounded text-center">
+                      🌟 Principal
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* Botões de download individuais */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-purple-900 mb-2">
+                📥 Download Individual das Imagens:
+              </p>
+              
+              {/* 🔒 LÓGICA DE DOWNLOAD DO CARROSSEL:
+                  1. Se é o CRIADOR (isCreator === true): sempre pode baixar todas as imagens
+                  2. Se NÃO é o criador E allowFileDownload=true: pode baixar todas as imagens
+                  3. Se NÃO é o criador E allowFileDownload=false: mostra mensagem de restrição
+              */}
+              {isCreator === true ? (
+                <>
+                  {/* Criador: sempre pode baixar com autenticação */}
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                    {content.carouselMetadata.carousel_images.map((image, index) => (
+                      <DownloadButton
+                        key={index}
+                        filePath={image.path}
+                        fileName={image.name}
+                        mimeType={image.mime_type}
+                        fileSize={image.size}
+                        bucket={content.carouselMetadata!.storage_bucket}
+                        variant="outline"
+                        size="sm"
+                        showFileInfo={true}
+                        className="w-full text-left justify-start"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-green-700 mt-3">
+                    ✅ Você é o criador - pode baixar todas as imagens a qualquer momento
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Verificador: download depende de allowFileDownload */}
+                  {content.allowFileDownload ? (
+                    <>
+                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                        {content.carouselMetadata.carousel_images.map((image, index) => (
+                          <PublicDownloadButton
+                            key={index}
+                            filePath={image.path}
+                            fileName={image.name}
+                            mimeType={image.mime_type}
+                            fileSize={image.size}
+                            bucket={content.carouselMetadata!.storage_bucket}
+                            variant="outline"
+                            size="sm"
+                            showFileInfo={true}
+                            className="w-full text-left justify-start"
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-green-700 mt-3">
+                        ✅ Todas as imagens foram verificadas e o criador permite download público
+                      </p>
+                    </>
+                  ) : (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                      <p className="text-sm text-yellow-800 font-medium mb-2">
+                        🔒 Download Restrito
+                      </p>
+                      <p className="text-xs text-yellow-700">
+                        O criador optou por não permitir o download das imagens originais. Apenas os previews estão disponíveis para verificação.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        
         {/* 🆕 FASE 4: Seção de Download de Documento Original (COM CONTROLE DO CRIADOR) */}
-        {content.filePath && content.fileName && (
+        {content.filePath && content.fileName && !content.carouselMetadata && (
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
             <p className="text-sm font-semibold text-green-900 mb-3 flex items-center gap-2">
               <FileText className="h-4 w-4" />

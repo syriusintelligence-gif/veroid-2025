@@ -624,10 +624,17 @@ export default function SignContent() {
       alert('Por favor, insira o título do conteúdo');
       return;
     }
-    if (!content.trim() && !uploadedFile) {
-      alert('Por favor, insira o conteúdo ou faça upload de um arquivo');
+    
+    // Validar conteúdo: texto OU arquivo OU carrossel
+    const hasContent = content.trim();
+    const hasSingleFile = uploadedFile;
+    const hasCarousel = carouselFiles.length > 0;
+    
+    if (!hasContent && !hasSingleFile && !hasCarousel) {
+      alert('Por favor, insira o conteúdo ou faça upload de um arquivo/carrossel');
       return;
     }
+    
     if (selectedPlatforms.length === 0) {
       alert('Por favor, selecione pelo menos uma rede social');
       return;
@@ -686,9 +693,32 @@ export default function SignContent() {
     
     setIsSigning(true);
     let finalFilePath: string | null = null;
+    let finalCarouselMetadata: CarouselMetadata | undefined = undefined;
     
     try {
-      if (tempFilePath && uploadedFile) {
+      // ========================================
+      // 🎠 CARROSSEL: Mover para signed-documents
+      // ========================================
+      if (hasCarousel && carouselMetadata) {
+        console.log('🎠 [CAROUSEL] Movendo carrossel para signed-documents...');
+        const moveResult = await moveCarouselToSignedDocuments(carouselMetadata, currentUser.id);
+        
+        if (!moveResult.success) {
+          throw new Error(moveResult.error || 'Erro ao mover carrossel para storage permanente');
+        }
+        
+        console.log('✅ [CAROUSEL] Carrossel movido:', {
+          totalImages: moveResult.metadata?.total_images,
+          executionTime: moveResult.executionTime + 'ms'
+        });
+        
+        finalCarouselMetadata = moveResult.metadata!;
+      }
+      
+      // ========================================
+      // 📄 ARQUIVO ÚNICO: Mover para signed-documents
+      // ========================================
+      if (tempFilePath && uploadedFile && !hasCarousel) {
         console.log('🔄 [STORAGE] Movendo arquivo para signed-documents...');
         const moveResult = await moveToSignedDocuments(tempFilePath, currentUser.id);
         if (!moveResult.success) {
@@ -701,12 +731,16 @@ export default function SignContent() {
         finalFilePath = moveResult.path!;
       }
       
+      // ========================================
+      // 📝 PREPARAR CONTEÚDO PARA ASSINATURA
+      // ========================================
       const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
       const fullContent = `
 Título: ${title}
 Tipo: ${contentTypes.find(t => t.value === contentType)?.label}
 Redes: ${selectedPlatforms.join(', ')}
-${uploadedFile ? `Arquivo: ${sanitizedFileName}` : ''}
+${uploadedFile && !hasCarousel ? `Arquivo: ${sanitizedFileName}` : ''}
+${hasCarousel ? `Carrossel: ${carouselFiles.length} imagens` : ''}
 
 Conteúdo:
 ${content}
@@ -715,7 +749,20 @@ ${content}
       console.log('📝 Assinando conteúdo...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
       
-      let finalThumbnail = videoThumbnail || filePreview;
+      // ========================================
+      // 🖼️ THUMBNAIL: Primeira imagem do carrossel OU preview único
+      // ========================================
+      let finalThumbnail: string | undefined;
+      
+      if (hasCarousel && carouselPreviews.length > 0) {
+        // Usar primeira imagem do carrossel como thumbnail
+        finalThumbnail = carouselPreviews[0];
+        console.log('✅ [CAROUSEL] Usando primeira imagem como thumbnail principal');
+      } else {
+        // Usar preview único (imagem, vídeo, etc.)
+        finalThumbnail = videoThumbnail || filePreview;
+      }
+      
       if (finalThumbnail && isImageDataUrl(finalThumbnail)) {
         try {
           finalThumbnail = await compressImage(finalThumbnail, {
@@ -730,7 +777,10 @@ ${content}
         }
       }
       
-      const fileMetadata = finalFilePath && uploadedFile ? {
+      // ========================================
+      // 📦 METADADOS: Arquivo único OU Carrossel
+      // ========================================
+      const fileMetadata = finalFilePath && uploadedFile && !hasCarousel ? {
         file_path: finalFilePath,
         file_name: uploadedFile.name,
         file_size: uploadedFile.size,
@@ -739,9 +789,14 @@ ${content}
       } : undefined;
       
       console.log('📦 [STORAGE] Metadados de arquivo:', fileMetadata);
+      console.log('🎠 [CAROUSEL] Metadados de carrossel:', finalCarouselMetadata);
+      
       const creatorSocialLinks = currentUser.socialLinks || undefined;
       console.log('🔗 [SOCIAL LINKS] Links que serão salvos no certificado:', creatorSocialLinks);
       
+      // ========================================
+      // 🔐 ASSINAR DIGITALMENTE
+      // ========================================
       const result = await signContent(
         fullContent,
         keyPair.privateKey,
@@ -752,13 +807,19 @@ ${content}
         selectedPlatforms,
         fileMetadata,
         creatorSocialLinks,
-        allowFileDownload
+        allowFileDownload,
+        finalCarouselMetadata
       );
       
       if (!result.success) {
+        // Rollback: deletar arquivo/carrossel em caso de erro
         if (finalFilePath) {
           console.log('🗑️ [STORAGE] Deletando arquivo devido a erro na assinatura...');
           await deleteFile('signed-documents', finalFilePath);
+        }
+        if (finalCarouselMetadata) {
+          console.log('🗑️ [CAROUSEL] Deletando carrossel devido a erro na assinatura...');
+          await deleteCarouselImages(finalCarouselMetadata, currentUser.id);
         }
         alert(result.error || 'Erro ao assinar conteúdo. Tente novamente.');
         return;
@@ -779,6 +840,8 @@ ${content}
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
+      
+      // Rollback: limpar arquivos em caso de erro
       if (finalFilePath) {
         console.log('🗑️ [STORAGE] Deletando arquivo devido a erro...');
         try {
@@ -787,6 +850,16 @@ ${content}
           console.error('❌ [STORAGE] Erro ao deletar arquivo:', deleteError);
         }
       }
+      
+      if (finalCarouselMetadata) {
+        console.log('🗑️ [CAROUSEL] Deletando carrossel devido a erro...');
+        try {
+          await deleteCarouselImages(finalCarouselMetadata, currentUser.id);
+        } catch (deleteError) {
+          console.error('❌ [CAROUSEL] Erro ao deletar carrossel:', deleteError);
+        }
+      }
+      
       alert('Erro ao assinar conteúdo. Tente novamente.');
     } finally {
       setIsSigning(false);
