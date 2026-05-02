@@ -712,6 +712,76 @@ export default function Certificate() {
                   </p>
                 </div>
               </div>
+              
+              {/* 🆕 SEÇÃO DE DOWNLOAD INDIVIDUAL DAS IMAGENS DO CARROSSEL */}
+              <div className="mt-6 bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-l-4 border-green-500 shadow-md">
+                <p className="text-sm font-bold text-green-900 mb-4 flex items-center gap-2">
+                  📥 Download Individual das Imagens:
+                </p>
+                
+                {/* 🔒 LÓGICA DE DOWNLOAD DO CARROSSEL:
+                    1. Se é o CRIADOR (isCreator === true): sempre pode baixar todas as imagens
+                    2. Se NÃO é o criador E allowFileDownload=true: pode baixar todas as imagens
+                    3. Se NÃO é o criador E allowFileDownload=false: mostra mensagem de restrição
+                */}
+                {isCreator ? (
+                  <>
+                    {/* Criador: sempre pode baixar com autenticação */}
+                    <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-2">
+                      {content.carouselMetadata.carousel_images.map((image, index) => (
+                        <DownloadButton
+                          key={index}
+                          filePath={image.path}
+                          fileName={image.name}
+                          mimeType={image.mime_type}
+                          fileSize={image.size}
+                          bucket={content.carouselMetadata!.storage_bucket}
+                          variant="outline"
+                          size="sm"
+                          showFileInfo={true}
+                          className="w-full text-left justify-start"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-green-700 mt-3">
+                      ✅ Você é o criador - pode baixar todas as imagens a qualquer momento
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {/* Verificador: download depende de allowFileDownload */}
+                    {content.allowFileDownload ? (
+                      <>
+                        <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-2">
+                          {content.carouselMetadata.carousel_images.map((image, index) => (
+                            <PublicDownloadButton
+                              key={index}
+                              filePath={image.path}
+                              fileName={image.name}
+                              mimeType={image.mime_type}
+                              fileSize={image.size}
+                              bucket={content.carouselMetadata!.storage_bucket}
+                              showFileInfo={true}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs text-green-700 mt-3">
+                          ✅ Todas as imagens foram verificadas e o criador permite download público
+                        </p>
+                      </>
+                    ) : (
+                      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                        <p className="text-sm text-yellow-800 font-medium mb-2">
+                          🔒 Download Restrito
+                        </p>
+                        <p className="text-xs text-yellow-700">
+                          O criador optou por não permitir o download das imagens originais. Apenas os previews estão disponíveis para verificação.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
 
