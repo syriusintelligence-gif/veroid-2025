@@ -83,15 +83,14 @@ export function useSessionTimeout(
       
       await logout();
       
-      console.log('✅ [SessionTimeout] Logout realizado, recarregando página...');
+      console.log('✅ [SessionTimeout] Logout realizado, redirecionando para homepage...');
       
-      // Usa window.location.href para forçar um reload completo
-      // Isso garante que o estado do React seja completamente resetado
-      window.location.href = '/login';
+      // Redireciona para a homepage após logout automático por inatividade
+      window.location.href = 'https://www.veroid.com.br';
     } catch (error) {
       console.error('❌ [SessionTimeout] Erro ao fazer logout:', error);
-      // Força redirecionamento mesmo com erro
-      window.location.href = '/login';
+      // Força redirecionamento para homepage mesmo com erro
+      window.location.href = 'https://www.veroid.com.br';
     }
   }, []);
 
