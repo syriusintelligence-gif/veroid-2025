@@ -1387,10 +1387,9 @@ ${content}
                       }`}
                       onClick={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pointer-events-none">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
-                          onCheckedChange={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                           disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         />
                         <span className="text-2xl">{platform.logo}</span>
