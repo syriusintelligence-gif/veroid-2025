@@ -25,9 +25,6 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
   const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // 🐛 DEBUG: Log isCreator para verificar se está sendo passado corretamente
-  console.log('🔍 [ContentCard] isCreator:', isCreator, 'contentId:', initialContent.id.substring(0, 8));
-  
   // 🆕 CORRIGIDO: Verifica se já tem links sociais completos
   useEffect(() => {
     console.log('🔍 [ContentCard] Verificando links sociais...');
@@ -261,12 +258,12 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
 
         {/* 🆕 FRASE PRONTA PARA COMPARTILHAMENTO - APENAS PARA CRIADOR */}
         {isCreator && (
-          <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 rounded-xl border-2 border-green-400 shadow-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="bg-green-500 p-2 rounded-full">
-                <Copy className="h-4 w-4 text-white" />
+          <div className="bg-gradient-to-br from-green-100 via-emerald-100 to-green-100 p-6 rounded-xl border-3 border-green-500 shadow-2xl mb-6 animate-pulse-subtle">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-600 p-3 rounded-full shadow-md">
+                <Copy className="h-5 w-5 text-white" />
               </div>
-              <h3 className="text-sm font-bold text-green-900">
+              <h3 className="text-base font-bold text-green-900">
                 📢 Frase Pronta para Compartilhamento
               </h3>
             </div>
