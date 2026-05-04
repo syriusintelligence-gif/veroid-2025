@@ -258,7 +258,7 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
 
         {/* 🆕 FRASE PRONTA PARA COMPARTILHAMENTO - APENAS PARA CRIADOR */}
         {isCreator && (
-          <div className="bg-gradient-to-br from-green-100 via-emerald-100 to-green-100 p-6 rounded-xl border-3 border-green-500 shadow-2xl mb-6 animate-pulse-subtle">
+          <div className="bg-gradient-to-br from-green-100 via-emerald-100 to-green-100 p-6 rounded-xl border-3 border-green-500 shadow-2xl animate-pulse-subtle">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-green-600 p-3 rounded-full shadow-md">
                 <Copy className="h-5 w-5 text-white" />
