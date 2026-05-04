@@ -1525,7 +1525,7 @@ ${content}
               </AlertDescription>
             </Alert>
             
-            <ContentCard content={signedContent} />
+            <ContentCard content={signedContent} isCreator={true} />
             
             <div className="flex gap-4">
               <Button 
