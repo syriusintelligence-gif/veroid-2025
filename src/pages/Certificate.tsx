@@ -60,6 +60,7 @@ export default function Certificate() {
   const [showPromoLoading, setShowPromoLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedShareMessage, setCopiedShareMessage] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -292,6 +293,18 @@ export default function Certificate() {
       setTimeout(() => setCopiedCode(false), 2000);
     } catch (err) {
       console.error('Erro ao copiar código:', err);
+    }
+  };
+
+  const handleCopyShareMessage = async () => {
+    if (!content) return;
+    try {
+      const shareMessage = `Verifique a autenticidade desse conteúdo em www.veroid.com.br - código ${content.verificationCode}`;
+      await navigator.clipboard.writeText(shareMessage);
+      setCopiedShareMessage(true);
+      setTimeout(() => setCopiedShareMessage(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar mensagem:', err);
     }
   };
   
@@ -1015,6 +1028,54 @@ export default function Certificate() {
               )}
             </Button>
           </div>
+
+          {/* 🆕 FRASE PRONTA PARA COMPARTILHAMENTO - APENAS PARA CRIADOR */}
+          {isCreator && (
+            <div className="mb-6 sm:mb-8 bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-2 border-green-400 shadow-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="bg-green-500 p-2 rounded-full">
+                  <Copy className="h-4 w-4 text-white" />
+                </div>
+                <h3 className="text-sm sm:text-base font-bold text-green-900">
+                  📢 Frase Pronta para Compartilhamento
+                </h3>
+              </div>
+              
+              <p className="text-xs text-green-800 mb-3 leading-relaxed">
+                ✅ Você é o criador deste conteúdo. Use a frase abaixo para compartilhar nas suas redes sociais e permitir que seus seguidores verifiquem a autenticidade:
+              </p>
+              
+              {/* Caixa com a frase pronta */}
+              <div className="bg-white p-4 rounded-lg border-2 border-green-300 mb-3">
+                <p className="text-sm sm:text-base text-gray-800 font-medium break-words leading-relaxed">
+                  Verifique a autenticidade desse conteúdo em <strong className="text-blue-600">www.veroid.com.br</strong> - código <strong className="text-blue-600 font-mono">{content.verificationCode}</strong>
+                </p>
+              </div>
+              
+              {/* Botão de copiar */}
+              <Button
+                onClick={handleCopyShareMessage}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-md"
+                size="default"
+              >
+                {copiedShareMessage ? (
+                  <>
+                    <Check className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    Frase Copiada!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    Copiar Frase Pronta
+                  </>
+                )}
+              </Button>
+              
+              <p className="text-xs text-green-700 mt-3 text-center">
+                💡 Cole esta mensagem junto com seu conteúdo nas redes sociais
+              </p>
+            </div>
+          )}
 
           {/* Copy Link Button */}
           <div className="mb-6 sm:mb-8">
