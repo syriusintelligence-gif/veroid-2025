@@ -156,6 +156,13 @@ export default function Certificate() {
           const userIsCreator = user && fullContent.userId === user.id;
           setIsCreator(userIsCreator);
           console.log('👤 [CERTIFICATE] Usuário é o criador?', userIsCreator);
+          console.log('🔍 [CERTIFICATE DEBUG isCreator] Detalhes:', {
+            'user existe': !!user,
+            'user.id': user?.id,
+            'fullContent.userId': fullContent.userId,
+            'comparação direta': user?.id === fullContent.userId,
+            'userIsCreator final': userIsCreator
+          });
           
           // Incrementa contador de verificações
           await incrementVerificationCount(fullContent.id);
@@ -1030,6 +1037,15 @@ export default function Certificate() {
           </div>
 
           {/* 🆕 FRASE PRONTA PARA COMPARTILHAMENTO - APENAS PARA CRIADOR */}
+          {(() => {
+            console.log('🔍 [CERTIFICATE RENDER] Verificando exibição da frase pronta:', {
+              'isCreator': isCreator,
+              'typeof isCreator': typeof isCreator,
+              'isCreator === true': isCreator === true,
+              'Boolean(isCreator)': Boolean(isCreator)
+            });
+            return null;
+          })()}
           {isCreator && (
             <div className="mb-6 sm:mb-8 bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-2 border-green-400 shadow-lg">
               <div className="flex items-center gap-2 mb-3">

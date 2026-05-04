@@ -25,6 +25,9 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
   const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
+  // 🐛 DEBUG: Log isCreator para verificar se está sendo passado corretamente
+  console.log('🔍 [ContentCard] isCreator:', isCreator, 'contentId:', initialContent.id.substring(0, 8));
+  
   // 🆕 CORRIGIDO: Verifica se já tem links sociais completos
   useEffect(() => {
     console.log('🔍 [ContentCard] Verificando links sociais...');
