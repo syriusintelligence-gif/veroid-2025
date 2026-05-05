@@ -183,6 +183,25 @@ export default function PaymentSuccess() {
         }
       }
 
+      // 🔑 CORREÇÃO CRÍTICA: Atualizar subscription_tier na tabela users
+      // Isso é necessário para que o TrialExpiredGuard reconheça o usuário como assinante
+      console.log('🔄 [PaymentSuccess] Atualizando subscription_tier na tabela users...');
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          subscription_tier: planInfo.plan_type,
+          updated_at: now.toISOString(),
+        })
+        .eq('id', userId);
+
+      if (userUpdateError) {
+        console.error('❌ [PaymentSuccess] Erro ao atualizar subscription_tier:', userUpdateError);
+        // Não bloqueia o fluxo, mas loga o erro
+        console.warn('⚠️ [PaymentSuccess] Plano ativado, mas subscription_tier não foi atualizado');
+      } else {
+        console.log('✅ [PaymentSuccess] subscription_tier atualizado com sucesso!');
+      }
+
       console.log(`✅ [PaymentSuccess] Plano ${planInfo.name} ativado com sucesso!`);
       setPlanActivated(planInfo.name);
 
