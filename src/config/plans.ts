@@ -36,7 +36,7 @@ export const getSubscriptionPlans = (): Plan[] => [
   {
     id: 'creator',
     name: 'Vero iD - Creator',
-    priceId: 'price_1T4gcAJc1p4mhrHNwOvzI8D8',
+    priceId: 'price_1T9AunJc1p4mhrHNQ3rfZhLa',
     price: 29.90,
     currency: 'BRL',
     interval: 'month',
@@ -54,7 +54,7 @@ export const getSubscriptionPlans = (): Plan[] => [
   {
     id: 'creator-pro',
     name: 'Vero iD - Creator Pro',
-    priceId: 'price_1T4gijJc1p4mhrHNW3h3Ajzl',
+    priceId: 'price_1T9AvvJc1p4mhrHNJkTRLWcU',
     price: 79.90,
     currency: 'BRL',
     interval: 'month',
@@ -73,7 +73,7 @@ export const getSubscriptionPlans = (): Plan[] => [
   {
     id: 'creator-elite',
     name: 'Vero iD - Creator Elite',
-    priceId: 'price_1T4gmTJc1p4mhrHNuHS9xGN2',
+    priceId: 'price_1T9Ax3Jc1p4mhrHNriVXetzj',
     price: 139.90,
     currency: 'BRL',
     interval: 'month',
@@ -102,7 +102,7 @@ export const getPackagePlans = (): Plan[] => [
   {
     id: 'package-10',
     name: 'Pacote 10',
-    priceId: 'price_1T4gpIJc1p4mhrHNJL1tt3UY',
+    priceId: 'price_1T9AqmJc1p4mhrHNAA8QJKlc',
     price: 9.90,
     currency: 'BRL',
     interval: 'one_time',
@@ -119,7 +119,7 @@ export const getPackagePlans = (): Plan[] => [
   {
     id: 'package-20',
     name: 'Pacote 20',
-    priceId: 'price_1T4grUJc1p4mhrHNFJAl6Y4T',
+    priceId: 'price_1T9AruJc1p4mhrHNjnzpniQM',
     price: 19.90,
     currency: 'BRL',
     interval: 'one_time',
@@ -137,7 +137,7 @@ export const getPackagePlans = (): Plan[] => [
   {
     id: 'package-50',
     name: 'Pacote 50',
-    priceId: 'price_1T4gu0Jc1p4mhrHNg8LhOIrJ',
+    priceId: 'price_1T9AtJJc1p4mhrHNqXqdOCoh',
     price: 49.90,
     currency: 'BRL',
     interval: 'one_time',

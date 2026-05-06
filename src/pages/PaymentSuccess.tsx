@@ -10,17 +10,17 @@ import { supabase } from '@/lib/supabase';
 
 // 🆕 Mapeamento de Price IDs para PLANOS DE ASSINATURA - PRODUÇÃO
 const PRICE_TO_PLAN: Record<string, { plan_type: string; signatures_limit: number; name: string }> = {
-  // Planos de assinatura - PRODUÇÃO
-  'price_1T4gcAJc1p4mhrHNwOvzI8D8': { plan_type: 'creator', signatures_limit: 50, name: 'Creator' },
-  'price_1T4gijJc1p4mhrHNW3h3Ajzl': { plan_type: 'creator_pro', signatures_limit: 150, name: 'Creator Pro' },
-  'price_1T4gmTJc1p4mhrHNuHS9xGN2': { plan_type: 'creator_elite', signatures_limit: 350, name: 'Creator Elite' },
+  // Planos de assinatura - PRODUÇÃO (ATUALIZADOS 2026-05-05)
+  'price_1T9AunJc1p4mhrHNQ3rfZhLa': { plan_type: 'creator', signatures_limit: 50, name: 'Creator' },
+  'price_1T9AvvJc1p4mhrHNJkTRLWcU': { plan_type: 'creator_pro', signatures_limit: 150, name: 'Creator Pro' },
+  'price_1T9Ax3Jc1p4mhrHNriVXetzj': { plan_type: 'creator_elite', signatures_limit: 350, name: 'Creator Elite' },
 };
 
 // Mapeamento de Price IDs para PACOTES AVULSOS - PRODUÇÃO
 const PRICE_TO_PACKAGE: Record<string, { credits: number; name: string }> = {
-  'price_1T4gpIJc1p4mhrHNJL1tt3UY': { credits: 10, name: 'Pacote 10' },
-  'price_1T4grUJc1p4mhrHNFJAl6Y4T': { credits: 20, name: 'Pacote 20' },
-  'price_1T4gu0Jc1p4mhrHNg8LhOIrJ': { credits: 50, name: 'Pacote 50' },
+  'price_1T9AqmJc1p4mhrHNAA8QJKlc': { credits: 10, name: 'Pacote 10' },
+  'price_1T9AruJc1p4mhrHNjnzpniQM': { credits: 20, name: 'Pacote 20' },
+  'price_1T9AtJJc1p4mhrHNqXqdOCoh': { credits: 50, name: 'Pacote 50' },
 };
 
 interface SubscriptionMetadata {
