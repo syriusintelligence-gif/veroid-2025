@@ -46,10 +46,11 @@ export const CSP_DIRECTIVES = {
     'blob:'
   ],
   
-  // Mídia: permite do próprio domínio e blob URLs (para uploads)
+  // Mídia: permite do próprio domínio, blob URLs, e Supabase Storage
   'media-src': [
     "'self'",
-    'blob:'
+    'blob:',
+    'https://*.supabase.co'
   ],
   
   // Conexões: permite Supabase e Sentry
