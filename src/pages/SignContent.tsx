@@ -1360,24 +1360,7 @@ ${content}
                 </p>
               </div>
               
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <p className="text-sm font-medium">O que será incluído no certificado:</p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>✅ Preview visual do conteúdo (imagem, vídeo, música ou documento)</li>
-                  {contentType === 'video' && <li>✅ Thumbnail gerada automaticamente da primeira imagem do vídeo</li>}
-                  {contentType === 'video' && <li>ℹ️ Vídeo completo NÃO será enviado (apenas thumbnail)</li>}
-                  {contentType === 'music' && <li>✅ Preview visual da música com título e informações do arquivo</li>}
-                  {(contentType === 'document' || contentType === 'text') && <li>✅ Preview visual do documento com ícone e informações</li>}
-                  <li>✅ Arquivo original salvo no Storage (disponível para download)</li>
-                  <li>✅ Plataformas selecionadas com badges visuais</li>
-                  <li>✅ Links clicáveis para seus perfis nas plataformas</li>
-                  <li>✅ Chave pública do assinante para validação</li>
-                  <li>✅ Hash SHA-256 do conteúdo completo</li>
-                  <li>✅ Assinatura digital verificável</li>
-                  <li>✅ Código de verificação único</li>
-                  <li>✅ QR Code para compartilhamento</li>
-                </ul>
-              </div>
+
               
               <Button
                 onClick={handleSign}
