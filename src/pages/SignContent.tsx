@@ -785,13 +785,16 @@ export default function SignContent() {
       // Sanitiza o nome do arquivo antes de incluir no conteúdo assinado
       const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
       
-      // 🆕 CUSTOM PLATFORM - Formata a lista de plataformas, substituindo "Outros" pelo texto customizado
-      const formattedPlatforms = selectedPlatforms
-        .map(platform => platform === 'Outros' && customPlatformText.trim() 
+      // 🆕 CUSTOM PLATFORM - Formata a lista de plataformas para salvar no banco e exibir no certificado
+      // Substitui "Outros" pelo texto customizado quando fornecido
+      const formattedPlatformsArray = selectedPlatforms.map(platform => 
+        platform === 'Outros' && customPlatformText.trim() 
           ? `Outros: ${customPlatformText.trim()}` 
           : platform
-        )
-        .join(', ');
+      );
+      
+      // Para o fullContent (assinatura), junta em string
+      const formattedPlatforms = formattedPlatformsArray.join(', ');
       
       // Combine all information into the content to be signed
       const fullContent = `
@@ -859,7 +862,7 @@ ${content}
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
         finalThumbnail || undefined,
-        selectedPlatforms,
+        formattedPlatformsArray, // 🆕 CUSTOM PLATFORM - Passa array formatado com plataforma customizada
         fileMetadata, // 🆕 Passa metadados de arquivo
         creatorSocialLinks, // 🆕 SOLUÇÃO DEFINITIVA: Sempre passa links sociais do criador
         allowFileDownload // 🆕 Controle de download pelo criador
@@ -1317,12 +1320,15 @@ ${content}
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-muted hover:border-muted-foreground/50'
                       }`}
-                      onClick={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
+                      onClick={() => {
+                        if (!(isBlocked || isProcessingVideo || isUploadingFile)) {
+                          togglePlatform(platform.value);
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pointer-events-none">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
-                          onCheckedChange={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                           disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         />
                         <span className="text-2xl">{platform.logo}</span>

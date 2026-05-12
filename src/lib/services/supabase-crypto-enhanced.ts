@@ -15,7 +15,6 @@ import { generateHash, generateVerificationCode } from '../crypto';
 import { signContentViaEdgeFunction } from './edge-function-service';
 import { isFeatureEnabled, FeatureFlag } from './feature-flags';
 import type { SignedContent } from '../supabase-crypto';
-import type { CarouselMetadata } from '../types/carousel';
 
 // Re-exporta tipos originais para compatibilidade
 export type {
@@ -97,11 +96,6 @@ interface SignContentResult {
  *    - Salva informações do arquivo no banco
  *    - Mantém compatibilidade retroativa (fileMetadata é opcional)
  * 
- * 5. **🆕 Suporte a Carrossel (FASE 5):**
- *    - Aceita metadados de carrossel opcional
- *    - Salva array de imagens no banco
- *    - Compatível com upload único existente
- * 
  * @param content - Conteúdo a ser assinado
  * @param privateKey - Chave privada (usada apenas no fallback)
  * @param publicKey - Chave pública
@@ -111,8 +105,6 @@ interface SignContentResult {
  * @param platforms - Plataformas sociais
  * @param fileMetadata - 🆕 Metadados do arquivo anexado (opcional)
  * @param creatorSocialLinks - 🆕 Links sociais do criador (opcional)
- * @param allowFileDownload - 🆕 Permitir download do arquivo (opcional)
- * @param carouselMetadata - 🆕 Metadados do carrossel de imagens (opcional)
  * @returns Resultado da assinatura
  */
 export async function signContentEnhanced(
@@ -125,8 +117,7 @@ export async function signContentEnhanced(
   platforms?: string[],
   fileMetadata?: FileMetadata,
   creatorSocialLinks?: SocialLinks,
-  allowFileDownload?: boolean,
-  carouselMetadata?: CarouselMetadata
+  allowFileDownload?: boolean
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -142,8 +133,6 @@ export async function signContentEnhanced(
       platforms: platforms?.join(', '),
       hasFile: !!fileMetadata,
       hasSocialLinks: !!creatorSocialLinks,
-      hasCarousel: !!carouselMetadata,
-      carouselImagesCount: carouselMetadata?.total_images || 0,
     });
   }
 
@@ -297,19 +286,11 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
-    // 🔧 CRITICAL FIX: Determinar total de imagens e aplicar constraint do banco
-    // CONSTRAINT: (total_images = 1 AND carousel_metadata IS NULL) OR (total_images > 1 AND carousel_metadata IS NOT NULL)
-    const totalImages = carouselMetadata?.total_images || 1;
-    const shouldIncludeCarouselMetadata = totalImages > 1;
+    // 🆕 CUSTOM PLATFORM - Formata plataformas antes de salvar no banco
+    // Se plataformas contiver strings no formato "Outros: [nome]", mantém como está
+    const formattedPlatforms = platforms || null;
     
-    console.log('🔍 [Enhanced] Análise de carrossel:', {
-      hasCarouselMetadata: !!carouselMetadata,
-      totalImages,
-      shouldIncludeCarouselMetadata,
-      carouselImagesCount: carouselMetadata?.carousel_images?.length || 0,
-    });
-
-    // 🆕 Preparar objeto de inserção com metadados de arquivo, links sociais e carrossel
+    // 🆕 Preparar objeto de inserção com metadados de arquivo e links sociais
     const signedContent: SignedContentInsert = {
       user_id: userId,
       content,
@@ -319,7 +300,7 @@ export async function signContentEnhanced(
       creator_name: creatorName,
       verification_code: verificationCode,
       thumbnail: thumbnail || null,
-      platforms: platforms || null,
+      platforms: formattedPlatforms,
       verification_count: 0,
       // 🆕 FASE 3: Adicionar metadados de arquivo
       file_path: fileMetadata?.file_path || null,
@@ -329,11 +310,8 @@ export async function signContentEnhanced(
       storage_bucket: fileMetadata?.storage_bucket || null,
       // 🆕 SOLUÇÃO DEFINITIVA: Salvar links sociais no certificado
       creator_social_links: creatorSocialLinks || null,
-      // 🆕 Controle de download - default TRUE se arquivo existir (único OU carrossel)
-      allow_file_download: (fileMetadata || carouselMetadata) ? (allowFileDownload ?? true) : false,
-      // 🔧 FASE 5: Aplicar constraint do banco corretamente
-      total_images: totalImages,
-      carousel_metadata: shouldIncludeCarouselMetadata ? carouselMetadata : null,
+      // 🆕 Controle de download - default TRUE se arquivo existir
+      allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -420,8 +398,6 @@ function dbSignedContentToAppSignedContent(
     storageBucket: dbContent.storage_bucket || undefined,
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: dbContent.allow_file_download ?? true,
-    // 🆕 FASE 5: Adicionar metadados de carrossel
-    carouselMetadata: dbContent.carousel_metadata ? (dbContent.carousel_metadata as CarouselMetadata) : undefined,
   };
 }
 
