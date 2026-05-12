@@ -124,8 +124,8 @@ export default function SignContent() {
   const [signedContent, setSignedContent] = useState<SignedContent | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
-  // 🆕 Controle de download de arquivo pelo criador
-  const [allowFileDownload, setAllowFileDownload] = useState<boolean>(true);
+  // 🆕 Controle de download de arquivo pelo criador (padrão: false - desmarcado)
+  const [allowFileDownload, setAllowFileDownload] = useState<boolean>(false);
   
   // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
@@ -564,7 +564,7 @@ export default function SignContent() {
     setTempFilePath(null); // 🆕 Limpa path temporário
     setUploadProgress(0); // 🆕 Reseta progresso do upload
     setShowCameraCapture(false); // 🆕 Fecha modo de câmera
-    setAllowFileDownload(true); // 🆕 Reseta permissão de download
+    setAllowFileDownload(false); // 🆕 Reseta permissão de download (padrão: desmarcado)
   };
   
   /**
@@ -914,7 +914,7 @@ ${content}
     setVideoThumbnail(null);
     setTempFilePath(null); // 🆕 Limpa path temporário
     setUploadProgress(0); // 🆕 Reseta progresso do upload
-    setAllowFileDownload(true); // 🆕 Reseta permissão de download
+    setAllowFileDownload(false); // 🆕 Reseta permissão de download (padrão: desmarcado)
   };
   
   if (isLoading) {
