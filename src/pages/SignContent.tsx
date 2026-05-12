@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -118,6 +118,8 @@ export default function SignContent() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
+  // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: useRef para bloqueio síncrono
+  const isSigningRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [signedContent, setSignedContent] = useState<SignedContent | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
@@ -709,7 +711,7 @@ export default function SignContent() {
     
     console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     
-    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Define estado de assinando IMEDIATAMENTE
+    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Define estado visual do botão
     setIsSigning(true);
     console.log('🔒 [DOUBLE CLICK PROTECTION] Botão bloqueado para novos cliques');
     
@@ -877,6 +879,8 @@ ${content}
       
       alert('Erro ao assinar conteúdo. Tente novamente.');
     } finally {
+      // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Libera bloqueio síncrono
+      isSigningRef.current = false;
       setIsSigning(false);
     }
   };
