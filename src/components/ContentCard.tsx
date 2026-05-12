@@ -371,26 +371,76 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
         {/* Hidden canvas for QR download */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         
-        {/* Share Buttons - Compact Version */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-          {/* Frase pronta para compartilhamento */}
-          <div className="mb-4 p-3 bg-white rounded-lg border border-blue-200">
-            <p className="text-xs font-semibold text-blue-900 mb-2">📱 Frase pronta para compartilhamento:</p>
-            <p className="text-sm text-gray-700 whitespace-pre-line">
-              {shareTitle}
-              {'\n\n'}
-              {shareDescription}
-              {'\n\n'}
-              Verifique a autenticidade desse conteúdo em www.veroid.com.br - código {content.verificationCode}
-            </p>
+        {/* 📢 Frase Pronta para Compartilhamento */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-5 rounded-lg border-2 border-blue-300">
+          <div className="space-y-4">
+            {/* Título da seção */}
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📢</span>
+              <h3 className="text-base font-bold text-blue-900">Frase Pronta para Compartilhamento</h3>
+            </div>
+            
+            {/* Texto explicativo */}
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+              <p className="text-sm text-green-800 leading-relaxed">
+                ✅ Você é o criador deste conteúdo. Use a frase abaixo para compartilhar nas suas redes sociais e permitir que seus seguidores verifiquem a autenticidade:
+              </p>
+            </div>
+            
+            {/* Frase pronta em destaque */}
+            <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
+              <p className="text-sm text-gray-800 font-medium leading-relaxed">
+                Verifique a autenticidade desse conteúdo em www.veroid.com.br - código {content.verificationCode}
+              </p>
+            </div>
+            
+            {/* Botão de copiar frase */}
+            <Button
+              variant="default"
+              size="lg"
+              onClick={async () => {
+                const shareText = `Verifique a autenticidade desse conteúdo em www.veroid.com.br - código ${content.verificationCode}`;
+                try {
+                  await navigator.clipboard.writeText(shareText);
+                  // Feedback visual temporário
+                  const btn = document.getElementById('copy-share-phrase-btn');
+                  if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copiado!';
+                    setTimeout(() => {
+                      btn.textContent = originalText || 'Copiar Frase Pronta';
+                    }, 2000);
+                  }
+                } catch (err) {
+                  console.error('Erro ao copiar:', err);
+                }
+              }}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
+              id="copy-share-phrase-btn"
+            >
+              <Copy className="h-5 w-5 mr-2" />
+              Copiar Frase Pronta
+            </Button>
+            
+            {/* Dica adicional */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 flex items-start gap-2">
+              <span className="text-xl flex-shrink-0">💡</span>
+              <p className="text-xs text-blue-800 leading-relaxed">
+                Cole esta mensagem junto com seu conteúdo nas redes sociais
+              </p>
+            </div>
+            
+            {/* Botões de redes sociais */}
+            <div className="pt-2">
+              <p className="text-xs font-semibold text-gray-600 mb-3">Ou compartilhe diretamente:</p>
+              <ShareButtons 
+                certificateUrl={certificateUrl}
+                title={shareTitle}
+                description={shareDescription}
+                compact={true}
+              />
+            </div>
           </div>
-          
-          <ShareButtons 
-            certificateUrl={certificateUrl}
-            title={shareTitle}
-            description={shareDescription}
-            compact={true}
-          />
         </div>
         
         {/* Informações Técnicas */}
