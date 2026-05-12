@@ -115,6 +115,8 @@ export default function SignContent() {
   const [content, setContent] = useState('');
   const [contentType, setContentType] = useState<ContentType>('text');
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  // 🆕 CUSTOM PLATFORM - Estado para plataforma customizada quando "Outros" for selecionado
+  const [customPlatformText, setCustomPlatformText] = useState<string>('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
@@ -610,11 +612,18 @@ export default function SignContent() {
   };
   
   const togglePlatform = (platform: SocialPlatform) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(platform)
+    setSelectedPlatforms(prev => {
+      const isCurrentlySelected = prev.includes(platform);
+      
+      // Se estiver desmarcando "Outros", limpa o texto customizado
+      if (isCurrentlySelected && platform === 'Outros') {
+        setCustomPlatformText('');
+      }
+      
+      return isCurrentlySelected
         ? prev.filter(p => p !== platform)
-        : [...prev, platform]
-    );
+        : [...prev, platform];
+    });
   };
   
   const handleSign = async () => {
@@ -645,6 +654,14 @@ export default function SignContent() {
       isSigningRef.current = false;
       setIsSigning(false);
       alert('Por favor, selecione pelo menos uma rede social');
+      return;
+    }
+    
+    // 🆕 CUSTOM PLATFORM - Validação: se "Outros" estiver selecionado, o texto customizado é obrigatório
+    if (selectedPlatforms.includes('Outros') && !customPlatformText.trim()) {
+      isSigningRef.current = false;
+      setIsSigning(false);
+      alert('Por favor, especifique o nome da plataforma quando "Outros" estiver selecionado');
       return;
     }
     if (!currentUser) {
@@ -768,11 +785,19 @@ export default function SignContent() {
       // Sanitiza o nome do arquivo antes de incluir no conteúdo assinado
       const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
       
+      // 🆕 CUSTOM PLATFORM - Formata a lista de plataformas, substituindo "Outros" pelo texto customizado
+      const formattedPlatforms = selectedPlatforms
+        .map(platform => platform === 'Outros' && customPlatformText.trim() 
+          ? `Outros: ${customPlatformText.trim()}` 
+          : platform
+        )
+        .join(', ');
+      
       // Combine all information into the content to be signed
       const fullContent = `
 Título: ${title}
 Tipo: ${contentTypes.find(t => t.value === contentType)?.label}
-Redes: ${selectedPlatforms.join(', ')}
+Redes: ${formattedPlatforms}
 ${uploadedFile ? `Arquivo: ${sanitizedFileName}` : ''}
 
 Conteúdo:
@@ -907,6 +932,7 @@ ${content}
     setContent('');
     setContentType('text');
     setSelectedPlatforms([]);
+    setCustomPlatformText(''); // 🆕 Limpa texto de plataforma customizada
     setUploadedFile(null);
     setFilePreview(null);
     setSignedContent(null);
@@ -1305,6 +1331,28 @@ ${content}
                     </div>
                   ))}
                 </div>
+                
+                {/* 🆕 CUSTOM PLATFORM - Campo de texto condicional para "Outros" */}
+                {selectedPlatforms.includes('Outros') && (
+                  <div className="mt-3 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg space-y-2">
+                    <Label htmlFor="custom-platform" className="text-purple-900 font-semibold">
+                      📱 Especifique a plataforma:
+                    </Label>
+                    <Input
+                      id="custom-platform"
+                      placeholder="Ex: Threads, BlueSky, Snapchat, etc."
+                      value={customPlatformText}
+                      onChange={(e) => setCustomPlatformText(e.target.value.slice(0, 50))}
+                      maxLength={50}
+                      disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                      className="border-purple-300 focus:border-purple-500 focus:ring-purple-500"
+                    />
+                    <p className="text-xs text-purple-700">
+                      {customPlatformText.length}/50 caracteres {customPlatformText.length === 0 && '(obrigatório quando "Outros" está selecionado)'}
+                    </p>
+                  </div>
+                )}
+                
                 {selectedPlatforms.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {selectedPlatforms.length} {selectedPlatforms.length === 1 ? 'plataforma selecionada' : 'plataformas selecionadas'}
