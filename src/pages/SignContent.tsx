@@ -1362,6 +1362,13 @@ ${content}
               
 
               
+              {/* Informação sobre salvamento automático */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800 text-center leading-relaxed">
+                  💾 <strong>Seu conteúdo será salvo automaticamente no dashboard assim que você concluir sua assinatura.</strong>
+                </p>
+              </div>
+              
               <Button
                 onClick={handleSign}
                 disabled={
@@ -1412,7 +1419,9 @@ ${content}
             <Alert className="border-green-500 bg-green-50">
               <Shield className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                Sua assinatura foi realizada com sucesso! Agora o seu conteúdo possui uma assinatura digital verificável, e já pode ser compartilhado.
+                <strong>Assinatura realizada com sucesso!</strong>
+                <br />
+                Seu conteúdo agora possui uma assinatura digital verificável e <strong>já pode ser compartilhado</strong> nas redes sociais usando os botões abaixo do certificado.
               </AlertDescription>
             </Alert>
             
