@@ -618,28 +618,38 @@ export default function SignContent() {
   };
   
   const handleSign = async () => {
-    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Verifica se já está assinando
-    if (isSigning) {
-      console.warn('⚠️ [DOUBLE CLICK PROTECTION] Assinatura já em progresso, ignorando clique duplicado');
+    // 🔒 PROTEÇÃO IMEDIATA - PRIMEIRA LINHA ABSOLUTA
+    if (isSigningRef.current) {
+      console.log('🚫 [DOUBLE CLICK PROTECTION] Clique bloqueado');
       return;
     }
+    isSigningRef.current = true;
+    setIsSigning(true);
     
+    // Validações básicas
     if (!title.trim()) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Por favor, insira o título do conteúdo');
       return;
     }
     
     if (!content.trim() && !uploadedFile) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Por favor, insira o conteúdo ou faça upload de um arquivo');
       return;
     }
     
     if (selectedPlatforms.length === 0) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Por favor, selecione pelo menos uma rede social');
       return;
     }
-    
     if (!currentUser) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Erro: usuário não identificado');
       return;
     }
@@ -652,6 +662,8 @@ export default function SignContent() {
         hasPrivateKey: !!keyPair?.privateKey,
       });
       
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Erro: Chaves criptográficas não encontradas ou inválidas. Tente recarregar a página ou gerar novas chaves no Dashboard.');
       return;
     }
@@ -663,6 +675,8 @@ export default function SignContent() {
         privateKeyPrefix: keyPair.privateKey.substring(0, 10),
       });
       
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Erro: Formato de chaves inválido. Por favor, gere novas chaves no Dashboard.');
       return;
     }
@@ -678,17 +692,23 @@ export default function SignContent() {
     console.log('🔍 [SIGNATURE COUNTER] Verificando disponibilidade de assinaturas...');
     
     if (!signatureStatus || statusLoading) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Carregando status de assinaturas. Por favor, aguarde.');
       return;
     }
     
     if (!signatureStatus.has_active_subscription) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert('Você não possui uma assinatura ativa. Por favor, assine um plano para continuar.');
       navigate('/pricing');
       return;
     }
     
     if (signatureStatus.total_available <= 0) {
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert(`Você atingiu o limite de ${signatureStatus.signatures_limit} assinaturas do seu plano. Adquira pacotes avulsos ou faça upgrade para continuar.`);
       navigate('/pricing');
       return;
@@ -702,18 +722,15 @@ export default function SignContent() {
     // 🆕 RATE LIMITING - Verificação ANTES de assinar
     console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
     const rateLimitResult = await checkRateLimit();
-    
     if (!rateLimitResult.allowed) {
       console.warn('🚫 [RATE LIMIT] Limite excedido:', rateLimitResult.message);
+      isSigningRef.current = false;
+      setIsSigning(false);
       alert(rateLimitResult.message || 'Você excedeu o limite de assinaturas. Aguarde antes de tentar novamente.');
       return;
     }
     
     console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
-    
-    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Define estado visual do botão
-    setIsSigning(true);
-    console.log('🔒 [DOUBLE CLICK PROTECTION] Botão bloqueado para novos cliques');
     
     // ========================================
     // 🆕 FASE 2: VARIÁVEL PARA TRACKING DE FILE PATH
