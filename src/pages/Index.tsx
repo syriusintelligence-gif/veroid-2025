@@ -6,6 +6,7 @@ import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollProgressBar } from '@/components/ScrollProgressBar';
+import { LazyVideo } from '@/components/LazyVideo';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -338,7 +339,21 @@ export default function Index() {
               <span className="text-white">Como </span>
               <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Funciona?</span>
             </h2>
-            <p className="text-lg md:text-xl text-gray-400 px-4">Processo simples e seguro em 3 passos</p>
+            <p className="text-lg md:text-xl text-gray-400 px-4 mb-8 md:mb-12">Processo simples e seguro em 3 passos</p>
+            
+            {/* Video Demo */}
+            <motion.div
+              className="max-w-4xl mx-auto px-4"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+              animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.8, delay: shouldReduceMotion ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              <LazyVideo
+                src="/videos/veroid-demo.mp4"
+                title="Demonstração Vero iD - Como funciona a assinatura digital"
+                className="mb-12 md:mb-16"
+              />
+            </motion.div>
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
