@@ -6,7 +6,6 @@ import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
 import { motion, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollProgressBar } from '@/components/ScrollProgressBar';
-import { LazyVideo } from '@/components/LazyVideo';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -348,11 +347,17 @@ export default function Index() {
               animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
               transition={{ duration: shouldReduceMotion ? 0.01 : 0.8, delay: shouldReduceMotion ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              <LazyVideo
-                src="https://muqjeukjyfhwtbynrxkm.supabase.co/storage/v1/object/public/videos/Vero%20iD%20-%20720p.mp4"
-                title="Demonstração Vero iD - Como funciona a assinatura digital"
-                className="mb-12 md:mb-16"
-              />
+              <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl shadow-cyan-500/20 mb-12 md:mb-16" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src="https://www.youtube.com/embed/vWNLWkWNxuE"
+                  title="Demonstração Vero iD - Como funciona a assinatura digital"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
             </motion.div>
           </motion.div>
           
