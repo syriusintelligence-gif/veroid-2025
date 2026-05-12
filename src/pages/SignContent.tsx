@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle, Images } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -16,32 +16,77 @@ import { signContent } from '@/lib/services/supabase-crypto-enhanced';
 import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import { compressImage, isImageDataUrl } from '@/lib/image-compression';
+// 🆕 CAMERA CAPTURE - Componente para captura de foto pela câmera
 import { CameraCapture } from '@/components/CameraCapture';
+// 🆕 RATE LIMITING - Imports adicionados
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { RateLimitAlert } from '@/components/RateLimitAlert';
+// 🔒 SEGURANÇA: Validação de arquivos com lista branca
 import { validateFile, getAcceptString, getExtensionDescription } from '@/lib/file-validator';
 import type { FileCategory } from '@/lib/file-validator';
+// 🎬 VIDEO PROCESSING - Apenas thumbnail (SEM compressão)
 import { 
   generateThumbnail, 
   isVideoFile, 
   formatFileSize
 } from '@/lib/video-processor';
+// ========================================
+// INÍCIO: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7 (SILENCIOSA)
+// ========================================
 import { calculateFileHash } from '@/hooks/useFileScanStatus';
 import { supabase } from '@/lib/supabase';
+// ========================================
+// FIM: INTEGRAÇÃO VIRUSTOTAL - ETAPA 7
+// ========================================
+// ========================================
+// 🔒 SEGURANÇA: SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2
+// ========================================
 import { sanitizeFileName } from '@/lib/input-sanitizer';
+// ========================================
+// FIM: SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2
+// ========================================
+// ========================================
+// 🆕 FASE 2: INTEGRAÇÃO COM SUPABASE STORAGE
+// ========================================
 import { 
   moveToSignedDocuments,
   deleteFile
 } from '@/lib/services/storage-service';
+// 🆕 UPLOAD COM PROGRESSO
 import { uploadToTempBucketWithProgress } from '@/lib/services/storage-service-with-progress';
+// ========================================
+// FIM: INTEGRAÇÃO COM SUPABASE STORAGE
+// ========================================
+// ========================================
+// 🆕 FASE 3: AUDIT LOGGING
+// ========================================
 import { logAuditEvent, AuditAction } from '@/lib/audit-logger';
+// ========================================
+// FIM: AUDIT LOGGING
+// ========================================
+// ========================================
+// 🆕 DOCUMENT PREVIEW GENERATOR
+// ========================================
 import { generateDocumentPreview, isDocumentFile } from '@/lib/document-preview-generator';
+// ========================================
+// FIM: DOCUMENT PREVIEW GENERATOR
+// ========================================
+// ========================================
+// 🆕 MUSIC PREVIEW GENERATOR
+// ========================================
 import { generateMusicPreview, isMusicFile } from '@/lib/music-preview-generator';
+// ========================================
+// FIM: MUSIC PREVIEW GENERATOR
+// ========================================
+// ========================================
+// 🆕 CONTADOR DE ASSINATURAS - PROBLEMA 4
+// ========================================
 import { useSignatureStatus, consumeSignature } from '@/hooks/useSubscription';
-import { uploadCarouselImages, moveCarouselToSignedDocuments, deleteCarouselImages } from '@/lib/services/carousel-storage';
-import type { CarouselMetadata } from '@/lib/types/carousel';
+// ========================================
+// FIM: CONTADOR DE ASSINATURAS
+// ========================================
 
-type ContentType = 'text' | 'image' | 'video' | 'document' | 'music' | 'carousel';
+type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'Website' | 'Outros';
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
@@ -50,7 +95,6 @@ const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }
   { value: 'video', label: 'Vídeo', icon: <Video className="h-5 w-5" /> },
   { value: 'document', label: 'Documento', icon: <FileType className="h-5 w-5" /> },
   { value: 'music', label: 'Música', icon: <Music className="h-5 w-5" /> },
-  { value: 'carousel', label: 'Carrossel', icon: <Images className="h-5 w-5" /> },
 ];
 
 const socialPlatforms: { value: SocialPlatform; label: string; logo: string }[] = [
@@ -78,11 +122,18 @@ export default function SignContent() {
   const [signedContent, setSignedContent] = useState<SignedContent | null>(null);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
+  // 🆕 Controle de download de arquivo pelo criador
   const [allowFileDownload, setAllowFileDownload] = useState<boolean>(true);
+  
+  // 🔒 SEGURANÇA: Estado para mensagens de erro de validação de arquivo
   const [fileValidationError, setFileValidationError] = useState<string>('');
+  
+  // 🎬 VIDEO PROCESSING: Estados simplificados (APENAS thumbnail)
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
   
+  // 🆕 RATE LIMITING - Hook inicializado
+  // Limite: 10 assinaturas por hora, bloqueio de 2 horas se exceder
   const { 
     check: checkRateLimit, 
     isBlocked, 
@@ -91,20 +142,32 @@ export default function SignContent() {
     message: rateLimitMessage 
   } = useRateLimit('SIGN_CONTENT');
   
+  // ========================================
+  // 🆕 FASE 2: ESTADOS PARA STORAGE
+  // ========================================
   const [tempFilePath, setTempFilePath] = useState<string | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  // 🆕 PROGRESSO DO UPLOAD (0-100)
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [showCameraCapture, setShowCameraCapture] = useState(false);
-  const { status: signatureStatus, loading: statusLoading, refetch: refetchStatus } = useSignatureStatus();
+  // ========================================
+  // FIM: ESTADOS PARA STORAGE
+  // ========================================
   
   // ========================================
-  // 🎠 CAROUSEL STATES
+  // 🆕 CAMERA CAPTURE - Estados para modo de captura
   // ========================================
-  const [carouselFiles, setCarouselFiles] = useState<File[]>([]);
-  const [carouselPreviews, setCarouselPreviews] = useState<string[]>([]);
-  const [carouselMetadata, setCarouselMetadata] = useState<CarouselMetadata | null>(null);
-  const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
-  const [carouselValidationError, setCarouselValidationError] = useState<string>('');
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  // ========================================
+  // FIM: CAMERA CAPTURE
+  // ========================================
+  
+  // ========================================
+  // 🆕 CONTADOR DE ASSINATURAS - PROBLEMA 4
+  // ========================================
+  const { status: signatureStatus, loading: statusLoading, refetch: refetchStatus } = useSignatureStatus();
+  // ========================================
+  // FIM: CONTADOR DE ASSINATURAS
+  // ========================================
   
   useEffect(() => {
     loadUserData();
@@ -113,14 +176,20 @@ export default function SignContent() {
   const loadUserData = async () => {
     try {
       setIsLoading(true);
+      
+      // Verifica se usuário está logado
       const user = await getCurrentUser();
       if (!user) {
         navigate('/login');
         return;
       }
+      
       setCurrentUser(user);
+      
+      // Carrega chaves do usuário do Supabase
       const userKeyPair = await getKeyPair(user.id);
       setKeyPair(userKeyPair);
+      
       console.log('✅ Dados carregados:', {
         user: user.email,
         hasKeys: !!userKeyPair,
@@ -135,6 +204,9 @@ export default function SignContent() {
     }
   };
   
+  /**
+   * 🔒 SEGURANÇA: Mapeia ContentType para FileCategory do validador
+   */
   const getFileCategoryFromContentType = (type: ContentType): FileCategory[] => {
     switch (type) {
       case 'image':
@@ -146,55 +218,37 @@ export default function SignContent() {
       case 'document':
         return ['document'];
       case 'text':
-        return ['text', 'document'];
-      case 'carousel':
-        return ['image'];
+        return ['text', 'document']; // Texto aceita tanto .txt quanto documentos
       default:
-        return ['image', 'video', 'audio', 'document', 'text'];
+        return ['image', 'video', 'audio', 'document', 'text']; // Fallback: aceita tudo
     }
   };
   
+  /**
+   * 🎬 VIDEO PROCESSING: Gera APENAS thumbnail (SEM compressão)
+   * Rápido e eficiente - funciona para vídeos de qualquer tamanho
+   */
   const generateVideoThumbnail = async (file: File): Promise<void> => {
-    const FILE_SIZE_MB = file.size / 1024 / 1024;
-    const MAX_SIZE_FOR_THUMBNAIL = 100; // 100MB
-    
-    console.log('🎬 [VIDEO THUMBNAIL] Verificando tamanho do vídeo:', {
-      fileName: file.name,
-      fileSize: `${FILE_SIZE_MB.toFixed(2)} MB`,
-      maxSizeForThumbnail: `${MAX_SIZE_FOR_THUMBNAIL} MB`
-    });
-    
-    // ========================================
-    // 🎯 LÓGICA DE VERIFICAÇÃO DE TAMANHO
-    // Vídeos > 100MB: Pula geração de thumbnail
-    // Vídeos ≤ 100MB: Gera thumbnail normalmente
-    // ========================================
-    if (FILE_SIZE_MB > MAX_SIZE_FOR_THUMBNAIL) {
-      console.log(`⚠️ [VIDEO THUMBNAIL] Vídeo muito grande (${FILE_SIZE_MB.toFixed(2)} MB). Pulando geração de thumbnail.`);
-      setVideoThumbnail(null);
-      setFileValidationError('');
-      // Informa ao usuário que thumbnail não será gerada para vídeos grandes
-      alert(`✅ Vídeo carregado com sucesso!\n\nℹ️ Como o vídeo é grande (${FILE_SIZE_MB.toFixed(2)} MB), a thumbnail não será gerada para evitar problemas de performance.\n\nVocê pode continuar normalmente com a assinatura.`);
-      return;
-    }
-    // ========================================
-    // FIM: LÓGICA DE VERIFICAÇÃO DE TAMANHO
-    // ========================================
-    
     console.log('🎬 [VIDEO THUMBNAIL] Gerando thumbnail do vídeo');
     setIsProcessingVideo(true);
+    
     try {
+      // Gera thumbnail da primeira imagem do vídeo
       const thumbnail = await generateThumbnail(file, {
         maxWidth: 800,
         maxHeight: 600,
         quality: 0.8,
         format: 'image/jpeg'
       });
+      
       setVideoThumbnail(thumbnail);
       console.log('✅ [VIDEO THUMBNAIL] Thumbnail gerada com sucesso');
+      
     } catch (error) {
       console.error('❌ [VIDEO THUMBNAIL] Erro ao gerar thumbnail:', error);
       setFileValidationError(`Erro ao gerar thumbnail: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      
+      // Limpa estados em caso de erro
       setVideoThumbnail(null);
       setUploadedFile(null);
     } finally {
@@ -202,16 +256,34 @@ export default function SignContent() {
     }
   };
   
+  /**
+   * 🔒 SEGURANÇA: Handler de upload com validação rigorosa
+   * 🆕 ETAPA 3: Função agora é ASSÍNCRONA e usa await validateFile()
+   * 🔐 VIRUSTOTAL: Scan silencioso em background (sem UI)
+   * 🆕 FASE 2: Upload para Supabase Storage após validação
+   * 🆕 FASE 3: Logging de validação e scan
+   * 🆕 DOCUMENT PREVIEW: Gera preview para documentos
+   * 🆕 MUSIC PREVIEW: Gera preview para músicas
+   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    
+    // Limpa estados anteriores
     setFileValidationError('');
     setUploadedFile(null);
     setFilePreview(null);
     setVideoThumbnail(null);
-    setTempFilePath(null);
-    if (!file) return;
+    setTempFilePath(null); // 🆕 Limpa path temporário
     
+    if (!file) {
+      return;
+    }
+    
+    // ========================================
+    // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 1/4)
+    // ========================================
     const sanitizedFileName = sanitizeFileName(file.name);
+    
     console.log('📁 [FILE UPLOAD] Arquivo selecionado:', {
       originalName: file.name,
       sanitizedName: sanitizedFileName,
@@ -219,19 +291,32 @@ export default function SignContent() {
       type: file.type,
       contentType: contentType
     });
+    // ========================================
+    // FIM: SANITIZAÇÃO - PONTO 1/4
+    // ========================================
     
+    // =====================================================
+    // 🔒 VALIDAÇÃO DE SEGURANÇA: Lista branca + Magic Numbers
+    // =====================================================
     const allowedCategories = getFileCategoryFromContentType(contentType);
+    
+    // 🎬 VIDEO: Aumenta limite para 200MB (apenas para leitura de metadados e thumbnail)
+    // Não fazemos upload do vídeo completo, apenas da thumbnail gerada
     const maxSize = contentType === 'video' ? 200 * 1024 * 1024 : 10 * 1024 * 1024;
+    
+    // 🆕 ETAPA 3: Adiciona await para validação assíncrona
     const validationResult = await validateFile(file, {
       maxSizeBytes: maxSize,
       allowedCategories: allowedCategories,
-      strictMode: true,
-      validateMagicNumbers: true
+      strictMode: true, // Ativa validação de MIME type
+      validateMagicNumbers: true // 🆕 Ativa validação de Magic Numbers
     });
     
     if (!validationResult.valid) {
       console.error('❌ [FILE UPLOAD] Validação falhou:', validationResult.message);
       setFileValidationError(validationResult.message);
+      
+      // 🆕 FASE 3: Registrar log de validação falhou
       if (currentUser) {
         logAuditEvent(AuditAction.FILE_VALIDATION_FAILED, {
           success: false,
@@ -247,18 +332,27 @@ export default function SignContent() {
           console.warn('⚠️ [AUDIT] Erro ao registrar log de validação (não crítico):', err);
         });
       }
+      
+      // Limpa o input de arquivo
       e.target.value = '';
       return;
     }
     
     console.log('✅ [FILE UPLOAD] Arquivo validado com sucesso:', validationResult.details);
+    
+    // Arquivo válido, prosseguir com upload
     setUploadedFile(file);
     
+    // ========================================
+    // 🆕 FASE 2: UPLOAD PARA SUPABASE STORAGE (COM PROGRESSO)
+    // ========================================
     if (currentUser) {
       setIsUploadingFile(true);
-      setUploadProgress(0);
+      setUploadProgress(0); // 🆕 Reseta progresso
       try {
         console.log('📤 [STORAGE] Iniciando upload para temp-uploads...');
+        
+        // 🆕 Usa função com callback de progresso
         const uploadResult = await uploadToTempBucketWithProgress(
           file, 
           currentUser.id,
@@ -268,34 +362,53 @@ export default function SignContent() {
             }
           }
         );
+        
         if (!uploadResult.success) {
           throw new Error(uploadResult.error || 'Erro ao fazer upload');
         }
+        
         console.log('✅ [STORAGE] Upload concluído:', {
           path: uploadResult.path,
           executionTime: uploadResult.executionTime + 'ms'
         });
+        
+        // Salva path temporário
         setTempFilePath(uploadResult.path!);
+        
       } catch (error) {
         console.error('❌ [STORAGE] Erro no upload:', error);
         setFileValidationError(`Erro ao fazer upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        
+        // Limpa estados em caso de erro
         setUploadedFile(null);
         setTempFilePath(null);
-        setUploadProgress(0);
+        setUploadProgress(0); // 🆕 Reseta progresso em caso de erro
         e.target.value = '';
         return;
       } finally {
         setIsUploadingFile(false);
       }
     }
+    // ========================================
+    // FIM: UPLOAD PARA SUPABASE STORAGE
+    // ========================================
     
+    // ========================================
+    // INÍCIO: INTEGRAÇÃO VIRUSTOTAL - SILENCIOSA (SEM UI)
+    // 🆕 FASE 3: Logging de scan
+    // ========================================
+    // Calcula hash do arquivo e inicia scan VirusTotal em background
     try {
       console.log('🔐 [VIRUSTOTAL] Calculando hash do arquivo...');
       const hash = await calculateFileHash(file);
       console.log('✅ [VIRUSTOTAL] Hash calculado:', hash);
+      
+      // Chama Edge Function para scan (silencioso, sem bloquear UI)
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session) {
         console.log('🚀 [VIRUSTOTAL] Iniciando scan silencioso via Edge Function...');
+        
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-uploaded-file`,
           {
@@ -311,9 +424,12 @@ export default function SignContent() {
             }),
           }
         );
+        
         if (response.ok) {
           const resultData = await response.json();
           console.log('✅ [VIRUSTOTAL] Scan silencioso concluído:', resultData);
+          
+          // 🆕 FASE 3: Registrar log de scan bem-sucedido
           if (currentUser) {
             logAuditEvent(AuditAction.FILE_SCAN_COMPLETED, {
               success: true,
@@ -328,8 +444,11 @@ export default function SignContent() {
           }
         } else {
           console.warn('⚠️ [VIRUSTOTAL] Erro no scan silencioso (não bloqueia upload)');
+          
+          // 🆕 FASE 3: Registrar log de scan falhou
           if (currentUser) {
             const errorText = await response.text().catch(() => 'Erro desconhecido');
+            
             logAuditEvent(AuditAction.FILE_SCAN_FAILED, {
               success: false,
               fileName: sanitizedFileName,
@@ -345,6 +464,8 @@ export default function SignContent() {
       }
     } catch (error) {
       console.warn('⚠️ [VIRUSTOTAL] Erro ao processar scan silencioso (não bloqueia upload):', error);
+      
+      // 🆕 FASE 3: Registrar log de erro no scan
       if (currentUser) {
         logAuditEvent(AuditAction.FILE_SCAN_FAILED, {
           success: false,
@@ -357,14 +478,26 @@ export default function SignContent() {
         });
       }
     }
+    // ========================================
+    // FIM: INTEGRAÇÃO VIRUSTOTAL - SILENCIOSA
+    // ========================================
     
+    // =====================================================
+    // 🎬 PROCESSAMENTO ESPECÍFICO POR TIPO DE ARQUIVO
+    // =====================================================
+    
+    // VÍDEO: Gera APENAS thumbnail (SEM compressão)
     if (contentType === 'video' && isVideoFile(file)) {
       await generateVideoThumbnail(file);
-    } else if (file.type.startsWith('image/')) {
+    }
+    // IMAGEM: Cria preview e comprime
+    else if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const originalDataUrl = reader.result as string;
+        
         try {
+          // 🆕 Comprime a imagem automaticamente
           console.log('🗜️ Comprimindo imagem...');
           const compressedDataUrl = await compressImage(originalDataUrl, {
             maxWidth: 800,
@@ -372,21 +505,25 @@ export default function SignContent() {
             quality: 0.7,
             maxSizeKB: 100,
           });
+          
           setFilePreview(compressedDataUrl);
         } catch (error) {
           console.error('❌ Erro ao comprimir imagem:', error);
+          // Fallback: usa imagem original se compressão falhar
           setFilePreview(originalDataUrl);
         }
       };
       reader.readAsDataURL(file);
-    } else if (isMusicFile(file.type)) {
+    }
+    // 🆕 MÚSICA: Gera preview visual com título
+    else if (isMusicFile(file.type)) {
       console.log('🎵 [MUSIC PREVIEW] Gerando preview para música...');
       try {
         const musicPreview = generateMusicPreview(
           file.name,
           file.size,
           file.type,
-          title || undefined
+          title || undefined // Usa título do campo se disponível
         );
         setFilePreview(musicPreview);
         console.log('✅ [MUSIC PREVIEW] Preview gerado com sucesso');
@@ -394,7 +531,9 @@ export default function SignContent() {
         console.error('❌ [MUSIC PREVIEW] Erro ao gerar preview:', error);
         setFilePreview(null);
       }
-    } else if (isDocumentFile(file.type)) {
+    }
+    // 🆕 DOCUMENTO: Gera preview visual
+    else if (isDocumentFile(file.type)) {
       console.log('📄 [DOCUMENT PREVIEW] Gerando preview para documento...');
       try {
         const documentPreview = generateDocumentPreview(
@@ -408,7 +547,9 @@ export default function SignContent() {
         console.error('❌ [DOCUMENT PREVIEW] Erro ao gerar preview:', error);
         setFilePreview(null);
       }
-    } else {
+    }
+    // OUTROS: Sem preview
+    else {
       setFilePreview(null);
     }
   };
@@ -418,193 +559,48 @@ export default function SignContent() {
     setFilePreview(null);
     setFileValidationError('');
     setVideoThumbnail(null);
-    setTempFilePath(null);
-    setUploadProgress(0);
-    setShowCameraCapture(false);
-    setAllowFileDownload(true);
-  };
-  
-  // ========================================
-  // 🎠 CAROUSEL FUNCTIONS
-  // ========================================
-  
-  /**
-   * Lida com o upload de múltiplas imagens do carrossel
-   * Agora suporta upload incremental - adiciona novas imagens às existentes
-   */
-  const handleCarouselUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    setCarouselValidationError('');
-    
-    if (!files || files.length === 0) return;
-    
-    const fileArray = Array.from(files);
-    const MAX_IMAGES = 20;
-    const currentCount = carouselFiles.length;
-    const newCount = fileArray.length;
-    const totalCount = currentCount + newCount;
-    
-    console.log('📸 [CAROUSEL] Arquivos selecionados:', {
-      currentCount,
-      newCount,
-      totalCount,
-      maxAllowed: MAX_IMAGES
-    });
-    
-    // Validar número total de imagens (existentes + novas)
-    if (totalCount > MAX_IMAGES) {
-      setCarouselValidationError(`Você já tem ${currentCount} imagens. Pode adicionar no máximo ${MAX_IMAGES - currentCount} mais. Você tentou adicionar ${newCount}.`);
-      e.target.value = '';
-      return;
-    }
-    
-    // Validar cada arquivo
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp', 'image/x-icon'];
-    const maxSizePerImage = 10 * 1024 * 1024; // 10MB
-    
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      
-      if (!allowedTypes.includes(file.type.toLowerCase())) {
-        setCarouselValidationError(`Imagem ${i + 1} (${file.name}) não é um formato válido. Formatos aceitos: JPG, JPEG, PNG, GIF, WEBP, SVG, BMP, ICO`);
-        e.target.value = '';
-        return;
-      }
-      
-      if (file.size > maxSizePerImage) {
-        setCarouselValidationError(`Imagem ${i + 1} (${file.name}) excede o tamanho máximo de ${formatFileSize(maxSizePerImage)}`);
-        e.target.value = '';
-        return;
-      }
-    }
-    
-    console.log('✅ [CAROUSEL] Todas as imagens passaram na validação');
-    
-    // Gerar previews das novas imagens
-    const newPreviews: string[] = [];
-    for (const file of fileArray) {
-      try {
-        const reader = new FileReader();
-        const preview = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        newPreviews.push(preview);
-      } catch (error) {
-        console.error('❌ [CAROUSEL] Erro ao gerar preview:', error);
-        newPreviews.push('');
-      }
-    }
-    
-    // Mesclar com imagens existentes (adicionar ao final)
-    const mergedFiles = [...carouselFiles, ...fileArray];
-    const mergedPreviews = [...carouselPreviews, ...newPreviews];
-    
-    setCarouselFiles(mergedFiles);
-    setCarouselPreviews(mergedPreviews);
-    
-    console.log('✅ [CAROUSEL] Previews gerados:', {
-      newPreviews: newPreviews.length,
-      totalPreviews: mergedPreviews.length
-    });
-    
-    // Fazer upload automático das novas imagens (será mesclado com existentes no backend)
-    if (currentUser) {
-      await uploadCarouselToTemp(mergedFiles);
-    }
-    
-    // Limpar input para permitir re-seleção dos mesmos arquivos
-    e.target.value = '';
+    setTempFilePath(null); // 🆕 Limpa path temporário
+    setUploadProgress(0); // 🆕 Reseta progresso do upload
+    setShowCameraCapture(false); // 🆕 Fecha modo de câmera
+    setAllowFileDownload(true); // 🆕 Reseta permissão de download
   };
   
   /**
-   * Faz upload do carrossel para o bucket temporário
+   * 🆕 CAMERA CAPTURE: Handler para foto capturada pela câmera
+   * Converte a foto em um File object e processa como upload normal
    */
-  const uploadCarouselToTemp = async (files: File[]) => {
-    if (!currentUser) return;
-    
-    setIsUploadingCarousel(true);
-    setCarouselValidationError('');
-    
-    try {
-      console.log('📤 [CAROUSEL] Iniciando upload para temp-uploads...');
-      
-      const result = await uploadCarouselImages(files, currentUser.id, {
-        maxImages: 20,
-        maxSizePerImage: 10 * 1024 * 1024,
-        thumbnailMaxWidth: 800,
-        thumbnailMaxHeight: 600,
-        thumbnailQuality: 0.7,
-      });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao fazer upload do carrossel');
-      }
-      
-      console.log('✅ [CAROUSEL] Upload concluído:', {
-        totalImages: result.metadata?.total_images,
-        executionTime: result.executionTime + 'ms'
-      });
-      
-      setCarouselMetadata(result.metadata!);
-      
-    } catch (error) {
-      console.error('❌ [CAROUSEL] Erro no upload:', error);
-      setCarouselValidationError(`Erro ao fazer upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      setCarouselFiles([]);
-      setCarouselPreviews([]);
-      setCarouselMetadata(null);
-    } finally {
-      setIsUploadingCarousel(false);
-    }
-  };
-  
-  /**
-   * Remove uma imagem específica do carrossel
-   */
-  const handleRemoveCarouselImage = (index: number) => {
-    setCarouselFiles(prev => prev.filter((_, i) => i !== index));
-    setCarouselPreviews(prev => prev.filter((_, i) => i !== index));
-    
-    // Se remover todas, limpar metadados
-    if (carouselFiles.length === 1) {
-      setCarouselMetadata(null);
-      setCarouselValidationError('');
-    }
-  };
-  
-  /**
-   * Remove todo o carrossel
-   */
-  const handleRemoveCarousel = () => {
-    setCarouselFiles([]);
-    setCarouselPreviews([]);
-    setCarouselMetadata(null);
-    setCarouselValidationError('');
-    setIsUploadingCarousel(false);
-  };
-  
   const handleCameraCapture = async (imageDataUrl: string) => {
     try {
       console.log('📸 [CAMERA CAPTURE] Processando foto capturada...');
+      
+      // Fecha o modo de câmera
       setShowCameraCapture(false);
+      
+      // Converte data URL em Blob
       const response = await fetch(imageDataUrl);
       const blob = await response.blob();
+      
+      // Cria um File object a partir do Blob
       const timestamp = new Date().getTime();
       const file = new File([blob], `documento_${timestamp}.jpg`, { type: 'image/jpeg' });
+      
       console.log('✅ [CAMERA CAPTURE] Foto convertida em arquivo:', {
         name: file.name,
         size: file.size,
         type: file.type
       });
+      
+      // Processa o arquivo usando o fluxo normal de validação e upload
+      // Cria um evento sintético para simular o upload de arquivo
       const syntheticEvent = {
         target: {
           files: [file],
           value: ''
         }
       } as React.ChangeEvent<HTMLInputElement>;
+      
       await handleFileUpload(syntheticEvent);
+      
     } catch (error) {
       console.error('❌ [CAMERA CAPTURE] Erro ao processar foto:', error);
       setFileValidationError('Erro ao processar foto capturada. Tente novamente.');
@@ -620,18 +616,19 @@ export default function SignContent() {
   };
   
   const handleSign = async () => {
+    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Verifica se já está assinando
+    if (isSigning) {
+      console.warn('⚠️ [DOUBLE CLICK PROTECTION] Assinatura já em progresso, ignorando clique duplicado');
+      return;
+    }
+    
     if (!title.trim()) {
       alert('Por favor, insira o título do conteúdo');
       return;
     }
     
-    // Validar conteúdo: texto OU arquivo OU carrossel
-    const hasContent = content.trim();
-    const hasSingleFile = uploadedFile;
-    const hasCarousel = carouselFiles.length > 0;
-    
-    if (!hasContent && !hasSingleFile && !hasCarousel) {
-      alert('Por favor, insira o conteúdo ou faça upload de um arquivo/carrossel');
+    if (!content.trim() && !uploadedFile) {
+      alert('Por favor, insira o conteúdo ou faça upload de um arquivo');
       return;
     }
     
@@ -639,130 +636,140 @@ export default function SignContent() {
       alert('Por favor, selecione pelo menos uma rede social');
       return;
     }
+    
     if (!currentUser) {
       alert('Erro: usuário não identificado');
       return;
     }
+    
+    // 🆕 VALIDAÇÃO EXTRA: Verifica se as chaves existem e não estão vazias
     if (!keyPair || !keyPair.publicKey || !keyPair.privateKey) {
       console.error('❌ Chaves inválidas ou vazias:', {
         hasKeyPair: !!keyPair,
         hasPublicKey: !!keyPair?.publicKey,
         hasPrivateKey: !!keyPair?.privateKey,
       });
+      
       alert('Erro: Chaves criptográficas não encontradas ou inválidas. Tente recarregar a página ou gerar novas chaves no Dashboard.');
       return;
     }
+    
+    // 🆕 VALIDAÇÃO EXTRA: Verifica se as chaves têm o formato correto
     if (!keyPair.publicKey.startsWith('VID-PUB-') || !keyPair.privateKey.startsWith('VID-PRIV-')) {
       console.error('❌ Formato de chaves inválido:', {
         publicKeyPrefix: keyPair.publicKey.substring(0, 10),
         privateKeyPrefix: keyPair.privateKey.substring(0, 10),
       });
+      
       alert('Erro: Formato de chaves inválido. Por favor, gere novas chaves no Dashboard.');
       return;
     }
+    
     console.log('✅ Validação de chaves passou:', {
       publicKey: keyPair.publicKey.substring(0, 20) + '...',
       privateKey: keyPair.privateKey.substring(0, 20) + '...',
     });
     
+    // ========================================
+    // 🆕 CONTADOR DE ASSINATURAS - VALIDAÇÃO ANTES DE ASSINAR
+    // ========================================
     console.log('🔍 [SIGNATURE COUNTER] Verificando disponibilidade de assinaturas...');
+    
     if (!signatureStatus || statusLoading) {
       alert('Carregando status de assinaturas. Por favor, aguarde.');
       return;
     }
+    
     if (!signatureStatus.has_active_subscription) {
       alert('Você não possui uma assinatura ativa. Por favor, assine um plano para continuar.');
       navigate('/pricing');
       return;
     }
+    
     if (signatureStatus.total_available <= 0) {
       alert(`Você atingiu o limite de ${signatureStatus.signatures_limit} assinaturas do seu plano. Adquira pacotes avulsos ou faça upgrade para continuar.`);
       navigate('/pricing');
       return;
     }
-    console.log('✅ [SIGNATURE COUNTER] Assinaturas disponíveis:', signatureStatus.total_available);
     
+    console.log('✅ [SIGNATURE COUNTER] Assinaturas disponíveis:', signatureStatus.total_available);
+    // ========================================
+    // FIM: VALIDAÇÃO DE CONTADOR
+    // ========================================
+    
+    // 🆕 RATE LIMITING - Verificação ANTES de assinar
     console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
     const rateLimitResult = await checkRateLimit();
+    
     if (!rateLimitResult.allowed) {
       console.warn('🚫 [RATE LIMIT] Limite excedido:', rateLimitResult.message);
       alert(rateLimitResult.message || 'Você excedeu o limite de assinaturas. Aguarde antes de tentar novamente.');
       return;
     }
+    
     console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     
+    // 🔒 PROTEÇÃO CONTRA DUPLO CLIQUE: Define estado de assinando IMEDIATAMENTE
     setIsSigning(true);
+    console.log('🔒 [DOUBLE CLICK PROTECTION] Botão bloqueado para novos cliques');
+    
+    // ========================================
+    // 🆕 FASE 2: VARIÁVEL PARA TRACKING DE FILE PATH
+    // ========================================
     let finalFilePath: string | null = null;
-    let finalCarouselMetadata: CarouselMetadata | undefined = undefined;
+    // ========================================
     
     try {
       // ========================================
-      // 🎠 CARROSSEL: Mover para signed-documents
+      // 🆕 FASE 2: MOVER ARQUIVO PARA BUCKET PERMANENTE
       // ========================================
-      if (hasCarousel && carouselMetadata) {
-        console.log('🎠 [CAROUSEL] Movendo carrossel para signed-documents...');
-        const moveResult = await moveCarouselToSignedDocuments(carouselMetadata, currentUser.id);
-        
-        if (!moveResult.success) {
-          throw new Error(moveResult.error || 'Erro ao mover carrossel para storage permanente');
-        }
-        
-        console.log('✅ [CAROUSEL] Carrossel movido:', {
-          totalImages: moveResult.metadata?.total_images,
-          executionTime: moveResult.executionTime + 'ms'
-        });
-        
-        finalCarouselMetadata = moveResult.metadata!;
-      }
-      
-      // ========================================
-      // 📄 ARQUIVO ÚNICO: Mover para signed-documents
-      // ========================================
-      if (tempFilePath && uploadedFile && !hasCarousel) {
+      if (tempFilePath && uploadedFile) {
         console.log('🔄 [STORAGE] Movendo arquivo para signed-documents...');
+        
         const moveResult = await moveToSignedDocuments(tempFilePath, currentUser.id);
+        
         if (!moveResult.success) {
           throw new Error(moveResult.error || 'Erro ao mover arquivo para storage permanente');
         }
+        
         console.log('✅ [STORAGE] Arquivo movido:', {
           path: moveResult.path,
           executionTime: moveResult.executionTime + 'ms'
         });
+        
         finalFilePath = moveResult.path!;
       }
+      // ========================================
+      // FIM: MOVER ARQUIVO
+      // ========================================
       
       // ========================================
-      // 📝 PREPARAR CONTEÚDO PARA ASSINATURA
+      // 🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 3/4)
       // ========================================
+      // Sanitiza o nome do arquivo antes de incluir no conteúdo assinado
       const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
+      
+      // Combine all information into the content to be signed
       const fullContent = `
 Título: ${title}
 Tipo: ${contentTypes.find(t => t.value === contentType)?.label}
 Redes: ${selectedPlatforms.join(', ')}
-${uploadedFile && !hasCarousel ? `Arquivo: ${sanitizedFileName}` : ''}
-${hasCarousel ? `Carrossel: ${carouselFiles.length} imagens` : ''}
+${uploadedFile ? `Arquivo: ${sanitizedFileName}` : ''}
 
 Conteúdo:
 ${content}
       `.trim();
+      // ========================================
+      // FIM: SANITIZAÇÃO - PONTO 3/4
+      // ========================================
       
       console.log('📝 Assinando conteúdo...');
       console.log('🔗 Links sociais do usuário:', currentUser.socialLinks);
       
-      // ========================================
-      // 🖼️ THUMBNAIL: Primeira imagem do carrossel OU preview único
-      // ========================================
-      let finalThumbnail: string | undefined;
+      // 🎬 VIDEO: Usa thumbnail do vídeo se disponível
+      let finalThumbnail = videoThumbnail || filePreview;
       
-      if (hasCarousel && carouselPreviews.length > 0) {
-        // Usar primeira imagem do carrossel como thumbnail
-        finalThumbnail = carouselPreviews[0];
-        console.log('✅ [CAROUSEL] Usando primeira imagem como thumbnail principal');
-      } else {
-        // Usar preview único (imagem, vídeo, etc.)
-        finalThumbnail = videoThumbnail || filePreview;
-      }
-      
+      // 🆕 Comprime thumbnail novamente antes de assinar (garantia extra)
       if (finalThumbnail && isImageDataUrl(finalThumbnail)) {
         try {
           finalThumbnail = await compressImage(finalThumbnail, {
@@ -778,9 +785,9 @@ ${content}
       }
       
       // ========================================
-      // 📦 METADADOS: Arquivo único OU Carrossel
+      // 🆕 FASE 2: PREPARAR METADADOS DE ARQUIVO
       // ========================================
-      const fileMetadata = finalFilePath && uploadedFile && !hasCarousel ? {
+      const fileMetadata = finalFilePath && uploadedFile ? {
         file_path: finalFilePath,
         file_name: uploadedFile.name,
         file_size: uploadedFile.size,
@@ -789,14 +796,18 @@ ${content}
       } : undefined;
       
       console.log('📦 [STORAGE] Metadados de arquivo:', fileMetadata);
-      console.log('🎠 [CAROUSEL] Metadados de carrossel:', finalCarouselMetadata);
+      // ========================================
+      // FIM: PREPARAR METADADOS
+      // ========================================
       
+      // ========================================
+      // 🆕 SOLUÇÃO DEFINITIVA: SEMPRE passa links sociais do criador
+      // Independente de ter arquivo ou não, os links sociais devem ser salvos
+      // ========================================
       const creatorSocialLinks = currentUser.socialLinks || undefined;
       console.log('🔗 [SOCIAL LINKS] Links que serão salvos no certificado:', creatorSocialLinks);
+      // ========================================
       
-      // ========================================
-      // 🔐 ASSINAR DIGITALMENTE
-      // ========================================
       const result = await signContent(
         fullContent,
         keyPair.privateKey,
@@ -805,43 +816,55 @@ ${content}
         currentUser.id,
         finalThumbnail || undefined,
         selectedPlatforms,
-        fileMetadata,
-        creatorSocialLinks,
-        allowFileDownload,
-        finalCarouselMetadata
+        fileMetadata, // 🆕 Passa metadados de arquivo
+        creatorSocialLinks, // 🆕 SOLUÇÃO DEFINITIVA: Sempre passa links sociais do criador
+        allowFileDownload // 🆕 Controle de download pelo criador
       );
       
       if (!result.success) {
-        // Rollback: deletar arquivo/carrossel em caso de erro
+        // ========================================
+        // 🆕 FASE 2: DELETAR ARQUIVO SE ASSINATURA FALHAR
+        // ========================================
         if (finalFilePath) {
           console.log('🗑️ [STORAGE] Deletando arquivo devido a erro na assinatura...');
           await deleteFile('signed-documents', finalFilePath);
         }
-        if (finalCarouselMetadata) {
-          console.log('🗑️ [CAROUSEL] Deletando carrossel devido a erro na assinatura...');
-          await deleteCarouselImages(finalCarouselMetadata, currentUser.id);
-        }
+        // ========================================
+        
         alert(result.error || 'Erro ao assinar conteúdo. Tente novamente.');
         return;
       }
       
       console.log('✅ Assinatura realizada com sucesso!');
       
+      // ========================================
+      // 🆕 CONTADOR DE ASSINATURAS - CONSUMIR APÓS ASSINATURA BEM-SUCEDIDA
+      // ========================================
       console.log('🔄 [SIGNATURE COUNTER] Consumindo assinatura...');
       const consumeResult = await consumeSignature(currentUser.id);
+      
       if (!consumeResult.success) {
         console.error('❌ [SIGNATURE COUNTER] Erro ao consumir assinatura:', consumeResult.message);
+        // Não bloqueia o fluxo, apenas loga o erro
+        // O conteúdo já foi assinado com sucesso
       } else {
         console.log('✅ [SIGNATURE COUNTER] Assinatura consumida com sucesso!');
         console.log(`📊 [SIGNATURE COUNTER] Assinaturas restantes: ${consumeResult.signatures_remaining}`);
+        
+        // Atualiza o status local
         await refetchStatus();
       }
+      // ========================================
+      // FIM: CONSUMIR ASSINATURA
+      // ========================================
       
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
       
-      // Rollback: limpar arquivos em caso de erro
+      // ========================================
+      // 🆕 FASE 2: DELETAR ARQUIVO SE HOUVER ERRO
+      // ========================================
       if (finalFilePath) {
         console.log('🗑️ [STORAGE] Deletando arquivo devido a erro...');
         try {
@@ -850,15 +873,7 @@ ${content}
           console.error('❌ [STORAGE] Erro ao deletar arquivo:', deleteError);
         }
       }
-      
-      if (finalCarouselMetadata) {
-        console.log('🗑️ [CAROUSEL] Deletando carrossel devido a erro...');
-        try {
-          await deleteCarouselImages(finalCarouselMetadata, currentUser.id);
-        } catch (deleteError) {
-          console.error('❌ [CAROUSEL] Erro ao deletar carrossel:', deleteError);
-        }
-      }
+      // ========================================
       
       alert('Erro ao assinar conteúdo. Tente novamente.');
     } finally {
@@ -876,15 +891,9 @@ ${content}
     setSignedContent(null);
     setFileValidationError('');
     setVideoThumbnail(null);
-    setTempFilePath(null);
-    setUploadProgress(0);
-    setAllowFileDownload(true);
-    // Limpar estados do carrossel
-    setCarouselFiles([]);
-    setCarouselPreviews([]);
-    setCarouselMetadata(null);
-    setCarouselValidationError('');
-    setIsUploadingCarousel(false);
+    setTempFilePath(null); // 🆕 Limpa path temporário
+    setUploadProgress(0); // 🆕 Reseta progresso do upload
+    setAllowFileDownload(true); // 🆕 Reseta permissão de download
   };
   
   if (isLoading) {
@@ -920,6 +929,7 @@ ${content}
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -963,6 +973,7 @@ ${content}
                 </AlertDescription>
               </Alert>
               
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de status */}
               {signatureStatus && signatureStatus.has_active_subscription && (
                 <Alert className="border-blue-500 bg-blue-50">
                   <AlertDescription className="text-blue-800">
@@ -976,6 +987,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de limite atingido */}
               {signatureStatus && signatureStatus.has_active_subscription && signatureStatus.total_available <= 0 && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -992,6 +1004,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🆕 CONTADOR DE ASSINATURAS - Alerta de sem assinatura */}
               {signatureStatus && !signatureStatus.has_active_subscription && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -1008,6 +1021,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🆕 RATE LIMITING - Alerta visual quando bloqueado */}
               {isBlocked && (
                 <RateLimitAlert 
                   blockedUntil={blockedUntil}
@@ -1016,6 +1030,7 @@ ${content}
                 />
               )}
               
+              {/* 🆕 RATE LIMITING - Aviso de tentativas restantes */}
               {!isBlocked && remaining !== undefined && remaining <= 3 && remaining > 0 && (
                 <Alert className="border-yellow-500 bg-yellow-50">
                   <AlertDescription className="text-yellow-800">
@@ -1024,6 +1039,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🔒 SEGURANÇA: Alerta de erro de validação de arquivo */}
               {fileValidationError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -1033,6 +1049,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🆕 FASE 2: Alerta de upload em progresso COM BARRA DE PROGRESSO */}
               {isUploadingFile && (
                 <Alert className="border-blue-500 bg-blue-50">
                   <div className="w-full">
@@ -1052,6 +1069,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* 🎬 VIDEO PROCESSING: Alerta de processamento */}
               {isProcessingVideo && (
                 <Alert className="border-blue-500 bg-blue-50">
                   <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
@@ -1061,6 +1079,7 @@ ${content}
                 </Alert>
               )}
               
+              {/* Título do Conteúdo */}
               <div className="space-y-2">
                 <Label htmlFor="title">01 - Título do Conteúdo *</Label>
                 <Input
@@ -1072,6 +1091,7 @@ ${content}
                 />
               </div>
               
+              {/* Tipo de Conteúdo */}
               <div className="space-y-3">
                 <Label>02 - Tipo de Conteúdo *</Label>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -1086,16 +1106,12 @@ ${content}
                       }`}
                       onClick={() => {
                         setContentType(type.value);
+                        // Limpa arquivo e erro ao mudar tipo
                         setUploadedFile(null);
                         setFilePreview(null);
                         setFileValidationError('');
                         setVideoThumbnail(null);
                         setTempFilePath(null);
-                        // Limpar estados do carrossel ao mudar de tipo
-                        setCarouselFiles([]);
-                        setCarouselPreviews([]);
-                        setCarouselMetadata(null);
-                        setCarouselValidationError('');
                       }}
                       disabled={isBlocked || isProcessingVideo || isUploadingFile}
                     >
@@ -1109,271 +1125,140 @@ ${content}
                 </div>
               </div>
               
+              {/* Upload de Arquivo */}
               <div className="space-y-3">
                 <Label htmlFor="file-upload">
                   03 - Upload do Arquivo (Opcional - será validado e processado automaticamente)
                   {contentType === 'video' && <span className="text-blue-600 font-medium"> - Apenas thumbnail será gerada (vídeo não será enviado)</span>}
-                  {contentType === 'carousel' && <span className="text-purple-600 font-medium"> - Selecione múltiplas imagens (máx. 20)</span>}
                 </Label>
-                
-                {/* ========================================
-                    🎠 CAROUSEL UPLOAD UI
-                    ======================================== */}
-                {contentType === 'carousel' ? (
-                  <div className="space-y-4">
-                    {carouselValidationError && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Erro no carrossel:</strong> {carouselValidationError}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    {isUploadingCarousel && (
-                      <Alert className="border-purple-500 bg-purple-50">
-                        <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
-                        <AlertDescription className="text-purple-800">
-                          <strong>Fazendo upload das imagens...</strong> Aguarde enquanto processamos suas imagens.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    {carouselFiles.length === 0 ? (
-                      <div className="border-2 border-dashed border-purple-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors bg-gradient-to-br from-purple-50 to-pink-50">
+                <div className="space-y-3">
+                  {!uploadedFile && !showCameraCapture ? (
+                    <>
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
                         <input
-                          id="carousel-upload"
+                          id="file-upload"
                           type="file"
-                          multiple
                           className="hidden"
-                          onChange={handleCarouselUpload}
-                          disabled={isBlocked || isUploadingCarousel}
-                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/x-icon"
+                          onChange={handleFileUpload}
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                          accept={getAcceptString(getFileCategoryFromContentType(contentType))}
                         />
-                        <label htmlFor="carousel-upload" className={isBlocked || isUploadingCarousel ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
-                          <Images className="h-16 w-16 text-purple-500 mx-auto mb-4" />
-                          <p className="text-lg font-semibold text-purple-900 mb-2">
-                            📸 Upload de Carrossel de Imagens
+                        <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
+                          <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Clique para fazer upload ou arraste o arquivo aqui
                           </p>
-                          <p className="text-sm text-purple-700 mb-2">
-                            Selecione múltiplas imagens (até 20) para criar um carrossel
+                          <p className="text-xs text-muted-foreground">
+                            {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
+                            {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
+                            {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
+                            {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
+                            {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
                           </p>
-                          <p className="text-xs text-purple-600">
-                            Formatos aceitos: JPG, JPEG, PNG, GIF, WEBP, SVG, BMP, ICO
+                          <p className="text-xs text-muted-foreground mt-2">
+                            🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
                           </p>
-                          <p className="text-xs text-purple-600 mt-1">
-                            🔒 Máximo: 10MB por imagem | A primeira imagem será a thumbnail principal
-                          </p>
+                          {contentType === 'video' && (
+                            <p className="text-xs text-blue-600 mt-2 font-medium">
+                              🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
+                            </p>
+                          )}
                         </label>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg border-2 border-purple-300">
-                          <div className="flex items-center gap-2">
-                            <Images className="h-5 w-5 text-purple-700" />
-                            <span className="font-semibold text-purple-900">
-                              {carouselFiles.length} {carouselFiles.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}
-                            </span>
-                            {carouselMetadata && (
-                              <span className="text-xs text-green-700 ml-2">
-                                ✓ Upload concluído
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {carouselFiles.length < 20 && (
-                              <div>
-                                <input
-                                  id="carousel-add-more"
-                                  type="file"
-                                  multiple
-                                  className="hidden"
-                                  onChange={handleCarouselUpload}
-                                  disabled={isBlocked || isUploadingCarousel}
-                                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,image/x-icon"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-purple-400 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
-                                  disabled={isBlocked || isUploadingCarousel}
-                                  type="button"
-                                  onClick={() => {
-                                    const input = document.getElementById('carousel-add-more') as HTMLInputElement;
-                                    if (input) input.click();
-                                  }}
-                                >
-                                  <Upload className="h-4 w-4 mr-1" />
-                                  Adicionar Mais ({20 - carouselFiles.length} restantes)
-                                </Button>
-                              </div>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleRemoveCarousel}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              disabled={isBlocked || isUploadingCarousel}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Remover Todas
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2">
-                          {carouselPreviews.map((preview, index) => (
-                            <div key={index} className="relative group">
-                              <div className="aspect-square rounded-lg overflow-hidden border-2 border-purple-200 group-hover:border-purple-400 transition-all">
-                                <img
-                                  src={preview}
-                                  alt={`Preview ${index + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div className="absolute top-1 left-1 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                {index + 1}
-                              </div>
-                              {index === 0 && (
-                                <div className="absolute bottom-1 left-1 right-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold px-2 py-1 rounded text-center">
-                                  🌟 Thumbnail Principal
-                                </div>
-                              )}
-                              <button
-                                onClick={() => handleRemoveCarouselImage(index)}
-                                className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                                disabled={isBlocked || isUploadingCarousel}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <Alert className="border-purple-500 bg-purple-50">
-                          <AlertDescription className="text-purple-800 text-sm">
-                            <strong>ℹ️ Informações do Carrossel:</strong>
-                            <ul className="list-disc list-inside mt-2 space-y-1">
-                              <li>A <strong>primeira imagem</strong> será usada como thumbnail principal no certificado</li>
-                              <li>Todas as imagens serão salvas no Storage e disponíveis para visualização</li>
-                              <li>O carrossel completo será exibido no certificado digital</li>
-                              <li>Você pode remover imagens individuais clicando no X ao passar o mouse</li>
-                            </ul>
-                          </AlertDescription>
-                        </Alert>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* ========================================
-                      ORIGINAL SINGLE FILE UPLOAD UI
-                      ======================================== */
-                  <div className="space-y-3">
-                    {!uploadedFile && !showCameraCapture ? (
-                      <>
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
-                          <input
-                            id="file-upload"
-                            type="file"
-                            className="hidden"
-                            onChange={handleFileUpload}
-                            disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                            accept={getAcceptString(getFileCategoryFromContentType(contentType))}
+                      
+
+                    </>
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-start gap-4">
+                        {/* Preview da thumbnail (imagem, vídeo, música ou documento) */}
+                        {(filePreview || videoThumbnail) ? (
+                          <img
+                            src={videoThumbnail || filePreview || ''}
+                            alt="Preview"
+                            className="w-24 h-24 object-cover rounded-lg"
                           />
-                          <label htmlFor="file-upload" className={isBlocked || isProcessingVideo || isUploadingFile ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}>
-                            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <p className="text-sm text-muted-foreground mb-2">
-                              Clique para fazer upload ou arraste o arquivo aqui
+                        ) : (
+                          <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
+                            <FileType className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          {/* ========================================
+                              🔒 SANITIZAÇÃO DE NOMES DE ARQUIVOS - ETAPA 2 (PONTO 4/4)
+                              ======================================== */}
+                          <p className="font-medium truncate">{sanitizeFileName(uploadedFile.name)}</p>
+                          {/* ========================================
+                              FIM: SANITIZAÇÃO - PONTO 4/4
+                              ======================================== */}
+                          <p className="text-sm text-muted-foreground">
+                            {formatFileSize(uploadedFile.size)}
+                          </p>
+                          
+                          {/* 🆕 FASE 2: Status de upload */}
+                          {tempFilePath && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Arquivo enviado para o servidor
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {contentType === 'image' && `Formatos aceitos: ${getExtensionDescription('image')}`}
-                              {contentType === 'video' && `Formatos aceitos: ${getExtensionDescription('video')}`}
-                              {contentType === 'music' && `Formatos aceitos: ${getExtensionDescription('audio')}`}
-                              {contentType === 'document' && `Formatos aceitos: ${getExtensionDescription('document')}`}
-                              {contentType === 'text' && `Formatos aceitos: ${getExtensionDescription('text')}, ${getExtensionDescription('document')}`}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              🔒 Máximo: {contentType === 'video' ? '200MB' : '10MB'} | Validação de segurança ativa
-                            </p>
-                            {contentType === 'video' && (
-                              <p className="text-xs text-blue-600 mt-2 font-medium">
-                                🎬 Vídeos: Apenas thumbnail será gerada (rápido e eficiente)
+                          )}
+                          
+                          {/* Status de processamento de vídeo */}
+                          {contentType === 'video' && videoThumbnail && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-green-600">
+                                ✓ Thumbnail gerada com sucesso
                               </p>
-                            )}
-                          </label>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="border rounded-lg p-4 bg-muted/50">
-                        <div className="flex items-start gap-4">
-                          {(filePreview || videoThumbnail) ? (
-                            <img
-                              src={videoThumbnail || filePreview || ''}
-                              alt="Preview"
-                              className="w-24 h-24 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
-                              <FileType className="h-12 w-12 text-muted-foreground" />
+                              <p className="text-xs text-blue-600">
+                                ℹ️ Vídeo não será enviado (apenas thumbnail)
+                              </p>
                             </div>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{sanitizeFileName(uploadedFile.name)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatFileSize(uploadedFile.size)}
+                          
+                          {/* Status de imagem */}
+                          {contentType === 'image' && filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Validado e comprimido para o certificado
                             </p>
-                            {tempFilePath && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Arquivo enviado para o servidor
-                              </p>
-                            )}
-                            {contentType === 'video' && videoThumbnail && (
-                              <div className="mt-2 space-y-1">
-                                <p className="text-xs text-green-600">
-                                  ✓ Thumbnail gerada com sucesso
-                                </p>
-                                <p className="text-xs text-blue-600">
-                                  ℹ️ Vídeo não será enviado (apenas thumbnail)
-                                </p>
-                              </div>
-                            )}
-                            {contentType === 'image' && filePreview && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Validado e comprimido para o certificado
-                              </p>
-                            )}
-                            {contentType === 'music' && filePreview && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Preview da música gerado
-                              </p>
-                            )}
-                            {(contentType === 'document' || contentType === 'text') && filePreview && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Preview do documento gerado
-                              </p>
-                            )}
-                            {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && contentType !== 'music' && (
-                              <p className="text-xs text-green-600 mt-1">
-                                ✓ Arquivo validado com sucesso
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleRemoveFile}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            disabled={isBlocked || isProcessingVideo || isUploadingFile}
-                          >
-                            <X className="h-5 w-5" />
-                          </Button>
+                          )}
+                          
+                          {/* 🆕 Status de música */}
+                          {contentType === 'music' && filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Preview da música gerado
+                            </p>
+                          )}
+                          
+                          {/* 🆕 Status de documento */}
+                          {(contentType === 'document' || contentType === 'text') && filePreview && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Preview do documento gerado
+                            </p>
+                          )}
+                          
+                          {/* Status de outros arquivos */}
+                          {contentType !== 'video' && contentType !== 'image' && contentType !== 'document' && contentType !== 'text' && contentType !== 'music' && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Arquivo validado com sucesso
+                            </p>
+                          )}
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleRemoveFile}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                        >
+                          <X className="h-5 w-5" />
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )
+                  }
+                </div>
               </div>
               
+              {/* Redes Sociais */}
               <div className="space-y-3">
                 <Label>04 - Plataformas onde o Conteúdo Será Publicado *</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1387,9 +1272,10 @@ ${content}
                       }`}
                       onClick={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                     >
-                      <div className="flex items-center gap-2 pointer-events-none">
+                      <div className="flex items-center gap-2">
                         <Checkbox
                           checked={selectedPlatforms.includes(platform.value)}
+                          onCheckedChange={() => !(isBlocked || isProcessingVideo || isUploadingFile) && togglePlatform(platform.value)}
                           disabled={isBlocked || isProcessingVideo || isUploadingFile}
                         />
                         <span className="text-2xl">{platform.logo}</span>
@@ -1405,6 +1291,7 @@ ${content}
                 )}
               </div>
               
+              {/* 🆕 Controle de Download de Arquivo */}
               {uploadedFile && tempFilePath && (
                 <div className="space-y-3 bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
                   <div className="flex items-start gap-3">
@@ -1433,6 +1320,7 @@ ${content}
                 </div>
               )}
               
+              {/* Conteúdo/Descrição */}
               <div className="space-y-2">
                 <Label htmlFor="content">05 - Descrição ou Conteúdo Adicional</Label>
                 <Textarea
@@ -1524,7 +1412,7 @@ ${content}
               </AlertDescription>
             </Alert>
             
-            <ContentCard content={signedContent} isCreator={true} />
+            <ContentCard content={signedContent} />
             
             <div className="flex gap-4">
               <Button 
