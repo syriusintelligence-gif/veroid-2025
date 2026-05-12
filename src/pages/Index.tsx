@@ -349,7 +349,7 @@ export default function Index() {
               transition={{ duration: shouldReduceMotion ? 0.01 : 0.8, delay: shouldReduceMotion ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             >
               <LazyVideo
-                src="/videos/veroid-demo.mp4"
+                src="https://muqjeukjyfhwtbynrxkm.supabase.co/storage/v1/object/public/videos/Vero%20iD%20-%20720p.mp4"
                 title="Demonstração Vero iD - Como funciona a assinatura digital"
                 className="mb-12 md:mb-16"
               />
