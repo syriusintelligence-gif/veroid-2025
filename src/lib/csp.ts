@@ -61,8 +61,8 @@ export const CSP_DIRECTIVES = {
     'wss://*.supabase.co' // WebSocket para Supabase Realtime
   ],
   
-  // Frames: apenas do próprio domínio
-  'frame-src': ["'self'"],
+  // Frames: próprio domínio e YouTube (para vídeos embarcados)
+  'frame-src': ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
   
   // Objetos: bloqueado (Flash, Java applets, etc.)
   'object-src': ["'none'"],
