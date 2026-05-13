@@ -850,10 +850,10 @@ export default function Profile() {
 
       {/* 🆕 Delete Social Link Confirmation Dialog */}
       <AlertDialog open={showDeleteSocialDialog} onOpenChange={setShowDeleteSocialDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover link de rede social?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-gray-900">Remover link de rede social?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
               {socialToDelete && (
                 <>
                   Você tem certeza que deseja remover o link do <strong>{socialToDelete.label}</strong>? 
