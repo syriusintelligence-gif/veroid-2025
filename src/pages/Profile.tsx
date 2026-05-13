@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2, CreditCard } from 'lucide-react';
+import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2, CreditCard, X } from 'lucide-react';
 import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
 import { SocialLinks } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +47,11 @@ export default function Profile() {
   const [showSetup2FAModal, setShowSetup2FAModal] = useState(false);
   const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
   const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+
+  // 🆕 Estado para exclusão de rede social
+  const [showDeleteSocialDialog, setShowDeleteSocialDialog] = useState(false);
+  const [socialToDelete, setSocialToDelete] = useState<{ platform: string; label: string } | null>(null);
+  const [isDeletingSocial, setIsDeletingSocial] = useState(false);
 
   // 🔒 CSRF Protection
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
@@ -262,6 +267,48 @@ export default function Profile() {
     } finally {
       console.log('🏁 [PROFILE] Finalizando (setIsSaving = false)');
       setIsSaving(false);
+    }
+  };
+
+  // 🆕 Função para deletar uma rede social específica
+  const handleDeleteSocialLink = async () => {
+    if (!currentUser || !socialToDelete) return;
+    
+    setIsDeletingSocial(true);
+    
+    try {
+      // Remove a rede social específica do objeto
+      const updatedLinks = { ...currentUser.socialLinks };
+      delete updatedLinks[socialToDelete.platform as keyof SocialLinks];
+      
+      console.log('🗑️ [PROFILE] Deletando link social:', socialToDelete.platform);
+      
+      const result = await updateSocialLinks(currentUser.id, updatedLinks);
+      
+      if (result.success) {
+        toast({
+          title: 'Link removido!',
+          description: `Seu link do ${socialToDelete.label} foi removido com sucesso.`,
+        });
+        await loadUser(); // Recarrega os dados
+      } else {
+        toast({
+          title: 'Erro ao remover',
+          description: result.error || 'Não foi possível remover o link.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('❌ [PROFILE] Erro ao deletar link:', error);
+      toast({
+        title: 'Erro inesperado',
+        description: 'Ocorreu um erro ao remover o link. Por favor, tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingSocial(false);
+      setShowDeleteSocialDialog(false);
+      setSocialToDelete(null);
     }
   };
 
@@ -554,20 +601,36 @@ export default function Profile() {
                   <div className="grid md:grid-cols-2 gap-3">
                     {Object.entries(currentUser.socialLinks).map(([platform, url]) => (
                       url && (
-                        <a
+                        <div
                           key={platform}
-                          href={ensureProtocol(url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="relative flex items-center gap-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors group"
                         >
-                          {getSocialIcon(platform)}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{getPlatformLabel(platform)}</p>
-                            <p className="text-xs text-muted-foreground truncate">{url}</p>
-                          </div>
-                          <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                        </a>
+                          <a
+                            href={ensureProtocol(url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 flex-1 min-w-0"
+                          >
+                            {getSocialIcon(platform)}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">{getPlatformLabel(platform)}</p>
+                              <p className="text-xs text-muted-foreground truncate">{url}</p>
+                            </div>
+                            <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                          </a>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSocialToDelete({ platform, label: getPlatformLabel(platform) });
+                              setShowDeleteSocialDialog(true);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )
                     ))}
                   </div>
@@ -780,6 +843,40 @@ export default function Profile() {
               className="bg-red-600 hover:bg-red-700"
             >
               {isDisabling2FA ? 'Desativando...' : 'Sim, Desativar 2FA'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 🆕 Delete Social Link Confirmation Dialog */}
+      <AlertDialog open={showDeleteSocialDialog} onOpenChange={setShowDeleteSocialDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover link de rede social?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {socialToDelete && (
+                <>
+                  Você tem certeza que deseja remover o link do <strong>{socialToDelete.label}</strong>? 
+                  Esta ação não poderá ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSocial}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSocialLink}
+              disabled={isDeletingSocial}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingSocial ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                'Sim, Remover'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
