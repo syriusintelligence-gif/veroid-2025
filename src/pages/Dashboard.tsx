@@ -683,6 +683,63 @@ export default function Dashboard() {
           </Card>
         </div>
         
+        {/* Instruções de Uso */}
+        <Card className="mb-8 border-2 border-purple-200 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-900">
+              <FileText className="h-6 w-6 text-purple-600" />
+              Guia Rápido de Instruções
+            </CardTitle>
+            <CardDescription className="text-purple-700">
+              Aprenda a usar a plataforma Vero iD
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-700">
+                Baixe nosso guia rápido completo para aprender como usar todas as funcionalidades da plataforma Vero iD.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  onClick={() => window.open('/docs/guia-rapido.pdf', '_blank')}
+                >
+                  <FileText className="mr-2 h-5 w-5" />
+                  Visualizar Guia Rápido
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="flex-1 border-2 border-purple-600 text-purple-700 hover:bg-purple-50 font-semibold"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/docs/guia-rapido.pdf';
+                    link.download = 'Vero-iD-Guia-Rapido.pdf';
+                    link.click();
+                  }}
+                >
+                  <FileText className="mr-2 h-5 w-5" />
+                  Baixar PDF
+                </Button>
+              </div>
+              
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mt-4">
+                <p className="text-sm font-semibold text-purple-900 mb-2">
+                  📚 O que você encontrará no guia:
+                </p>
+                <ul className="text-sm text-purple-800 space-y-1 list-disc list-inside">
+                  <li>Como gerar suas chaves criptográficas</li>
+                  <li>Passo a passo para assinar conteúdos</li>
+                  <li>Como verificar autenticidade de documentos</li>
+                  <li>Gerenciamento de certificados digitais</li>
+                  <li>Dicas de segurança e melhores práticas</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
         {/* Signed Contents */}
         <Card>
           <CardHeader>
