@@ -161,10 +161,10 @@ export default function Index() {
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/pricing')} 
-                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
               >
-                <CreditCard className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">Planos</span>
+                <CreditCard className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span>Planos</span>
               </Button>
             </motion.div>
             <motion.div 
