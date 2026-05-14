@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, FileText, Image as ImageIcon, Video, FileType, Music, Upload, X, Check, AlertCircle, Images } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -86,7 +86,7 @@ import { useSignatureStatus, consumeSignature } from '@/hooks/useSubscription';
 // FIM: CONTADOR DE ASSINATURAS
 // ========================================
 
-type ContentType = 'text' | 'image' | 'video' | 'document' | 'music';
+type ContentType = 'text' | 'image' | 'video' | 'document' | 'music' | 'carousel';
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'Website' | 'Outros';
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
@@ -95,6 +95,7 @@ const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }
   { value: 'video', label: 'Vídeo', icon: <Video className="h-5 w-5" /> },
   { value: 'document', label: 'Documento', icon: <FileType className="h-5 w-5" /> },
   { value: 'music', label: 'Música', icon: <Music className="h-5 w-5" /> },
+  { value: 'carousel', label: 'Carrossel', icon: <Images className="h-5 w-5" /> },
 ];
 
 const socialPlatforms: { value: SocialPlatform; label: string; logo: string }[] = [
@@ -215,6 +216,8 @@ export default function SignContent() {
     switch (type) {
       case 'image':
         return ['image'];
+      case 'carousel':
+        return ['image']; // Carrossel aceita múltiplas imagens
       case 'video':
         return ['video'];
       case 'music':
