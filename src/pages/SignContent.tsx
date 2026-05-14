@@ -620,78 +620,88 @@ export default function SignContent() {
   };
   
   const handleSign = async () => {
-    if (!title.trim()) {
-      alert('Por favor, insira o título do conteúdo');
+    // ========================================
+    // 🔒 PROTEÇÃO CONTRA CLIQUES MÚLTIPLOS
+    // Bloquear imediatamente no primeiro clique
+    // ========================================
+    if (isSigning) {
+      console.warn('⚠️ [DOUBLE CLICK] Tentativa de clique múltiplo detectada e bloqueada');
       return;
     }
-    
-    // Validar conteúdo: texto OU arquivo OU carrossel
-    const hasContent = content.trim();
-    const hasSingleFile = uploadedFile;
-    const hasCarousel = carouselFiles.length > 0;
-    
-    if (!hasContent && !hasSingleFile && !hasCarousel) {
-      alert('Por favor, insira o conteúdo ou faça upload de um arquivo/carrossel');
-      return;
-    }
-    
-    if (selectedPlatforms.length === 0) {
-      alert('Por favor, selecione pelo menos uma rede social');
-      return;
-    }
-    if (!currentUser) {
-      alert('Erro: usuário não identificado');
-      return;
-    }
-    if (!keyPair || !keyPair.publicKey || !keyPair.privateKey) {
-      console.error('❌ Chaves inválidas ou vazias:', {
-        hasKeyPair: !!keyPair,
-        hasPublicKey: !!keyPair?.publicKey,
-        hasPrivateKey: !!keyPair?.privateKey,
-      });
-      alert('Erro: Chaves criptográficas não encontradas ou inválidas. Tente recarregar a página ou gerar novas chaves no Dashboard.');
-      return;
-    }
-    if (!keyPair.publicKey.startsWith('VID-PUB-') || !keyPair.privateKey.startsWith('VID-PRIV-')) {
-      console.error('❌ Formato de chaves inválido:', {
-        publicKeyPrefix: keyPair.publicKey.substring(0, 10),
-        privateKeyPrefix: keyPair.privateKey.substring(0, 10),
-      });
-      alert('Erro: Formato de chaves inválido. Por favor, gere novas chaves no Dashboard.');
-      return;
-    }
-    console.log('✅ Validação de chaves passou:', {
-      publicKey: keyPair.publicKey.substring(0, 20) + '...',
-      privateKey: keyPair.privateKey.substring(0, 20) + '...',
-    });
-    
-    console.log('🔍 [SIGNATURE COUNTER] Verificando disponibilidade de assinaturas...');
-    if (!signatureStatus || statusLoading) {
-      alert('Carregando status de assinaturas. Por favor, aguarde.');
-      return;
-    }
-    if (!signatureStatus.has_active_subscription) {
-      alert('Você não possui uma assinatura ativa. Por favor, assine um plano para continuar.');
-      navigate('/pricing');
-      return;
-    }
-    if (signatureStatus.total_available <= 0) {
-      alert(`Você atingiu o limite de ${signatureStatus.signatures_limit} assinaturas do seu plano. Adquira pacotes avulsos ou faça upgrade para continuar.`);
-      navigate('/pricing');
-      return;
-    }
-    console.log('✅ [SIGNATURE COUNTER] Assinaturas disponíveis:', signatureStatus.total_available);
-    
-    console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
-    const rateLimitResult = await checkRateLimit();
-    if (!rateLimitResult.allowed) {
-      console.warn('🚫 [RATE LIMIT] Limite excedido:', rateLimitResult.message);
-      alert(rateLimitResult.message || 'Você excedeu o limite de assinaturas. Aguarde antes de tentar novamente.');
-      return;
-    }
-    console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     
     setIsSigning(true);
+    
+    try {
+      if (!title.trim()) {
+        alert('Por favor, insira o título do conteúdo');
+        return;
+      }
+      
+      // Validar conteúdo: texto OU arquivo OU carrossel
+      const hasContent = content.trim();
+      const hasSingleFile = uploadedFile;
+      const hasCarousel = carouselFiles.length > 0;
+      
+      if (!hasContent && !hasSingleFile && !hasCarousel) {
+        alert('Por favor, insira o conteúdo ou faça upload de um arquivo/carrossel');
+        return;
+      }
+      
+      if (selectedPlatforms.length === 0) {
+        alert('Por favor, selecione pelo menos uma rede social');
+        return;
+      }
+      if (!currentUser) {
+        alert('Erro: usuário não identificado');
+        return;
+      }
+      if (!keyPair || !keyPair.publicKey || !keyPair.privateKey) {
+        console.error('❌ Chaves inválidas ou vazias:', {
+          hasKeyPair: !!keyPair,
+          hasPublicKey: !!keyPair?.publicKey,
+          hasPrivateKey: !!keyPair?.privateKey,
+        });
+        alert('Erro: Chaves criptográficas não encontradas ou inválidas. Tente recarregar a página ou gerar novas chaves no Dashboard.');
+        return;
+      }
+      if (!keyPair.publicKey.startsWith('VID-PUB-') || !keyPair.privateKey.startsWith('VID-PRIV-')) {
+        console.error('❌ Formato de chaves inválido:', {
+          publicKeyPrefix: keyPair.publicKey.substring(0, 10),
+          privateKeyPrefix: keyPair.privateKey.substring(0, 10),
+        });
+        alert('Erro: Formato de chaves inválido. Por favor, gere novas chaves no Dashboard.');
+        return;
+      }
+      console.log('✅ Validação de chaves passou:', {
+        publicKey: keyPair.publicKey.substring(0, 20) + '...',
+        privateKey: keyPair.privateKey.substring(0, 20) + '...',
+      });
+      
+      console.log('🔍 [SIGNATURE COUNTER] Verificando disponibilidade de assinaturas...');
+      if (!signatureStatus || statusLoading) {
+        alert('Carregando status de assinaturas. Por favor, aguarde.');
+        return;
+      }
+      if (!signatureStatus.has_active_subscription) {
+        alert('Você não possui uma assinatura ativa. Por favor, assine um plano para continuar.');
+        navigate('/pricing');
+        return;
+      }
+      if (signatureStatus.total_available <= 0) {
+        alert(`Você atingiu o limite de ${signatureStatus.signatures_limit} assinaturas do seu plano. Adquira pacotes avulsos ou faça upgrade para continuar.`);
+        navigate('/pricing');
+        return;
+      }
+      console.log('✅ [SIGNATURE COUNTER] Assinaturas disponíveis:', signatureStatus.total_available);
+      
+      console.log('🔍 [RATE LIMIT] Verificando limite de assinaturas...');
+      const rateLimitResult = await checkRateLimit();
+      if (!rateLimitResult.allowed) {
+        console.warn('🚫 [RATE LIMIT] Limite excedido:', rateLimitResult.message);
+        alert(rateLimitResult.message || 'Você excedeu o limite de assinaturas. Aguarde antes de tentar novamente.');
+        return;
+      }
+      console.log(`✅ [RATE LIMIT] Verificação passou. Tentativas restantes: ${rateLimitResult.remaining}`);
     let finalFilePath: string | null = null;
     let finalCarouselMetadata: CarouselMetadata | undefined = undefined;
     
@@ -837,6 +847,7 @@ ${content}
         await refetchStatus();
       }
       
+      
       setSignedContent(result.signedContent!);
     } catch (error) {
       console.error('Erro ao assinar conteúdo:', error);
@@ -861,6 +872,9 @@ ${content}
       }
       
       alert('Erro ao assinar conteúdo. Tente novamente.');
+    } finally {
+      setIsSigning(false);
+    }
     } finally {
       setIsSigning(false);
     }
