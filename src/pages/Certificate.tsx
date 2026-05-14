@@ -403,12 +403,13 @@ export default function Certificate() {
    * Exibe as imagens do carrossel com navegação
    */
   const renderCarousel = () => {
-    if (!content?.carouselMetadata || !content.carouselMetadata.image_paths || content.carouselMetadata.image_paths.length === 0) {
+    if (!content?.carouselMetadata || !content.carouselMetadata.carousel_images || content.carouselMetadata.carousel_images.length === 0) {
       return null;
     }
 
     const carousel = content.carouselMetadata;
     const totalImages = carousel.total_images;
+    const currentImage = carousel.carousel_images[currentCarouselIndex];
     
     const nextImage = () => {
       setCurrentCarouselIndex((prev) => (prev + 1) % totalImages);
@@ -438,7 +439,7 @@ export default function Certificate() {
           {/* Imagem atual */}
           <div className="relative">
             <img 
-              src={carousel.image_paths[currentCarouselIndex]} 
+              src={currentImage.thumbnail} 
               alt={`Imagem ${currentCarouselIndex + 1} do carrossel`}
               className="w-full max-h-80 sm:max-h-96 object-contain rounded-lg shadow-md border-2 border-white"
             />
@@ -759,7 +760,7 @@ export default function Certificate() {
           </div>
 
           {/* 🎠 CARROSSEL DE IMAGENS OU THUMBNAIL ÚNICA */}
-          {content.carouselMetadata && content.carouselMetadata.image_paths && content.carouselMetadata.image_paths.length > 0 ? (
+          {content.carouselMetadata && content.carouselMetadata.carousel_images && content.carouselMetadata.carousel_images.length > 0 ? (
             renderCarousel()
           ) : content.thumbnail && !imageError ? (
             <div className="mb-8 sm:mb-10">

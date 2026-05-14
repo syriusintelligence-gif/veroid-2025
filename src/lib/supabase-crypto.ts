@@ -46,15 +46,7 @@ export interface SignedContent {
   // 🆕 Controle de download pelo criador
   allowFileDownload?: boolean;
   // 🎠 Metadados do carrossel de imagens
-  carouselMetadata?: {
-    total_images: number;
-    image_paths: string[];
-    file_names: string[];
-    file_sizes: number[];
-    mime_types: string[];
-    storage_bucket: string;
-    thumbnail_path?: string;
-  };
+  carouselMetadata?: CarouselMetadata;
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -96,7 +88,7 @@ function dbSignedContentToAppSignedContent(
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: 'allow_file_download' in dbContent ? (dbContent.allow_file_download as boolean | null) ?? true : true,
     // 🎠 Metadados do carrossel - usando type assertion segura
-    carouselMetadata: 'carousel_metadata' in dbContent ? (dbContent.carousel_metadata as { total_images: number; image_paths: string[]; file_names: string[]; file_sizes: number[]; mime_types: string[]; storage_bucket: string; thumbnail_path?: string } | null) || undefined : undefined,
+    carouselMetadata: 'carousel_metadata' in dbContent ? (dbContent.carousel_metadata as CarouselMetadata | null) || undefined : undefined,
   };
 }
 
@@ -326,7 +318,7 @@ export async function signContent(
   fileMetadata?: { filePath: string; fileName: string; fileSize: number; mimeType: string; storageBucket: string },
   creatorSocialLinks?: SocialLinks,
   allowFileDownload?: boolean,
-  carouselMetadata?: { total_images: number; image_paths: string[]; file_names: string[]; file_sizes: number[]; mime_types: string[]; storage_bucket: string; thumbnail_path?: string }
+  carouselMetadata?: CarouselMetadata
 ): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
   try {
     console.log('🔐 [1/7] Iniciando processo de assinatura...');
