@@ -444,6 +444,32 @@ export default function Certificate() {
               className="w-full max-h-80 sm:max-h-96 object-contain rounded-lg shadow-md border-2 border-white"
             />
             
+            {/* Botão de Download - Canto superior esquerdo */}
+            <button
+              onClick={async () => {
+                try {
+                  // Download da imagem atual
+                  const response = await fetch(currentImage.thumbnail);
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = currentImage.name || `carousel-image-${currentCarouselIndex + 1}.jpg`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Erro ao baixar imagem:', error);
+                }
+              }}
+              className="absolute top-2 left-2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-all shadow-lg z-10"
+              aria-label="Baixar imagem atual"
+              title="Baixar imagem"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+            
             {/* Botões de navegação */}
             {totalImages > 1 && (
               <>
