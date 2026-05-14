@@ -9,7 +9,6 @@ import { supabase } from './supabase';
 import type { Database, SocialLinks } from './supabase';
 import { generateHash, generateVerificationCode } from './crypto';
 import { encryptPrivateKey, decryptPrivateKey } from './encryption';
-import type { CarouselMetadata } from './types/carousel';
 
 type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
 type KeyPairInsert = Database['public']['Tables']['key_pairs']['Insert'];
@@ -46,8 +45,16 @@ export interface SignedContent {
   storageBucket?: string;
   // 🆕 Controle de download pelo criador
   allowFileDownload?: boolean;
-  // 🆕 Carrossel de imagens
-  carouselMetadata?: CarouselMetadata;
+  // 🎠 Metadados do carrossel de imagens
+  carouselMetadata?: {
+    total_images: number;
+    image_paths: string[];
+    file_names: string[];
+    file_sizes: number[];
+    mime_types: string[];
+    storage_bucket: string;
+    thumbnail_path?: string;
+  };
 }
 
 // Converte do formato do banco para o formato da aplicação
@@ -88,8 +95,8 @@ function dbSignedContentToAppSignedContent(
     storageBucket: 'storage_bucket' in dbContent ? (dbContent.storage_bucket as string | null) || undefined : undefined,
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: 'allow_file_download' in dbContent ? (dbContent.allow_file_download as boolean | null) ?? true : true,
-    // 🆕 Carrossel de imagens
-    carouselMetadata: dbContent.carousel_metadata ? (dbContent.carousel_metadata as CarouselMetadata) : undefined,
+    // 🎠 Metadados do carrossel - usando type assertion segura
+    carouselMetadata: 'carousel_metadata' in dbContent ? (dbContent.carousel_metadata as { total_images: number; image_paths: string[]; file_names: string[]; file_sizes: number[]; mime_types: string[]; storage_bucket: string; thumbnail_path?: string } | null) || undefined : undefined,
   };
 }
 
@@ -316,7 +323,10 @@ export async function signContent(
   userId: string,
   thumbnail?: string,
   platforms?: string[],
-  creatorSocialLinks?: SocialLinks
+  fileMetadata?: { filePath: string; fileName: string; fileSize: number; mimeType: string; storageBucket: string },
+  creatorSocialLinks?: SocialLinks,
+  allowFileDownload?: boolean,
+  carouselMetadata?: { total_images: number; image_paths: string[]; file_names: string[]; file_sizes: number[]; mime_types: string[]; storage_bucket: string; thumbnail_path?: string }
 ): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
   try {
     console.log('🔐 [1/7] Iniciando processo de assinatura...');
@@ -330,6 +340,8 @@ export async function signContent(
       thumbnailSize: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
       platforms: platforms?.join(', '),
       hasSocialLinks: !!creatorSocialLinks,
+      hasFileMetadata: !!fileMetadata,
+      hasCarouselMetadata: !!carouselMetadata,
     });
     
     console.log('🔐 [2/7] Gerando hash do conteúdo...');
@@ -358,7 +370,14 @@ export async function signContent(
       platforms: platforms || null,
       verification_count: 0,
       creator_social_links: creatorSocialLinks || null,
-    };
+      file_path: fileMetadata?.filePath || null,
+      file_name: fileMetadata?.fileName || null,
+      file_size: fileMetadata?.fileSize || null,
+      mime_type: fileMetadata?.mimeType || null,
+      storage_bucket: fileMetadata?.storageBucket || null,
+      allow_file_download: allowFileDownload ?? true,
+      carousel_metadata: carouselMetadata || null,
+    } as SignedContentInsert;
     
     console.log('📊 Tamanho dos dados:', {
       content: `${(content.length / 1024).toFixed(2)}KB`,

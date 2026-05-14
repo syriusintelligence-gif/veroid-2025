@@ -10,8 +10,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import VerificationLoadingScreen from '@/components/VerificationLoadingScreen';
 import { PublicDownloadButton } from '@/components/PublicDownloadButton'; // 🆕 Para download público de arquivos
 import { DownloadButton } from '@/components/DownloadButton'; // 🆕 Para download autenticado (criador)
-import ImageCarouselViewer from '@/components/ImageCarouselViewer'; // 🆕 Para exibir carrossel de imagens
-import type { CarouselMetadata } from '@/lib/types/carousel'; // 🆕 Tipos do carrossel
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -60,11 +58,11 @@ export default function Certificate() {
   const [showPromoLoading, setShowPromoLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedShareMessage, setCopiedShareMessage] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isCreator, setIsCreator] = useState(false);
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
 
   useEffect(() => {
     checkUserAndLoadCertificate();
@@ -130,39 +128,12 @@ export default function Certificate() {
             allowFileDownload: fullContent.allowFileDownload,
           });
           
-          // 🔍 DEBUG CRÍTICO: Verificar permissão de download
-          console.log('🔍 [CERTIFICATE DEBUG] Estado de download:', {
-            'allowFileDownload (raw)': fullContent.allowFileDownload,
-            'allowFileDownload (type)': typeof fullContent.allowFileDownload,
-            'allowFileDownload (boolean)': Boolean(fullContent.allowFileDownload),
-            'isCreator': user && fullContent.userId === user.id,
-            'userId': fullContent.userId,
-            'currentUserId': user?.id,
-          });
-          
-          // 🔍 DEBUG CRÍTICO: Verificar permissão de download
-          console.log('🔍 [CERTIFICATE DEBUG] Estado de download:', {
-            'allowFileDownload (raw)': fullContent.allowFileDownload,
-            'allowFileDownload (type)': typeof fullContent.allowFileDownload,
-            'allowFileDownload (boolean)': Boolean(fullContent.allowFileDownload),
-            'isCreator': user && fullContent.userId === user.id,
-            'userId': fullContent.userId,
-            'currentUserId': user?.id,
-          });
-          
           setContent(fullContent);
           
           // 🆕 Verifica se o usuário atual é o criador do certificado
           const userIsCreator = user && fullContent.userId === user.id;
           setIsCreator(userIsCreator);
           console.log('👤 [CERTIFICATE] Usuário é o criador?', userIsCreator);
-          console.log('🔍 [CERTIFICATE DEBUG isCreator] Detalhes:', {
-            'user existe': !!user,
-            'user.id': user?.id,
-            'fullContent.userId': fullContent.userId,
-            'comparação direta': user?.id === fullContent.userId,
-            'userIsCreator final': userIsCreator
-          });
           
           // Incrementa contador de verificações
           await incrementVerificationCount(fullContent.id);
@@ -302,18 +273,6 @@ export default function Certificate() {
       console.error('Erro ao copiar código:', err);
     }
   };
-
-  const handleCopyShareMessage = async () => {
-    if (!content) return;
-    try {
-      const shareMessage = `Verifique a autenticidade desse conteúdo em www.veroid.com.br - código ${content.verificationCode}`;
-      await navigator.clipboard.writeText(shareMessage);
-      setCopiedShareMessage(true);
-      setTimeout(() => setCopiedShareMessage(false), 2000);
-    } catch (err) {
-      console.error('Erro ao copiar mensagem:', err);
-    }
-  };
   
   const handleGoBack = () => {
     if (isLoggedIn) {
@@ -438,6 +397,101 @@ export default function Certificate() {
   
   // 🆕 CORREÇÃO: Extrai título e descrição do conteúdo
   const { title, description } = extractContentDescription(content.content);
+
+  /**
+   * 🎠 RENDERIZAR CARROSSEL DE IMAGENS
+   * Exibe as imagens do carrossel com navegação
+   */
+  const renderCarousel = () => {
+    if (!content?.carouselMetadata || !content.carouselMetadata.image_paths || content.carouselMetadata.image_paths.length === 0) {
+      return null;
+    }
+
+    const carousel = content.carouselMetadata;
+    const totalImages = carousel.total_images;
+    
+    const nextImage = () => {
+      setCurrentCarouselIndex((prev) => (prev + 1) % totalImages);
+    };
+    
+    const prevImage = () => {
+      setCurrentCarouselIndex((prev) => (prev - 1 + totalImages) % totalImages);
+    };
+    
+    const goToImage = (index: number) => {
+      setCurrentCarouselIndex(index);
+    };
+
+    return (
+      <div className="mb-8 sm:mb-10">
+        <div className="text-sm font-bold text-purple-700 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <span className="text-xl">🎠</span>
+          Carrossel de Imagens ({totalImages} imagens)
+        </div>
+        <div className="relative bg-gradient-to-br from-purple-100 to-pink-100 p-4 sm:p-6 rounded-xl border-4 border-purple-500 shadow-xl">
+          {/* Badge de autenticação no canto */}
+          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            ORIGINAL
+          </div>
+          
+          {/* Imagem atual */}
+          <div className="relative">
+            <img 
+              src={carousel.image_paths[currentCarouselIndex]} 
+              alt={`Imagem ${currentCarouselIndex + 1} do carrossel`}
+              className="w-full max-h-80 sm:max-h-96 object-contain rounded-lg shadow-md border-2 border-white"
+            />
+            
+            {/* Botões de navegação */}
+            {totalImages > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all"
+                  aria-label="Imagem anterior"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all"
+                  aria-label="Próxima imagem"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+          </div>
+          
+          {/* Indicadores de posição */}
+          {totalImages > 1 && (
+            <div className="flex justify-center gap-2 mt-4">
+              {Array.from({ length: totalImages }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToImage(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentCarouselIndex 
+                      ? 'bg-purple-600 w-8' 
+                      : 'bg-purple-300 hover:bg-purple-400'
+                  }`}
+                  aria-label={`Ir para imagem ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
+          
+          {/* Contador */}
+          <div className="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg text-center">
+            <p className="text-xs sm:text-sm font-medium">
+              ✅ Imagem {currentCarouselIndex + 1} de {totalImages} do <strong>carrossel original completo</strong> autenticado
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   /**
    * 🆕 CORRELAÇÃO INTELIGENTE: Links Sociais + Plataformas de Publicação
@@ -704,109 +758,10 @@ export default function Certificate() {
             </div>
           </div>
 
-          {/* 🆕 CARROSSEL DE IMAGENS - Se houver múltiplas imagens */}
-          {content.carouselMetadata && content.carouselMetadata.carousel_images && content.carouselMetadata.carousel_images.length > 0 && (
-            <div className="mb-8 sm:mb-10">
-              <div className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-3 flex items-center gap-2">
-                <span className="text-xl">📸</span>
-                Carrossel de Imagens ORIGINAIS Autenticadas ({content.carouselMetadata.total_images} imagens)
-              </div>
-              <div className="relative bg-gradient-to-br from-blue-100 to-purple-100 p-4 sm:p-6 rounded-xl border-4 border-blue-500 shadow-xl">
-                {/* Badge de autenticação no canto */}
-                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  ORIGINAIS
-                </div>
-                
-                {/* Componente do Carrossel */}
-                <ImageCarouselViewer 
-                  images={content.carouselMetadata.carousel_images}
-                  showCounter={true}
-                  allowFullscreen={true}
-                />
-                
-                {/* Aviso abaixo do carrossel */}
-                <div className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-center">
-                  <p className="text-xs sm:text-sm font-medium">
-                    ✅ Estas são as <strong>{content.carouselMetadata.total_images} imagens originais completas</strong> que foram autenticadas
-                  </p>
-                </div>
-              </div>
-              
-              {/* 🆕 SEÇÃO DE DOWNLOAD INDIVIDUAL DAS IMAGENS DO CARROSSEL */}
-              <div className="mt-6 bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-l-4 border-green-500 shadow-md">
-                <p className="text-sm font-bold text-green-900 mb-4 flex items-center gap-2">
-                  📥 Download Individual das Imagens:
-                </p>
-                
-                {/* 🔒 LÓGICA DE DOWNLOAD DO CARROSSEL:
-                    1. Se é o CRIADOR (isCreator === true): sempre pode baixar todas as imagens
-                    2. Se NÃO é o criador E allowFileDownload=true: pode baixar todas as imagens
-                    3. Se NÃO é o criador E allowFileDownload=false: mostra mensagem de restrição
-                */}
-                {isCreator ? (
-                  <>
-                    {/* Criador: sempre pode baixar com autenticação */}
-                    <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-2">
-                      {content.carouselMetadata.carousel_images.map((image, index) => (
-                        <DownloadButton
-                          key={index}
-                          filePath={image.path}
-                          fileName={image.name}
-                          mimeType={image.mime_type}
-                          fileSize={image.size}
-                          bucket={content.carouselMetadata!.storage_bucket}
-                          variant="outline"
-                          size="sm"
-                          showFileInfo={true}
-                          className="w-full text-left justify-start"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-green-700 mt-3">
-                      ✅ Você é o criador - pode baixar todas as imagens a qualquer momento
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    {/* Verificador: download depende de allowFileDownload */}
-                    {content.allowFileDownload ? (
-                      <>
-                        <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-2">
-                          {content.carouselMetadata.carousel_images.map((image, index) => (
-                            <PublicDownloadButton
-                              key={index}
-                              filePath={image.path}
-                              fileName={image.name}
-                              mimeType={image.mime_type}
-                              fileSize={image.size}
-                              bucket={content.carouselMetadata!.storage_bucket}
-                              showFileInfo={true}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-xs text-green-700 mt-3">
-                          ✅ Todas as imagens foram verificadas e o criador permite download público
-                        </p>
-                      </>
-                    ) : (
-                      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-                        <p className="text-sm text-yellow-800 font-medium mb-2">
-                          🔒 Download Restrito
-                        </p>
-                        <p className="text-xs text-yellow-700">
-                          O criador optou por não permitir o download das imagens originais. Apenas os previews estão disponíveis para verificação.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 🔒 SOLUÇÃO 1: HASH VISUAL - Thumbnail Destacada com Aviso (quando NÃO há carrossel) */}
-          {!content.carouselMetadata && content.thumbnail && !imageError && (
+          {/* 🎠 CARROSSEL DE IMAGENS OU THUMBNAIL ÚNICA */}
+          {content.carouselMetadata && content.carouselMetadata.image_paths && content.carouselMetadata.image_paths.length > 0 ? (
+            renderCarousel()
+          ) : content.thumbnail && !imageError ? (
             <div className="mb-8 sm:mb-10">
               <div className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <span className="text-xl">📸</span>
@@ -837,10 +792,10 @@ export default function Certificate() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
           
           {/* 🆕 CORREÇÃO: Fallback quando thumbnail falha */}
-          {!content.carouselMetadata && content.thumbnail && imageError && (
+          {content.thumbnail && imageError && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
                 📸 Preview do Conteúdo
@@ -905,17 +860,7 @@ export default function Certificate() {
                     2. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
                     3. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=false: mostra mensagem de restrição
                 */}
-                {(() => {
-                  console.log('🔍 [CERTIFICATE RENDER] Decidindo componente de download:', {
-                    isCreator,
-                    allowFileDownload: content.allowFileDownload,
-                    decision: isCreator === true ? 'DownloadButton (criador)' : 
-                              content.allowFileDownload ? 'PublicDownloadButton (público)' : 
-                              'Mensagem de restrição'
-                  });
-                  return null;
-                })()}
-                {isCreator ? (
+                {isCreator === true ? (
                   <>
                     {/* Criador: sempre pode baixar com autenticação */}
                     <DownloadButton
@@ -929,7 +874,7 @@ export default function Certificate() {
                       showFileInfo={true}
                     />
                     <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
-                      ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
+                      ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
                     </p>
                   </>
                 ) : (
@@ -948,7 +893,7 @@ export default function Certificate() {
                           showFileInfo={true}
                         />
                         <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
-                          ✅ Este documento foi verificado e o criador permite download público
+                          ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
                         </p>
                       </>
                     ) : (
@@ -1035,63 +980,6 @@ export default function Certificate() {
               )}
             </Button>
           </div>
-
-          {/* 🆕 FRASE PRONTA PARA COMPARTILHAMENTO - APENAS PARA CRIADOR */}
-          {(() => {
-            console.log('🔍 [CERTIFICATE RENDER] Verificando exibição da frase pronta:', {
-              'isCreator': isCreator,
-              'typeof isCreator': typeof isCreator,
-              'isCreator === true': isCreator === true,
-              'Boolean(isCreator)': Boolean(isCreator)
-            });
-            return null;
-          })()}
-          {isCreator && (
-            <div className="mb-6 sm:mb-8 bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 p-5 sm:p-6 rounded-xl border-2 border-green-400 shadow-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="bg-green-500 p-2 rounded-full">
-                  <Copy className="h-4 w-4 text-white" />
-                </div>
-                <h3 className="text-sm sm:text-base font-bold text-green-900">
-                  📢 Frase Pronta para Compartilhamento
-                </h3>
-              </div>
-              
-              <p className="text-xs text-green-800 mb-3 leading-relaxed">
-                ✅ Você é o criador deste conteúdo. Use a frase abaixo para compartilhar nas suas redes sociais e permitir que seus seguidores verifiquem a autenticidade:
-              </p>
-              
-              {/* Caixa com a frase pronta */}
-              <div className="bg-white p-4 rounded-lg border-2 border-green-300 mb-3">
-                <p className="text-sm sm:text-base text-gray-800 font-medium break-words leading-relaxed">
-                  Verifique a autenticidade desse conteúdo em <strong className="text-blue-600">www.veroid.com.br</strong> - código <strong className="text-blue-600 font-mono">{content.verificationCode}</strong>
-                </p>
-              </div>
-              
-              {/* Botão de copiar */}
-              <Button
-                onClick={handleCopyShareMessage}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-md"
-                size="default"
-              >
-                {copiedShareMessage ? (
-                  <>
-                    <Check className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    Frase Copiada!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    Copiar Frase Pronta
-                  </>
-                )}
-              </Button>
-              
-              <p className="text-xs text-green-700 mt-3 text-center">
-                💡 Cole esta mensagem junto com seu conteúdo nas redes sociais
-              </p>
-            </div>
-          )}
 
           {/* Copy Link Button */}
           <div className="mb-6 sm:mb-8">
