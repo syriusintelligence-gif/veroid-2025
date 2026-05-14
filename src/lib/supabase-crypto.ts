@@ -9,6 +9,7 @@ import { supabase } from './supabase';
 import type { Database, SocialLinks } from './supabase';
 import { generateHash, generateVerificationCode } from './crypto';
 import { encryptPrivateKey, decryptPrivateKey } from './encryption';
+import type { CarouselMetadata } from './types/carousel';
 
 type KeyPairRow = Database['public']['Tables']['key_pairs']['Row'];
 type KeyPairInsert = Database['public']['Tables']['key_pairs']['Insert'];
@@ -499,7 +500,22 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
       console.log('⚠️ [getSignedContentById] Nenhum link social armazenado');
     }
     
+    // 🎠 Verificação de carrossel ANTES da conversão
+    console.log('🎠 [getSignedContentById] Verificando carrossel no banco:', {
+      hasCarouselMetadata: 'carousel_metadata' in data,
+      carouselMetadataValue: data.carousel_metadata,
+      carouselMetadataType: typeof data.carousel_metadata,
+      carouselImages: data.carousel_metadata ? (data.carousel_metadata as CarouselMetadata)?.carousel_images?.length : 0,
+    });
+    
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
+    
+    // 🎠 Verificação de carrossel DEPOIS da conversão
+    console.log('🎠 [getSignedContentById] Verificando carrossel após conversão:', {
+      hasCarouselMetadata: !!content.carouselMetadata,
+      carouselImages: content.carouselMetadata?.carousel_images?.length || 0,
+      totalImages: content.carouselMetadata?.total_images || 0,
+    });
     
     console.log('📊 [getSignedContentById] Conteúdo final:', {
       id: content.id,
@@ -511,11 +527,13 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
       thumbnailPreview: content.thumbnail?.substring(0, 50) || 'N/A',
       hasContent: !!content.content,
       contentLength: content.content?.length || 0,
+      hasCarouselMetadata: !!content.carouselMetadata,
     });
     
     console.log('🔍 [getSignedContentById] Dados brutos do Supabase:', {
       rawThumbnail: data.thumbnail ? `${data.thumbnail.substring(0, 50)}... (${data.thumbnail.length} chars)` : 'NULL',
       rawContent: data.content ? `${data.content.substring(0, 50)}... (${data.content.length} chars)` : 'NULL',
+      rawCarouselMetadata: data.carousel_metadata ? JSON.stringify(data.carousel_metadata).substring(0, 100) + '...' : 'NULL',
     });
     
     return content;
@@ -553,13 +571,29 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
       console.log('⚠️ [getSignedContentByVerificationCode] Nenhum link social armazenado');
     }
     
+    // 🎠 Verificação de carrossel ANTES da conversão
+    console.log('🎠 [getSignedContentByVerificationCode] Verificando carrossel no banco:', {
+      hasCarouselMetadata: 'carousel_metadata' in data,
+      carouselMetadataValue: data.carousel_metadata,
+      carouselMetadataType: typeof data.carousel_metadata,
+      carouselImages: data.carousel_metadata ? (data.carousel_metadata as CarouselMetadata)?.carousel_images?.length : 0,
+    });
+    
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
+    
+    // 🎠 Verificação de carrossel DEPOIS da conversão
+    console.log('🎠 [getSignedContentByVerificationCode] Verificando carrossel após conversão:', {
+      hasCarouselMetadata: !!content.carouselMetadata,
+      carouselImages: content.carouselMetadata?.carousel_images?.length || 0,
+      totalImages: content.carouselMetadata?.total_images || 0,
+    });
     
     console.log('📊 [getSignedContentByVerificationCode] Conteúdo final:', {
       id: content.id,
       creatorName: content.creatorName,
       hasCreatorSocialLinks: !!content.creatorSocialLinks,
       socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
+      hasCarouselMetadata: !!content.carouselMetadata,
     });
     
     return content;
