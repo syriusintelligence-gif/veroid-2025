@@ -132,11 +132,6 @@ export default function Cadastro() {
   const [documentStream, setDocumentStream] = useState<MediaStream | null>(null);
   const [documentWebcamActive, setDocumentWebcamActive] = useState(false);
   
-  // 🆕 Estados para captura de frente e verso do documento
-  const [documentCaptureStep, setDocumentCaptureStep] = useState<'idle' | 'front' | 'back'>('idle');
-  const [documentFrontPhoto, setDocumentFrontPhoto] = useState<string>('');
-  const [documentBackPhoto, setDocumentBackPhoto] = useState<string>('');
-  
   useEffect(() => {
     return () => {
       if (stream) {
@@ -284,63 +279,6 @@ export default function Cadastro() {
       setDocumentStream(null);
     }
     setDocumentWebcamActive(false);
-    setDocumentCaptureStep('idle');
-    setDocumentFrontPhoto('');
-    setDocumentBackPhoto('');
-  };
-  
-  // 🆕 Combina duas fotos (frente e verso) em uma única imagem vertical
-  const combineDocumentImages = async (frontPhoto: string, backPhoto: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        resolve(frontPhoto); // Fallback: retorna só a frente se falhar
-        return;
-      }
-      
-      const frontImg = new Image();
-      const backImg = new Image();
-      
-      let frontLoaded = false;
-      let backLoaded = false;
-      
-      const tryRender = () => {
-        if (!frontLoaded || !backLoaded) return;
-        
-        // Define tamanho do canvas (duas imagens empilhadas verticalmente)
-        const width = Math.max(frontImg.width, backImg.width);
-        const height = frontImg.height + backImg.height;
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Desenha a frente no topo
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(frontImg, 0, 0, width, frontImg.height);
-        
-        // Desenha o verso abaixo
-        ctx.drawImage(backImg, 0, frontImg.height, width, backImg.height);
-        
-        // Retorna imagem combinada
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      };
-      
-      frontImg.onload = () => {
-        frontLoaded = true;
-        tryRender();
-      };
-      
-      backImg.onload = () => {
-        backLoaded = true;
-        tryRender();
-      };
-      
-      frontImg.src = frontPhoto;
-      backImg.src = backPhoto;
-    });
   };
   
   // 🆕 ETAPA 1: Validação de documento com IA
