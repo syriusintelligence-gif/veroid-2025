@@ -838,7 +838,7 @@ ${content}
         currentUser.nomePublico || currentUser.nomeCompleto,
         currentUser.id,
         finalThumbnail || undefined,
-        selectedPlatforms,
+        platformsToDisplay, // 🆕 Usar platformsToDisplay ao invés de selectedPlatforms
         fileMetadata,
         creatorSocialLinks,
         allowFileDownload,
