@@ -137,6 +137,7 @@ export interface Database {
           storage_bucket: string | null;
           allow_file_download: boolean;
           carousel_metadata: Record<string, unknown> | null;
+          total_images: number;
         };
         Insert: {
           id?: string;
@@ -159,6 +160,7 @@ export interface Database {
           storage_bucket?: string | null;
           allow_file_download?: boolean;
           carousel_metadata?: Record<string, unknown> | null;
+          total_images?: number;
         };
         Update: {
           id?: string;
@@ -181,6 +183,7 @@ export interface Database {
           storage_bucket?: string | null;
           allow_file_download?: boolean;
           carousel_metadata?: Record<string, unknown> | null;
+          total_images?: number;
         };
       };
       key_pairs: {

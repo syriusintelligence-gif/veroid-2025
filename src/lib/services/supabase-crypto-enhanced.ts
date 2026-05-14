@@ -198,6 +198,7 @@ export async function signContentEnhanced(
       creator_social_links: creatorSocialLinks || null,
       allow_file_download: fileMetadata ? (allowFileDownload ?? true) : false,
       carousel_metadata: carouselMetadataForDb,
+      total_images: carouselMetadataForDb?.total_images || 1,
     };
 
     console.log('💾 [Enhanced] Salvando no banco...');
