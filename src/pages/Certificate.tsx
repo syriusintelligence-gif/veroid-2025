@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import { Button } from '@/components/ui/button';
-import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy, FileText, QrCode } from 'lucide-react';
+import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy, FileText, QrCode, ChevronLeft, ChevronRight } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl, generateQRData } from '@/lib/qrcode';
 import { generateCertificateWithEmbeddedFile } from '@/lib/services/certificate-generator'; // 🆕 Para certificados com arquivo embutido
 import { QRCodeSVG } from 'qrcode.react';

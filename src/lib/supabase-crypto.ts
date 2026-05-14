@@ -377,6 +377,7 @@ export async function signContent(
       storage_bucket: fileMetadata?.storageBucket || null,
       allow_file_download: allowFileDownload ?? true,
       carousel_metadata: carouselMetadata || null,
+      total_images: carouselMetadata ? carouselMetadata.total_images : 1,
     } as SignedContentInsert;
     
     console.log('📊 Tamanho dos dados:', {
