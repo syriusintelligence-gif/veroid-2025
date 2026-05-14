@@ -107,9 +107,9 @@ export default function Index() {
         transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="glass-header sticky top-0 z-50 shadow-lg shadow-blue-500/10"
       >
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+        <div className="container mx-auto px-2 sm:px-4 py-3 md:py-4 flex items-center justify-between gap-2">
           <motion.div 
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 cursor-pointer flex-shrink-0"
             onClick={() => navigate('/')}
             whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
             transition={{ duration: 0.2 }}
@@ -126,13 +126,13 @@ export default function Index() {
               }}
               whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
             >
-              <Shield className="h-7 w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+              <Shield className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
             </motion.div>
-            <span className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <span className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight whitespace-nowrap">
               Vero iD
             </span>
           </motion.div>
-          <nav className="flex gap-2 md:gap-3">
+          <nav className="flex gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
             {isAdmin && (
               <motion.div 
                 whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
@@ -141,16 +141,16 @@ export default function Index() {
                 <Button 
                   variant="outline" 
                   onClick={() => navigate('/admin/dashboard')} 
-                  className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+                  className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
                 >
                   <motion.div
                     whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                    <BarChart3 className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
                   </motion.div>
-                  <span className="hidden sm:inline">Admin Dashboard</span>
-                  <span className="sm:hidden">Admin</span>
+                  <span className="hidden md:inline">Admin Dashboard</span>
+                  <span className="hidden sm:inline md:hidden">Admin</span>
                 </Button>
               </motion.div>
             )}
@@ -161,11 +161,10 @@ export default function Index() {
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/pricing')} 
-                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
               >
-                <CreditCard className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <CreditCard className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
                 <span className="hidden sm:inline">Planos</span>
-                <span className="sm:hidden">Planos</span>
               </Button>
             </motion.div>
             <motion.div 
@@ -175,11 +174,10 @@ export default function Index() {
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/verify')} 
-                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
               >
-                <CheckCircle className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden sm:inline">Verificar Autenticidade</span>
-                <span className="sm:hidden">Verificar</span>
+                <CheckCircle className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
+                <span className="hidden md:inline">Verificar</span>
               </Button>
             </motion.div>
             <motion.div 
@@ -189,7 +187,7 @@ export default function Index() {
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/login')} 
-                className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-3 md:px-4 transition-all duration-300"
+                className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-2 sm:px-3 md:px-4 transition-all duration-300"
               >
                 Entrar
               </Button>
@@ -200,7 +198,7 @@ export default function Index() {
             >
               <Button 
                 onClick={() => navigate('/cadastro')} 
-                className="button-ripple bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-3 md:px-4"
+                className="button-ripple bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-2 sm:px-3 md:px-4"
               >
                 Cadastro
               </Button>
