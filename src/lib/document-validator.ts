@@ -4,23 +4,30 @@
  * =====================================================
  * 
  * Módulo especializado para validação de documentos de identidade:
+ * 
+ * DOCUMENTOS CIVIS:
  * - CNH (Carteira Nacional de Habilitação)
  * - RG (Registro Geral)
  * - Passaporte
  * 
+ * DOCUMENTOS PROFISSIONAIS:
+ * - OAB (Ordem dos Advogados do Brasil)
+ * - CRM (Conselho Regional de Medicina)
+ * - CREA (Conselho Regional de Engenharia)
+ * - CRC (Conselho Regional de Contabilidade)
+ * - CRO (Conselho Regional de Odontologia)
+ * - CRF (Conselho Regional de Farmácia)
+ * 
  * SEGURANÇA:
- * - Validação rigorosa de extensão (.jpg, .jpeg, .png)
+ * - Validação rigorosa de extensão (.jpg, .jpeg, .png, .pdf)
  * - Validação de MIME type
  * - Validação de Magic Numbers
  * - Limite de tamanho: 5MB
  * - Mensagens claras para o usuário
  * 
- * ⚠️ IMPORTANTE: PDFs NÃO são suportados pelo AWS Textract (API síncrona)
- * O usuário deve enviar uma FOTO (JPEG ou PNG) do documento.
- * 
  * @author VeroID Security Team
- * @version 1.1.0
- * @date 2026-03-25
+ * @version 1.2.0
+ * @date 2026-05-14
  */
 
 import { validateFile, FileValidationResult } from './file-validator';
@@ -87,17 +94,21 @@ function getFileExtension(fileName: string): string {
 // =====================================================
 
 /**
- * Valida um documento de identidade (CNH, RG, Passaporte)
+ * Valida um documento de identidade (Civil ou Profissional)
+ * 
+ * DOCUMENTOS ACEITOS:
+ * - Civis: CNH, RG, Passaporte
+ * - Profissionais: OAB, CRM, CREA, CRC, CRO, CRF
  * 
  * VALIDAÇÕES REALIZADAS:
  * 1. ✅ Verifica se arquivo existe
  * 2. ✅ Verifica tamanho máximo (5MB)
- * 3. ✅ Verifica se extensão é permitida (.jpg, .jpeg, .png)
+ * 3. ✅ Verifica se extensão é permitida (.jpg, .jpeg, .png, .pdf)
  * 4. ✅ Verifica se MIME type é permitido
  * 5. ✅ Valida Magic Numbers (assinatura de arquivo)
  * 6. ✅ Mensagens específicas para documentos de identidade
  * 
- * ⚠️ IMPORTANTE: PDFs NÃO são aceitos - apenas fotos (JPEG/PNG)
+ * ✅ FORMATOS ACEITOS: Fotos (JPEG/PNG) e documentos digitais (PDF)
  * 
  * @param file - Objeto File do navegador
  * @returns Resultado da validação com detalhes
@@ -180,7 +191,7 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
     
     return {
       valid: false,
-      message: `Formato de arquivo não aceito. Por favor, envie uma FOTO do seu documento (CNH, RG ou Passaporte) nos formatos: JPG ou PNG.`,
+      message: `Formato de arquivo não aceito. Por favor, envie uma FOTO do seu documento (CNH, RG, Passaporte, OAB, CRM, CREA, CRC, CRO, CRF) nos formatos: JPG, PNG ou PDF.`,
       isDocument: false,
       details: {
         fileName,
@@ -199,7 +210,7 @@ export async function validateDocument(file: File): Promise<DocumentValidationRe
     
     return {
       valid: false,
-      message: `Tipo de arquivo não reconhecido. Por favor, envie uma FOTO (JPG ou PNG) do seu documento de identidade (CNH, RG ou Passaporte).`,
+      message: `Tipo de arquivo não reconhecido. Por favor, envie uma FOTO (JPG, PNG ou PDF) do seu documento de identidade civil (CNH, RG, Passaporte) ou profissional (OAB, CRM, CREA, CRC, CRO, CRF).`,
       isDocument: false,
       details: {
         fileName,

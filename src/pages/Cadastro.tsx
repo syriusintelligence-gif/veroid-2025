@@ -965,9 +965,16 @@ export default function Cadastro() {
                     
                     <div className="space-y-2 mb-4">
                       <p className="text-sm text-blue-800">
-                        📷 Envie uma <strong>FOTO ou PDF</strong> do seu documento: <strong>CNH, RG ou Passaporte</strong>
+                        📷 Envie uma <strong>FOTO ou PDF</strong> do seu documento: <strong>CNH, RG, Passaporte ou documento de classe profissional válidos</strong>
                       </p>
-                      <p className="text-xs text-blue-600">
+                      <p className="text-xs text-blue-700 mt-2">
+                        <strong>Documentos aceitos:</strong>
+                      </p>
+                      <ul className="text-xs text-blue-700 space-y-1 ml-4 list-disc">
+                        <li><strong>Documentos Civis:</strong> CNH, RG, Passaporte</li>
+                        <li><strong>Documentos Profissionais:</strong> OAB, CRM, CREA, CRC, CRO, CRF</li>
+                      </ul>
+                      <p className="text-xs text-blue-600 mt-2">
                         Formatos aceitos: {getDocumentExtensionDescription()} • Tamanho máximo: {getMaxDocumentSizeMB()}MB
                       </p>
                       <p className="text-xs text-green-700 font-medium">
