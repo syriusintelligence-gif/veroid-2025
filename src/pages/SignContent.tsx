@@ -1451,7 +1451,12 @@ ${content}
                 </p>
               </div>
 
-              
+              <Alert className="border-blue-500 bg-blue-50">
+                <AlertDescription className="text-blue-800">
+                  ℹ️ <strong>Importante:</strong> Todo o conteúdo assinado será automaticamente salvo no seu Dashboard após concluir a assinatura digital.
+                </AlertDescription>
+              </Alert>
+
               <Button
                 onClick={handleSign}
                 disabled={
