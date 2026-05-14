@@ -106,6 +106,11 @@ export default function SignContent() {
   const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
   const [carouselValidationError, setCarouselValidationError] = useState<string>('');
   
+  // ========================================
+  // 📱 CUSTOM PLATFORM STATE (for "Outros")
+  // ========================================
+  const [customPlatform, setCustomPlatform] = useState<string>('');
+  
   useEffect(() => {
     loadUserData();
   }, [navigate]);
@@ -617,6 +622,11 @@ export default function SignContent() {
         ? prev.filter(p => p !== platform)
         : [...prev, platform]
     );
+    
+    // Limpar campo customizado se desmarcar "Outros"
+    if (platform === 'Outros' && selectedPlatforms.includes('Outros')) {
+      setCustomPlatform('');
+    }
   };
   
   const handleSign = async () => {
@@ -649,6 +659,12 @@ export default function SignContent() {
       
       if (selectedPlatforms.length === 0) {
         alert('Por favor, selecione pelo menos uma rede social');
+        return;
+      }
+      
+      // Validar campo customizado se "Outros" foi selecionado
+      if (selectedPlatforms.includes('Outros') && !customPlatform.trim()) {
+        alert('Por favor, especifique o nome da plataforma no campo "Outros"');
         return;
       }
       if (!currentUser) {
@@ -745,10 +761,18 @@ export default function SignContent() {
       // 📝 PREPARAR CONTEÚDO PARA ASSINATURA
       // ========================================
       const sanitizedFileName = uploadedFile ? sanitizeFileName(uploadedFile.name) : '';
+      
+      // Substituir "Outros" pelo valor customizado se aplicável
+      const platformsToDisplay = selectedPlatforms.map(p => 
+        p === 'Outros' && customPlatform.trim() 
+          ? customPlatform.trim() 
+          : p
+      );
+      
       const fullContent = `
 Título: ${title}
 Tipo: ${contentTypes.find(t => t.value === contentType)?.label}
-Redes: ${selectedPlatforms.join(', ')}
+Redes: ${platformsToDisplay.join(', ')}
 ${uploadedFile && !hasCarousel ? `Arquivo: ${sanitizedFileName}` : ''}
 ${hasCarousel ? `Carrossel: ${carouselFiles.length} imagens` : ''}
 
@@ -899,6 +923,8 @@ ${content}
     setCarouselMetadata(null);
     setCarouselValidationError('');
     setIsUploadingCarousel(false);
+    // Limpar campo customizado
+    setCustomPlatform('');
   };
   
   if (isLoading) {
@@ -1412,9 +1438,38 @@ ${content}
                     </div>
                   ))}
                 </div>
+                
+                {/* Campo customizado para "Outros" */}
+                {selectedPlatforms.includes('Outros') && (
+                  <div className="space-y-2 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg border-2 border-amber-200">
+                    <Label htmlFor="custom-platform" className="text-amber-900 font-semibold">
+                      📱 Especifique a plataforma:
+                    </Label>
+                    <Input
+                      id="custom-platform"
+                      placeholder="Ex: Telegram, Discord, Medium, Blog pessoal, etc."
+                      value={customPlatform}
+                      onChange={(e) => setCustomPlatform(e.target.value)}
+                      disabled={isBlocked || isProcessingVideo || isUploadingFile}
+                      className="border-amber-300 focus:border-amber-500"
+                      maxLength={50}
+                    />
+                    <p className="text-xs text-amber-700">
+                      {customPlatform.trim() 
+                        ? `✅ "${customPlatform}" será exibido no certificado` 
+                        : '⚠️ Digite o nome da plataforma para aparecer no certificado'}
+                    </p>
+                  </div>
+                )}
+                
                 {selectedPlatforms.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {selectedPlatforms.length} {selectedPlatforms.length === 1 ? 'plataforma selecionada' : 'plataformas selecionadas'}
+                    {selectedPlatforms.includes('Outros') && customPlatform.trim() && (
+                      <span className="ml-2 text-amber-700 font-medium">
+                        • Outros: {customPlatform}
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
