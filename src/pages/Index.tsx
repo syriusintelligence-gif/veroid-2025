@@ -174,6 +174,20 @@ export default function Index() {
             >
               <Button 
                 variant="outline" 
+                onClick={() => navigate('/verify')} 
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+              >
+                <CheckCircle className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Verificar Autenticidade</span>
+                <span className="sm:hidden">Verificar</span>
+              </Button>
+            </motion.div>
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                variant="outline" 
                 onClick={() => navigate('/login')} 
                 className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-3 md:px-4 transition-all duration-300"
               >
