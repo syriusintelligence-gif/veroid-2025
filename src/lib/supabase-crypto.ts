@@ -88,8 +88,10 @@ function dbSignedContentToAppSignedContent(
     storageBucket: 'storage_bucket' in dbContent ? (dbContent.storage_bucket as string | null) || undefined : undefined,
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: 'allow_file_download' in dbContent ? (dbContent.allow_file_download as boolean | null) ?? true : true,
-    // 🎠 Metadados do carrossel - usando type assertion segura
-    carouselMetadata: 'carousel_metadata' in dbContent ? (dbContent.carousel_metadata as CarouselMetadata | null) || undefined : undefined,
+    // 🎠 Metadados do carrossel - usando type assertion segura e verificação de null
+    carouselMetadata: ('carousel_metadata' in dbContent && dbContent.carousel_metadata !== null) 
+      ? (dbContent.carousel_metadata as CarouselMetadata) 
+      : undefined,
   };
 }
 
