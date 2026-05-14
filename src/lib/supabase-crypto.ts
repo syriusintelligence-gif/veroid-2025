@@ -46,7 +46,7 @@ export interface SignedContent {
   storageBucket?: string;
   // 🆕 Controle de download pelo criador
   allowFileDownload?: boolean;
-  // 🎠 Metadados do carrossel de imagens
+  // 🆕 Carrossel de imagens
   carouselMetadata?: CarouselMetadata;
 }
 
@@ -88,10 +88,8 @@ function dbSignedContentToAppSignedContent(
     storageBucket: 'storage_bucket' in dbContent ? (dbContent.storage_bucket as string | null) || undefined : undefined,
     // 🆕 Controle de download - default TRUE para retrocompatibilidade
     allowFileDownload: 'allow_file_download' in dbContent ? (dbContent.allow_file_download as boolean | null) ?? true : true,
-    // 🎠 Metadados do carrossel - usando type assertion segura e verificação de null
-    carouselMetadata: ('carousel_metadata' in dbContent && dbContent.carousel_metadata !== null) 
-      ? (dbContent.carousel_metadata as CarouselMetadata) 
-      : undefined,
+    // 🆕 Carrossel de imagens
+    carouselMetadata: dbContent.carousel_metadata ? (dbContent.carousel_metadata as CarouselMetadata) : undefined,
   };
 }
 
@@ -318,10 +316,7 @@ export async function signContent(
   userId: string,
   thumbnail?: string,
   platforms?: string[],
-  fileMetadata?: { filePath: string; fileName: string; fileSize: number; mimeType: string; storageBucket: string },
-  creatorSocialLinks?: SocialLinks,
-  allowFileDownload?: boolean,
-  carouselMetadata?: CarouselMetadata
+  creatorSocialLinks?: SocialLinks
 ): Promise<{ success: boolean; signedContent?: SignedContent; error?: string }> {
   try {
     console.log('🔐 [1/7] Iniciando processo de assinatura...');
@@ -335,8 +330,6 @@ export async function signContent(
       thumbnailSize: thumbnail ? `${(thumbnail.length / 1024).toFixed(2)}KB` : 'N/A',
       platforms: platforms?.join(', '),
       hasSocialLinks: !!creatorSocialLinks,
-      hasFileMetadata: !!fileMetadata,
-      hasCarouselMetadata: !!carouselMetadata,
     });
     
     console.log('🔐 [2/7] Gerando hash do conteúdo...');
@@ -365,15 +358,7 @@ export async function signContent(
       platforms: platforms || null,
       verification_count: 0,
       creator_social_links: creatorSocialLinks || null,
-      file_path: fileMetadata?.filePath || null,
-      file_name: fileMetadata?.fileName || null,
-      file_size: fileMetadata?.fileSize || null,
-      mime_type: fileMetadata?.mimeType || null,
-      storage_bucket: fileMetadata?.storageBucket || null,
-      allow_file_download: allowFileDownload ?? true,
-      carousel_metadata: carouselMetadata || null,
-      total_images: carouselMetadata ? carouselMetadata.total_images : 1,
-    } as SignedContentInsert;
+    };
     
     console.log('📊 Tamanho dos dados:', {
       content: `${(content.length / 1024).toFixed(2)}KB`,
@@ -502,22 +487,7 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
       console.log('⚠️ [getSignedContentById] Nenhum link social armazenado');
     }
     
-    // 🎠 Verificação de carrossel ANTES da conversão
-    console.log('🎠 [getSignedContentById] Verificando carrossel no banco:', {
-      hasCarouselMetadata: 'carousel_metadata' in data,
-      carouselMetadataValue: data.carousel_metadata,
-      carouselMetadataType: typeof data.carousel_metadata,
-      carouselImages: data.carousel_metadata ? (data.carousel_metadata as CarouselMetadata)?.carousel_images?.length : 0,
-    });
-    
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
-    
-    // 🎠 Verificação de carrossel DEPOIS da conversão
-    console.log('🎠 [getSignedContentById] Verificando carrossel após conversão:', {
-      hasCarouselMetadata: !!content.carouselMetadata,
-      carouselImages: content.carouselMetadata?.carousel_images?.length || 0,
-      totalImages: content.carouselMetadata?.total_images || 0,
-    });
     
     console.log('📊 [getSignedContentById] Conteúdo final:', {
       id: content.id,
@@ -529,13 +499,11 @@ export async function getSignedContentById(id: string): Promise<SignedContent | 
       thumbnailPreview: content.thumbnail?.substring(0, 50) || 'N/A',
       hasContent: !!content.content,
       contentLength: content.content?.length || 0,
-      hasCarouselMetadata: !!content.carouselMetadata,
     });
     
     console.log('🔍 [getSignedContentById] Dados brutos do Supabase:', {
       rawThumbnail: data.thumbnail ? `${data.thumbnail.substring(0, 50)}... (${data.thumbnail.length} chars)` : 'NULL',
       rawContent: data.content ? `${data.content.substring(0, 50)}... (${data.content.length} chars)` : 'NULL',
-      rawCarouselMetadata: data.carousel_metadata ? JSON.stringify(data.carousel_metadata).substring(0, 100) + '...' : 'NULL',
     });
     
     return content;
@@ -573,29 +541,13 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
       console.log('⚠️ [getSignedContentByVerificationCode] Nenhum link social armazenado');
     }
     
-    // 🎠 Verificação de carrossel ANTES da conversão
-    console.log('🎠 [getSignedContentByVerificationCode] Verificando carrossel no banco:', {
-      hasCarouselMetadata: 'carousel_metadata' in data,
-      carouselMetadataValue: data.carousel_metadata,
-      carouselMetadataType: typeof data.carousel_metadata,
-      carouselImages: data.carousel_metadata ? (data.carousel_metadata as CarouselMetadata)?.carousel_images?.length : 0,
-    });
-    
     const content = dbSignedContentToAppSignedContent(data, creatorSocialLinks);
-    
-    // 🎠 Verificação de carrossel DEPOIS da conversão
-    console.log('🎠 [getSignedContentByVerificationCode] Verificando carrossel após conversão:', {
-      hasCarouselMetadata: !!content.carouselMetadata,
-      carouselImages: content.carouselMetadata?.carousel_images?.length || 0,
-      totalImages: content.carouselMetadata?.total_images || 0,
-    });
     
     console.log('📊 [getSignedContentByVerificationCode] Conteúdo final:', {
       id: content.id,
       creatorName: content.creatorName,
       hasCreatorSocialLinks: !!content.creatorSocialLinks,
       socialLinksCount: content.creatorSocialLinks ? Object.keys(content.creatorSocialLinks).length : 0,
-      hasCarouselMetadata: !!content.carouselMetadata,
     });
     
     return content;
