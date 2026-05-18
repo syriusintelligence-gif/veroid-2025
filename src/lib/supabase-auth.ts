@@ -1,10 +1,11 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.7 - PROTEÇÃO ANTI-DUPLICAÇÃO: Links sociais únicos por conta
+ * Versão 2.8 - Adiciona função updatePublicName
  * 
  * Changelog:
- * - v2.6: Adiciona validação de unicidade de links sociais para prevenir fraude
- * - v2.5: Correção final - não enviar phone para Auth, apenas para tabela users
+ * - v2.8: Adiciona updatePublicName para permitir edição do nome público
+ * - v2.7: Adiciona validação de unicidade de links sociais para prevenir fraude
+ * - v2.6: Correção final - não enviar phone para Auth, apenas para tabela users
  */
 
 import { supabase } from './supabase';
@@ -1378,6 +1379,69 @@ export async function updateSocialLinks(
     return { 
       success: false, 
       error: errorMessage
+    };
+  }
+}
+
+/**
+ * 🆕 Atualiza o nome público do usuário
+ */
+export async function updatePublicName(
+  userId: string,
+  publicName: string
+): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    console.log('✏️ [UPDATE PUBLIC NAME] Atualizando nome público...');
+    console.log('👤 User ID:', userId);
+    console.log('📝 Novo nome público:', publicName);
+    
+    const currentUser = await getCurrentUser();
+    
+    // Verifica se o usuário tem permissão
+    if (currentUser?.id !== userId) {
+      return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
+    }
+    
+    // Valida nome público
+    if (!publicName || publicName.trim() === '') {
+      return { success: false, error: 'Nome público não pode estar vazio' };
+    }
+    
+    if (publicName.trim().length < 2) {
+      return { success: false, error: 'Nome público deve ter no mínimo 2 caracteres' };
+    }
+    
+    // Atualiza o nome público
+    const { data, error } = await supabase
+      .from('users')
+      .update({ nome_publico: publicName.trim() })
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar nome público:', error);
+      return { success: false, error: 'Erro ao atualizar nome público' };
+    }
+    
+    console.log('✅ Nome público atualizado com sucesso');
+    
+    // 📊 Log de auditoria
+    await logAuditEvent(AuditAction.USER_UPDATED, {
+      success: true,
+      targetUserId: userId,
+      updates: { nome_publico: publicName },
+    }, userId);
+    
+    return {
+      success: true,
+      user: dbUserToAppUser(data),
+    };
+  } catch (error) {
+    console.error('❌ Erro crítico ao atualizar nome público:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
     };
   }
 }

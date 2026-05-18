@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, ArrowLeft, User, Mail, Phone, FileText, Calendar, CheckCircle2, Camera, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Save, Edit, ShieldCheck, ShieldOff, Loader2, CreditCard, X } from 'lucide-react';
-import { getCurrentUser, User as UserType, updateSocialLinks } from '@/lib/supabase-auth';
+import { getCurrentUser, User as UserType, updateSocialLinks, updatePublicName } from '@/lib/supabase-auth';
 import { SocialLinks } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { has2FAEnabled, disable2FA } from '@/lib/supabase-2fa';
@@ -40,6 +40,11 @@ export default function Profile() {
     website: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Estado para edição do nome público
+  const [isEditingPublicName, setIsEditingPublicName] = useState(false);
+  const [publicName, setPublicName] = useState('');
+  const [isSavingPublicName, setIsSavingPublicName] = useState(false);
   
   // 🆕 2FA State
   const [has2FA, setHas2FA] = useState(false);
@@ -108,6 +113,9 @@ export default function Profile() {
         website: user.socialLinks.website || '',
       });
     }
+    
+    // Carrega nome público
+    setPublicName(user.nomePublico || '');
     
     // 🆕 Verifica status do 2FA
     await check2FAStatus(user.id);
@@ -309,6 +317,43 @@ export default function Profile() {
       setIsDeletingSocial(false);
       setShowDeleteSocialDialog(false);
       setSocialToDelete(null);
+    }
+  };
+
+  // 🆕 Função para salvar nome público
+  const handleSavePublicName = async () => {
+    if (!currentUser) return;
+    
+    setIsSavingPublicName(true);
+    
+    try {
+      console.log('📝 [PROFILE] Salvando nome público:', publicName);
+      
+      const result = await updatePublicName(currentUser.id, publicName);
+      
+      if (result.success) {
+        toast({
+          title: 'Nome público atualizado!',
+          description: 'Seu nome público foi atualizado com sucesso.',
+        });
+        setIsEditingPublicName(false);
+        await loadUser();
+      } else {
+        toast({
+          title: 'Erro ao atualizar',
+          description: result.error || 'Não foi possível atualizar o nome público.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('❌ [PROFILE] Erro ao salvar nome público:', error);
+      toast({
+        title: 'Erro inesperado',
+        description: 'Ocorreu um erro ao salvar. Por favor, tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingPublicName(false);
     }
   };
 
@@ -666,11 +711,56 @@ export default function Profile() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span>Nome Público</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    <span>Nome Público</span>
+                  </div>
+                  {!isEditingPublicName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingPublicName(true)}
+                      className="h-7 px-2"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
-                <p className="font-medium">{currentUser.nomePublico || 'Não informado'}</p>
+                {isEditingPublicName ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={publicName}
+                      onChange={(e) => setPublicName(e.target.value)}
+                      placeholder="Digite seu nome público"
+                      className="h-9"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSavePublicName}
+                        disabled={isSavingPublicName || !publicName.trim()}
+                        className="h-7 text-xs"
+                      >
+                        {isSavingPublicName ? 'Salvando...' : 'Salvar'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingPublicName(false);
+                          setPublicName(currentUser.nomePublico || '');
+                        }}
+                        disabled={isSavingPublicName}
+                        className="h-7 text-xs"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="font-medium">{currentUser.nomePublico || 'Não informado'}</p>
+                )}
               </div>
 
               <div className="space-y-2">
