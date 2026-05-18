@@ -544,6 +544,132 @@ export default function Index() {
         </div>
       </section>
       
+      {/* FAQ Section */}
+      <section className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden">
+        {/* Grid pattern background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
+        
+        <div className="relative z-10 container mx-auto px-4 max-w-4xl">
+          <motion.div 
+            className="text-center mb-10 md:mb-16"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7 }}
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 tracking-tight px-4">
+              <span className="text-white">FAQ - </span>
+              <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Perguntas Frequentes</span>
+            </h2>
+            <p className="text-lg md:text-xl text-gray-400 px-4">Tire suas dúvidas sobre o Vero iD</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.2 }}
+          >
+            <div className="glass-card glass-noise p-6 md:p-8 rounded-2xl">
+              <div className="space-y-4">
+                {[
+                  {
+                    question: "O que é o Vero iD e como funciona?",
+                    answer: "O Vero iD é uma plataforma de certificação digital que permite assinar documentos eletronicamente com validade jurídica. Ao criar sua conta, você recebe um certificado digital único que garante a autenticidade e integridade dos documentos assinados. Cada assinatura é registrada com blockchain, tornando impossível a adulteração e permitindo a verificação pública da autenticidade."
+                  },
+                  {
+                    question: "Como posso verificar se um documento assinado com Vero iD é autêntico?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>Existem quatro formas simples de verificar:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Via QR Code:</strong> Escaneie o QR Code presente no documento certificado para verificar instantaneamente sua autenticidade</li>
+                          <li><strong>Via Código de Verificação:</strong> Acesse https://www.veroid.com.br/verify e insira o código único do documento para confirmar sua validade, data de emissão e informações do signatário.</li>
+                          <li><strong>Via Link Direto:</strong> Ao clicar no link compartilhado você será direcionado ao certificado completo contendo todas as informações pertinentes ao conteúdo publicado.</li>
+                          <li><strong>Via compartilhamento:</strong> É possível realizar o download do certificado completo e compartilhar com todos usuários.</li>
+                        </ul>
+                      </div>
+                    )
+                  },
+                  {
+                    question: "Meus documentos assinados têm validade jurídica?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>Sim! As assinaturas digitais realizadas através do Vero iD possuem validade jurídica conforme a legislação brasileira (MP 2.200-2/2001 e Lei 14.063/2020). Cada certificado é único, protegido por criptografia e registrado de forma imutável, garantindo:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Autenticidade:</strong> Confirma a identidade do signatário</li>
+                          <li><strong>Integridade:</strong> Garante que o documento não foi alterado após a assinatura</li>
+                          <li><strong>Não-repúdio:</strong> O signatário não pode negar que assinou o documento</li>
+                          <li><strong>Rastreabilidade:</strong> Todas as informações da assinatura ficam registradas permanentemente</li>
+                        </ul>
+                      </div>
+                    )
+                  },
+                  {
+                    question: "Como funciona a segurança dos meus dados e certificados?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>A segurança é nossa prioridade máxima. O Vero iD implementa múltiplas camadas de proteção:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Criptografia de ponta a ponta:</strong> Todos os dados são criptografados durante transmissão e armazenamento</li>
+                          <li><strong>Autenticação segura:</strong> Sistema robusto de login com proteção de senha</li>
+                          <li><strong>Backup automático:</strong> Seus certificados e documentos são armazenados de forma segura e redundante</li>
+                          <li><strong>Registro blockchain:</strong> Cada assinatura é registrada em blockchain, tornando impossível qualquer alteração posterior</li>
+                          <li><strong>Conformidade com LGPD:</strong> Seus dados pessoais são tratados de acordo com a Lei Geral de Proteção de Dados</li>
+                        </ul>
+                        <p className="mt-3">Além disso, você pode gerenciar suas configurações de segurança, incluir autenticação de dois fatores e controlar o acesso à sua conta através das configurações de perfil.</p>
+                      </div>
+                    )
+                  }
+                ].map((faq, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.5, delay: shouldReduceMotion ? 0 : index * 0.1 }}
+                  >
+                    <details className="group border-b border-white/10 pb-4 last:border-0">
+                      <summary className="flex items-center justify-between cursor-pointer py-4 text-left font-semibold text-white hover:text-cyan-400 transition-colors duration-200 list-none">
+                        <span className="text-base md:text-lg pr-4">{faq.question}</span>
+                        <svg 
+                          className="h-5 w-5 text-cyan-400 transition-transform duration-300 group-open:rotate-180 flex-shrink-0" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <div className="pt-2 pb-2 text-sm md:text-base text-gray-300 leading-relaxed">
+                        {typeof faq.answer === 'string' ? faq.answer : faq.answer}
+                      </div>
+                    </details>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.div 
+                className="mt-8 pt-6 border-t border-white/10 text-center"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.5 }}
+              >
+                <p className="text-gray-400 text-sm md:text-base mb-2">Ainda tem dúvidas?</p>
+                <a 
+                  href="mailto:contato@veroid.com.br"
+                  className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors duration-200"
+                >
+                  <Mail className="h-4 w-4" />
+                  Entre em contato pelo email contato@veroid.com.br
+                </a>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* CTA Final with Parallax */}
       <section ref={ctaRef} className="relative bg-gradient-to-br from-blue-950 via-purple-950 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Background glow with parallax */}
