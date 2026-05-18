@@ -549,7 +549,7 @@ export default function Index() {
         {/* Grid pattern background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
         
-        <div className="relative z-10 container mx-auto px-4 max-w-4xl">
+        <div className="relative z-10 container mx-auto px-4 max-w-6xl">
           <motion.div 
             className="text-center mb-10 md:mb-16"
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
