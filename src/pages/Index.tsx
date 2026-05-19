@@ -575,7 +575,7 @@ export default function Index() {
                 {[
                   {
                     question: "O que é o Vero iD e como funciona?",
-                    answer: "O Vero iD é uma plataforma de certificação digital que permite assinar documentos eletronicamente com validade jurídica. Ao criar sua conta, você recebe um certificado digital único que garante a autenticidade e integridade dos documentos assinados. Cada assinatura é registrada com blockchain, tornando impossível a adulteração e permitindo a verificação pública da autenticidade."
+                    answer: "O Vero iD é uma plataforma de certificação digital que permite assinar documentos eletronicamente com validade jurídica. Ao criar sua conta, você recebe uma assinatura digital única que garante a autenticidade e integridade dos documentos assinados. Cada assinatura é registrada com blockchain, tornando impossível a adulteração e permitindo a verificação pública da autenticidade."
                   },
                   {
                     question: "Como posso verificar se um documento assinado com Vero iD é autêntico?",
