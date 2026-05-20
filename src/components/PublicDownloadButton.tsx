@@ -3,10 +3,11 @@
  * 
  * Componente para download PÚBLICO de documentos assinados (sem autenticação).
  * Usado por verificadores de certificados quando o criador permite download.
+ * 🆕 ATUALIZADO: Adiciona marca d'água com código do certificado em imagens.
  * 
  * @module PublicDownloadButton
- * @version 1.0.0
- * @date 2026-04-27
+ * @version 1.1.0
+ * @date 2026-05-20
  */
 
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Loader2, FileText, Image, Video, File } from 'lucide-react';
 import { getPublicSignedDownloadUrl } from '@/lib/services/storage-service-public';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { downloadWithWatermark, isImageFile, type WatermarkInfo } from '@/lib/services/watermark-service';
 
 /**
  * Props do componente PublicDownloadButton
@@ -42,6 +44,9 @@ interface PublicDownloadButtonProps {
   
   /** Mostrar informações do arquivo (padrão: true) */
   showFileInfo?: boolean;
+  
+  /** 🆕 Informações para marca d'água (apenas para imagens) */
+  watermarkInfo?: WatermarkInfo;
 }
 
 /**
@@ -90,12 +95,13 @@ export function PublicDownloadButton({
   variant = 'default',
   size = 'default',
   showFileInfo = true,
+  watermarkInfo,
 }: PublicDownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Manipula o download do arquivo (público)
+   * 🆕 Manipula o download do arquivo (público) COM MARCA D'ÁGUA (se for imagem)
    */
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -106,6 +112,8 @@ export function PublicDownloadButton({
         filePath,
         fileName,
         bucket,
+        hasWatermarkInfo: !!watermarkInfo,
+        isImage: isImageFile(mimeType, fileName),
       });
 
       // 1. Obter URL assinada pública (válida por 1 hora)
@@ -119,21 +127,48 @@ export function PublicDownloadButton({
         throw new Error('URL de download não foi gerada');
       }
 
-      console.log('✅ [PublicDownloadButton] URL assinada pública gerada:', {
+      console.log('✅ [PublicDownloadButton] URL obtida:', {
+        url: result.signedUrl.substring(0, 100) + '...',
         expiresAt: result.expiresAt?.toISOString(),
         executionTime: result.executionTime,
       });
 
-      // 2. Download via browser
-      const link = document.createElement('a');
-      link.href = result.signedUrl;
-      link.download = fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log('✅ [PublicDownloadButton] Download público iniciado com sucesso');
+      // 2. Download via fetch
+      console.log('🔄 [PublicDownloadButton] Baixando arquivo...');
+      
+      const response = await fetch(result.signedUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // 3. Se for imagem E tiver informações de marca d'água, aplicar marca d'água
+      if (watermarkInfo && isImageFile(mimeType, fileName)) {
+        console.log('🎨 [PublicDownloadButton] Aplicando marca d\'água na imagem...');
+        
+        await downloadWithWatermark(blob, fileName, watermarkInfo, mimeType);
+        
+        console.log('✅ [PublicDownloadButton] Download com marca d\'água concluído');
+        
+      } else {
+        // 4. Download direto (sem marca d'água)
+        console.log('📥 [PublicDownloadButton] Download direto (sem marca d\'água)');
+        
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        
+        console.log('✅ [PublicDownloadButton] Download concluído');
+      }
 
     } catch (error) {
       console.error('❌ [PublicDownloadButton] Erro no download:', error);
@@ -150,15 +185,15 @@ export function PublicDownloadButton({
     <div className="space-y-3">
       {/* 🆕 Card de Arquivo Estilo Certificado Baixado */}
       {showFileInfo && (
-        <div className="bg-white p-3 rounded-lg border-2 border-green-500 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <FileIcon className="h-5 w-5 text-green-600 flex-shrink-0" />
+        <div className="bg-white p-4 rounded-lg border-2 border-green-500 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">📎</span>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-gray-900 text-xs truncate">
+              <div className="font-semibold text-gray-900 text-sm truncate">
                 {fileName}
               </div>
               {fileSize && (
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-gray-600 mt-1">
                   {formatFileSize(fileSize)}
                 </div>
               )}
@@ -169,17 +204,17 @@ export function PublicDownloadButton({
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-2 px-4 rounded-lg font-semibold text-xs transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-3 px-6 rounded-lg font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isDownloading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 <span>Baixando...</span>
               </>
             ) : (
               <>
-                <Download className="h-4 w-4" />
-                <span>Baixar Original</span>
+                <span className="text-xl">⬇️</span>
+                <span>Baixar Arquivo Original</span>
               </>
             )}
           </button>

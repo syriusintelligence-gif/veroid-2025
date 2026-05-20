@@ -899,6 +899,10 @@ export default function Certificate() {
                       variant="default"
                       size="default"
                       showFileInfo={true}
+                      watermarkInfo={{
+                        verificationCode: content.verificationCode,
+                        creatorName: content.creatorName,
+                      }}
                     />
                     <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
                       ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet
@@ -918,6 +922,10 @@ export default function Certificate() {
                           variant="default"
                           size="default"
                           showFileInfo={true}
+                          watermarkInfo={{
+                            verificationCode: content.verificationCode,
+                            creatorName: content.creatorName,
+                          }}
                         />
                         <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
                           ✅ O arquivo está embutido neste certificado e pode ser baixado mesmo sem conexão com a internet

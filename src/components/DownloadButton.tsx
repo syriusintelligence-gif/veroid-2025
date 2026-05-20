@@ -3,9 +3,10 @@
  * 
  * Componente para download de documentos assinados do Supabase Storage.
  * Gera URLs assinadas temporárias (válidas por 1 hora) para download seguro.
+ * 🆕 ATUALIZADO: Adiciona marca d'água com código do certificado em imagens.
  * 
  * @module DownloadButton
- * @version 1.0.0
+ * @version 1.1.0
  * @phase FASE 4 - Implementar Download
  */
 
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Loader2, FileText, Image, Video, File } from 'lucide-react';
 import { getSignedDownloadUrl } from '@/lib/services/storage-service';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { downloadWithWatermark, isImageFile, type WatermarkInfo } from '@/lib/services/watermark-service';
 
 /**
  * Props do componente DownloadButton
@@ -42,6 +44,9 @@ interface DownloadButtonProps {
   
   /** Mostrar informações do arquivo (padrão: true) */
   showFileInfo?: boolean;
+  
+  /** 🆕 Informações para marca d'água (apenas para imagens) */
+  watermarkInfo?: WatermarkInfo;
 }
 
 /**
@@ -91,12 +96,13 @@ export function DownloadButton({
   variant = 'outline',
   size = 'sm',
   showFileInfo = true,
+  watermarkInfo,
 }: DownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Manipula o download do arquivo
+   * 🆕 Manipula o download do arquivo COM MARCA D'ÁGUA (se for imagem)
    */
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -107,6 +113,8 @@ export function DownloadButton({
         filePath,
         fileName,
         bucket,
+        hasWatermarkInfo: !!watermarkInfo,
+        isImage: isImageFile(mimeType, fileName),
       });
 
       // 1. Obter URL assinada (válida por 1 hora)
@@ -125,16 +133,37 @@ export function DownloadButton({
         executionTime: result.executionTime,
       });
 
-      // 2. Download via browser
-      const link = document.createElement('a');
-      link.href = result.signedUrl;
-      link.download = fileName;
-      link.target = '_blank'; // Abre em nova aba se o navegador bloquear download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log('✅ [DownloadButton] Download iniciado com sucesso');
+      // 2. Se for imagem E tiver informações de marca d'água, aplicar marca d'água
+      if (watermarkInfo && isImageFile(mimeType, fileName)) {
+        console.log('🎨 [DownloadButton] Aplicando marca d\'água na imagem...');
+        
+        // Download da imagem
+        const response = await fetch(result.signedUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        
+        // Download com marca d'água
+        await downloadWithWatermark(blob, fileName, watermarkInfo, mimeType);
+        
+        console.log('✅ [DownloadButton] Download com marca d\'água concluído');
+        
+      } else {
+        // 3. Download direto (sem marca d'água)
+        console.log('📥 [DownloadButton] Download direto (sem marca d\'água)');
+        
+        const link = document.createElement('a');
+        link.href = result.signedUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ [DownloadButton] Download iniciado com sucesso');
+      }
 
     } catch (error) {
       console.error('❌ [DownloadButton] Erro no download:', error);
