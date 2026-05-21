@@ -87,9 +87,9 @@ const ALLOWED_EXTENSIONS: Record<FileCategory, string[]> = {
   ],
   
   // Vídeos: formatos comuns para streaming e edição
-  // NOTA: .MOV removido devido a incompatibilidades com Supabase Storage (limite de 50MB/requisição)
   video: [
     '.mp4',
+    '.mov',
     '.avi',
     '.webm',
     '.mkv',
@@ -118,10 +118,7 @@ const ALLOWED_EXTENSIONS: Record<FileCategory, string[]> = {
     '.xls',
     '.xlsx',
     '.ppt',
-    '.pptx',
-    '.odt',
-    '.ods',
-    '.odp'
+    '.pptx'
   ],
   
   // Texto: formatos de texto puro
@@ -155,6 +152,7 @@ const ALLOWED_MIME_TYPES: Record<FileCategory, string[]> = {
   
   video: [
     'video/mp4',
+    'video/quicktime',
     'video/x-msvideo',
     'video/webm',
     'video/x-matroska',
@@ -184,10 +182,7 @@ const ALLOWED_MIME_TYPES: Record<FileCategory, string[]> = {
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/vnd.oasis.opendocument.text',
-    'application/vnd.oasis.opendocument.spreadsheet',
-    'application/vnd.oasis.opendocument.presentation'
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
   ],
   
   text: [
@@ -357,22 +352,7 @@ const MAGIC_NUMBERS: Record<string, number[][]> = {
     [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], // D0 CF 11 E0 - OLE2
   ],
   
-  // ODT, ODS, ODP - OpenDocument (ZIP-based)
-  '.odt': [
-    [0x50, 0x4B, 0x03, 0x04],
-    [0x50, 0x4B, 0x05, 0x06],
-    [0x50, 0x4B, 0x07, 0x08],
-  ],
-  '.ods': [
-    [0x50, 0x4B, 0x03, 0x04],
-    [0x50, 0x4B, 0x05, 0x06],
-    [0x50, 0x4B, 0x07, 0x08],
-  ],
-  '.odp': [
-    [0x50, 0x4B, 0x03, 0x04],
-    [0x50, 0x4B, 0x05, 0x06],
-    [0x50, 0x4B, 0x07, 0x08],
-  ],
+
   
   // RTF - Rich Text Format
   '.rtf': [
@@ -397,13 +377,13 @@ const MAGIC_NUMBERS: Record<string, number[][]> = {
     [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
   ],
   
-  // MOV - QuickTime Movie (REMOVIDO - incompatível com Supabase Storage)
-  // '.mov': [
-  //   [0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70], // ftyp
-  //   [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
-  //   [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70],
-  //   [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
-  // ],
+  // MOV - QuickTime Movie
+  '.mov': [
+    [0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70], // ftyp
+    [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
+    [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70],
+    [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
+  ],
   
   // AVI - Audio Video Interleave
   '.avi': [
@@ -822,21 +802,6 @@ export async function validateFile(
   // =====================================================
   // VALIDAÇÃO 5: Extensão está na lista branca
   // =====================================================
-  
-  // 🚫 VALIDAÇÃO ESPECIAL PARA .MOV
-  if (extension === '.mov') {
-    return {
-      valid: false,
-      message: `Arquivos .MOV não são suportados devido a limitações técnicas do sistema de armazenamento. Para melhor compatibilidade, por favor converta seu arquivo .MOV para .MP4. Você pode usar conversores online gratuitos como CloudConvert (https://cloudconvert.com) ou Convertio (https://convertio.co). O formato MP4 oferece melhor compressão, maior compatibilidade e streaming mais eficiente.`,
-      details: {
-        fileName: sanitizedFileName,
-        fileSize,
-        fileType: mimeType,
-        extension
-      }
-    };
-  }
-  
   const categoryByExtension = getCategoryByExtension(extension);
   
   if (!categoryByExtension) {
