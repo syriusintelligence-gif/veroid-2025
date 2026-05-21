@@ -25,14 +25,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'pdfjs-dist': path.resolve(__dirname, './node_modules/pdfjs-dist'),
     },
   },
   optimizeDeps: {
-    include: ['pdfjs-dist'],
-  },
-  ssr: {
-    noExternal: ['pdfjs-dist'],
+    exclude: ['pdfjs-dist'],
   },
   preview: {
     host: '0.0.0.0',
@@ -40,10 +36,8 @@ export default defineConfig({
     strictPort: false
   },
   build: {
-    commonjsOptions: {
-      include: [/pdfjs-dist/, /node_modules/],
-    },
     rollupOptions: {
+      external: ['pdfjs-dist'],
       output: {
         manualChunks(id) {
           // Vendor chunks - separate large libraries

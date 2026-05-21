@@ -19,14 +19,43 @@
  * @date 2026-05-21
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
 import { jsPDF } from 'jspdf';
 import { addWatermarkToImage, type WatermarkInfo } from './watermark-service';
 
-// Configura o worker do pdf.js
-// Usa CDN para garantir compatibilidade em produção
-if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Carrega pdf.js dinamicamente via CDN
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379';
+
+// Função para carregar pdf.js sob demanda
+async function loadPdfJs() {
+  if (typeof window === 'undefined') {
+    throw new Error('PDF.js can only be loaded in browser environment');
+  }
+
+  // @ts-ignore - Carrega via CDN
+  if (!window.pdfjsLib) {
+    const script = document.createElement('script');
+    script.src = `${PDFJS_CDN}/pdf.min.mjs`;
+    script.type = 'module';
+    
+    await new Promise((resolve, reject) => {
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    // Aguarda o módulo estar disponível
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  // @ts-ignore
+  const pdfjsLib = window.pdfjsLib;
+  
+  // Configura o worker
+  if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.mjs`;
+  }
+
+  return pdfjsLib;
 }
 
 /**
@@ -47,7 +76,7 @@ const PDF_CONFIG = {
  * Converte uma página de PDF em canvas
  */
 async function renderPDFPageToCanvas(
-  page: pdfjsLib.PDFPageProxy,
+  page: any,
   scale: number = PDF_CONFIG.scale
 ): Promise<HTMLCanvasElement> {
   const viewport = page.getViewport({ scale });
@@ -99,6 +128,12 @@ export async function addWatermarkToPDF(
   });
   
   try {
+    // Carrega pdf.js dinamicamente
+    const pdfjsLib = await loadPdfJs();
+    if (!pdfjsLib) {
+      throw new Error('Failed to load PDF.js library');
+    }
+
     // 1. Carregar o PDF com pdf.js
     const arrayBuffer = await pdfBlob.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
