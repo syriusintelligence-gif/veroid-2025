@@ -42,13 +42,13 @@ const WATERMARK_CONFIG = {
   fontWeight: 'bold',
   textColor: 'rgba(0, 0, 0, 0.9)', // 🎨 PRETO
   
-  // Fundo - 🎨 Liquid Glass Effect (ULTRA translúcido - quase invisível)
-  backgroundColor: 'rgba(255, 255, 255, 0.15)', // 🎨 Branco ultra translúcido (15% opacidade - extremamente discreto)
-  backdropBlur: 5, // Efeito de blur muito sutil
-  borderRadius: 0, // Sem bordas arredondadas para melhor layout horizontal
+  // Fundo - 🎨 REMOVIDO COMPLETAMENTE (efeito flutuante)
+  backgroundColor: 'transparent', // 🎨 SEM FUNDO - texto e QR flutuam diretamente sobre a imagem
+  backdropBlur: 0, // Sem efeito de blur
+  borderRadius: 0, // Sem bordas arredondadas
   backgroundPadding: 12,
   
-  // Sombra - REMOVIDA para não escurecer a tarja
+  // Sombra - REMOVIDA para não criar efeitos indesejados
   shadowBlur: 0,
   shadowColor: 'rgba(0, 0, 0, 0)',
   
@@ -232,11 +232,11 @@ function drawWatermarkText(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   
-  // 🎨 Sombra muito sutil para legibilidade do texto (sem escurecer o fundo)
-  ctx.shadowBlur = 2;
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
+  // 🎨 Sombra branca forte para garantir legibilidade sobre qualquer cor de fundo
+  ctx.shadowBlur = 3;
+  ctx.shadowColor = 'rgba(255, 255, 255, 1.0)';
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
   
   // Quebra o texto em linhas se necessário
   const lines = wrapText(ctx, text, maxWidth);
@@ -450,18 +450,12 @@ export async function addWatermarkToImage(
               canvasWidth: canvas.width
             });
             
-            // 8. Desenhar barra de marca d'água ABAIXO da imagem (com efeito liquid glass)
+            // 8. Desenhar barra de marca d'água ABAIXO da imagem (SEM FUNDO - efeito flutuante)
             // A barra começa onde a imagem termina
             const barStartY = img.height;
             
-            // 🎨 Aplicar efeito liquid glass (ULTRA discreto - quase invisível)
-            ctx.save();
-            
-            // Fundo ULTRA translúcido sem sombra (para não escurecer)
-            ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
-            ctx.fillRect(0, barStartY, canvas.width, barHeight);
-            
-            ctx.restore();
+            // 🎨 NÃO DESENHA FUNDO - texto e QR code flutuam diretamente
+            // Removemos completamente o ctx.fillRect para eliminar qualquer retângulo de fundo
             
             // 9. Desenhar QR Code na barra (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
