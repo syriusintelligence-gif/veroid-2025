@@ -221,7 +221,7 @@ export function DownloadButton({
             ) : (
               <>
                 <span className="text-xl">⬇️</span>
-                <span>Baixar Arquivo Original</span>
+                <span>Baixar Arquivo Autenticado</span>
               </>
             )}
           </button>

@@ -108,7 +108,7 @@ function generateEmbeddedFileDownloadHtml(
           onmouseout="this.style.background='linear-gradient(135deg, #10b981 0%, #059669 100%)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)';"
         >
           <span style="font-size: 20px;">⬇️</span>
-          <span>Baixar Arquivo Original</span>
+          <span>Baixar Arquivo Autenticado</span>
         </a>
       </div>
       

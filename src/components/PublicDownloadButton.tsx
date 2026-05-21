@@ -227,7 +227,7 @@ export function PublicDownloadButton({
             ) : (
               <>
                 <span className="text-xl">⬇️</span>
-                <span>Baixar Arquivo Original</span>
+                <span>Baixar Arquivo Autenticado</span>
               </>
             )}
           </button>
@@ -251,7 +251,7 @@ export function PublicDownloadButton({
           ) : (
             <>
               <Download className="mr-2 h-4 w-4" />
-              Baixar Arquivo Original
+              Baixar Arquivo Autenticado
             </>
           )}
         </Button>
