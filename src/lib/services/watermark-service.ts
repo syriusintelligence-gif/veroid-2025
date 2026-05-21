@@ -42,15 +42,15 @@ const WATERMARK_CONFIG = {
   fontWeight: 'bold',
   textColor: 'rgba(0, 0, 0, 0.9)', // 🎨 PRETO
   
-  // Fundo - 🎨 Liquid Glass Effect (translúcido com blur)
-  backgroundColor: 'rgba(255, 255, 255, 0.4)', // 🎨 Branco translúcido (40% opacidade - muito suave)
-  backdropBlur: 8, // Efeito de blur de fundo (liquid glass)
+  // Fundo - 🎨 Liquid Glass Effect (ULTRA translúcido - quase invisível)
+  backgroundColor: 'rgba(255, 255, 255, 0.15)', // 🎨 Branco ultra translúcido (15% opacidade - extremamente discreto)
+  backdropBlur: 5, // Efeito de blur muito sutil
   borderRadius: 0, // Sem bordas arredondadas para melhor layout horizontal
   backgroundPadding: 12,
   
-  // Sombra
-  shadowBlur: 4,
-  shadowColor: 'rgba(0, 0, 0, 0.5)',
+  // Sombra - REMOVIDA para não escurecer a tarja
+  shadowBlur: 0,
+  shadowColor: 'rgba(0, 0, 0, 0)',
   
   // 🆕 Texto em múltiplas linhas
   maxTextWidthRatio: 0.85, // Usa 85% da largura disponível para o texto
@@ -232,11 +232,11 @@ function drawWatermarkText(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   
-  // 🎨 Sombra sutil para melhor legibilidade (adaptada para texto preto)
-  ctx.shadowBlur = 1;
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  // 🎨 Sombra muito sutil para legibilidade do texto (sem escurecer o fundo)
+  ctx.shadowBlur = 2;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
   
   // Quebra o texto em linhas se necessário
   const lines = wrapText(ctx, text, maxWidth);
@@ -454,19 +454,10 @@ export async function addWatermarkToImage(
             // A barra começa onde a imagem termina
             const barStartY = img.height;
             
-            // 🎨 Aplicar efeito liquid glass (backdrop-filter blur simulado via canvas)
-            // Primeiro desenha a região com leve blur
+            // 🎨 Aplicar efeito liquid glass (ULTRA discreto - quase invisível)
             ctx.save();
             
-            // Captura a região da barra da imagem original (se houver sobreposição)
-            // e aplica um leve blur para simular o efeito glass
-            if (WATERMARK_CONFIG.backdropBlur > 0) {
-              // Desenha fundo translúcido com sombra muito sutil para profundidade
-              ctx.shadowBlur = 8;
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.05)';
-              ctx.shadowOffsetY = -1;
-            }
-            
+            // Fundo ULTRA translúcido sem sombra (para não escurecer)
             ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
             ctx.fillRect(0, barStartY, canvas.width, barHeight);
             
