@@ -35,8 +35,9 @@ const WATERMARK_CONFIG = {
   qrCodePadding: 12, // Espaçamento entre QR Code e texto
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
-  // Estilo do texto - 🎯 TAMANHO DOBRADO
-  fontSize: 28, // Aumentado de 14 para 28 (dobro)
+  // Estilo do texto - 🎯 RESPONSIVO
+  baseFontSize: 20, // Tamanho base do texto
+  minFontSize: 12, // Tamanho mínimo para imagens pequenas
   fontFamily: 'Arial, sans-serif',
   fontWeight: 'bold',
   textColor: 'rgba(255, 255, 255, 0.95)',
@@ -49,6 +50,10 @@ const WATERMARK_CONFIG = {
   // Sombra
   shadowBlur: 4,
   shadowColor: 'rgba(0, 0, 0, 0.5)',
+  
+  // 🆕 Texto em múltiplas linhas
+  maxTextWidthRatio: 0.85, // Usa 85% da largura disponível para o texto
+  lineHeight: 1.4, // Espaçamento entre linhas
 };
 
 /**
@@ -207,21 +212,24 @@ async function drawQRCode(
 }
 
 /**
- * Desenha o texto da marca d'água em uma linha
+ * Desenha o texto da marca d'água com suporte a múltiplas linhas
+ * Quebra automaticamente o texto se não couber na largura disponível
  */
 function drawWatermarkText(
   ctx: CanvasRenderingContext2D,
   text: string,
   x: number,
-  y: number
-): void {
+  y: number,
+  maxWidth: number,
+  fontSize: number
+): { height: number } {
   ctx.save();
   
   // Configuração do texto
-  ctx.font = `${WATERMARK_CONFIG.fontWeight} ${WATERMARK_CONFIG.fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
+  ctx.font = `${WATERMARK_CONFIG.fontWeight} ${fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
   ctx.fillStyle = WATERMARK_CONFIG.textColor;
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = 'top';
   
   // Sombra para melhor legibilidade
   ctx.shadowBlur = 2;
@@ -229,10 +237,88 @@ function drawWatermarkText(
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
   
-  // Desenha o texto
-  ctx.fillText(text, x, y);
+  // Quebra o texto em linhas se necessário
+  const lines = wrapText(ctx, text, maxWidth);
+  const lineHeightPx = fontSize * WATERMARK_CONFIG.lineHeight;
+  
+  // Desenha cada linha
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + (index * lineHeightPx));
+  });
+  
+  const totalHeight = lines.length * lineHeightPx;
   
   ctx.restore();
+  
+  return { height: totalHeight };
+}
+
+/**
+ * Quebra texto em múltiplas linhas baseado na largura máxima
+ * Tenta quebrar em separadores naturais (|, espaços)
+ */
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  // Primeiro tenta quebrar nos separadores "|"
+  const parts = text.split('|').map(part => part.trim());
+  
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const testLine = currentLine ? `${currentLine} | ${part}` : part;
+    const metrics = ctx.measureText(testLine);
+    
+    if (metrics.width <= maxWidth || currentLine === '') {
+      // Cabe na linha atual
+      currentLine = testLine;
+    } else {
+      // Não cabe, quebra a linha
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      currentLine = part;
+    }
+  }
+  
+  // Adiciona a última linha
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  // Se ainda houver linhas muito longas, quebra por palavras
+  const finalLines: string[] = [];
+  for (const line of lines) {
+    if (ctx.measureText(line).width <= maxWidth) {
+      finalLines.push(line);
+    } else {
+      // Quebra por palavras
+      const words = line.split(' ');
+      let currentWordLine = '';
+      
+      for (const word of words) {
+        const testLine = currentWordLine ? `${currentWordLine} ${word}` : word;
+        const metrics = ctx.measureText(testLine);
+        
+        if (metrics.width <= maxWidth || currentWordLine === '') {
+          currentWordLine = testLine;
+        } else {
+          finalLines.push(currentWordLine);
+          currentWordLine = word;
+        }
+      }
+      
+      if (currentWordLine) {
+        finalLines.push(currentWordLine);
+      }
+    }
+  }
+  
+  return finalLines.length > 0 ? finalLines : [text];
 }
 
 /**
@@ -293,34 +379,54 @@ export async function addWatermarkToImage(
               qrSize = 120;
             }
             
-            // 4. Preparar texto da marca d'água (UMA LINHA)
+            // 🆕 4. Calcular tamanho de fonte responsivo baseado na largura da imagem
+            let fontSize = WATERMARK_CONFIG.baseFontSize;
+            
+            // Ajusta tamanho da fonte para imagens menores
+            if (img.width < 600) {
+              fontSize = WATERMARK_CONFIG.minFontSize; // Imagens pequenas (mobile)
+            } else if (img.width < 1000) {
+              fontSize = 16; // Imagens médias
+            } else if (img.width >= 1500) {
+              fontSize = 24; // Imagens grandes
+            }
+            
+            // 5. Preparar texto da marca d'água
             const formattedDate = formatSignatureDate(watermarkInfo.signatureDate);
             const watermarkText = `certificado por www.veroid.com.br | ${watermarkInfo.verificationCode} | ${formattedDate}`;
             
-            // 5. Calcular altura da barra de marca d'água
-            // Cria um canvas temporário para medir o texto
+            // 6. Calcular largura disponível para o texto
+            const qrWidthWithPadding = showQRCode ? qrSize + WATERMARK_CONFIG.qrCodePadding : 0;
+            const availableTextWidth = (img.width * WATERMARK_CONFIG.maxTextWidthRatio) - qrWidthWithPadding;
+            
+            // 7. Medir altura necessária do texto (considerando quebras de linha)
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             if (!tempCtx) {
               throw new Error('Não foi possível obter contexto 2D temporário');
             }
             
-            tempCtx.font = `${WATERMARK_CONFIG.fontWeight} ${WATERMARK_CONFIG.fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
-            const textMetrics = tempCtx.measureText(watermarkText);
-            const textWidth = textMetrics.width;
+            tempCtx.font = `${WATERMARK_CONFIG.fontWeight} ${fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
+            const textLines = wrapText(tempCtx, watermarkText, availableTextWidth);
+            const textHeight = textLines.length * fontSize * WATERMARK_CONFIG.lineHeight;
             
-            // Altura da barra (com padding)
-            const barHeight = Math.max(
+            // 8. Calcular altura da barra (acomoda QR Code ou texto, o que for maior)
+            const minBarHeight = Math.max(
               showQRCode ? qrSize + (WATERMARK_CONFIG.backgroundPadding * 2) : 0,
-              WATERMARK_CONFIG.fontSize + (WATERMARK_CONFIG.backgroundPadding * 2)
+              textHeight + (WATERMARK_CONFIG.backgroundPadding * 2)
             );
             
-            console.log('📊 [Watermark] Configuração:', {
+            const barHeight = minBarHeight;
+            
+            console.log('📊 [Watermark] Configuração responsiva:', {
               showQRCode,
               qrSize,
               imageWidth: img.width,
+              fontSize,
+              textLines: textLines.length,
+              textHeight,
               barHeight,
-              textWidth
+              availableTextWidth
             });
             
             // 6. Criar canvas COM ALTURA EXTRA para a barra de marca d'água
@@ -387,13 +493,25 @@ export async function addWatermarkToImage(
               }
             }
             
-            // 10. Desenhar texto ao lado do QR Code na barra
+            // 10. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente)
             const textX = qrXOffset;
-            const textY = barStartY + (barHeight / 2);
+            const textMaxWidth = img.width - textX - WATERMARK_CONFIG.backgroundPadding;
             
-            drawWatermarkText(ctx, watermarkText, textX, textY);
+            // Centraliza o texto verticalmente na barra
+            const { height: actualTextHeight } = drawWatermarkText(
+              ctx, 
+              watermarkText, 
+              textX, 
+              barStartY + WATERMARK_CONFIG.backgroundPadding,
+              textMaxWidth,
+              fontSize
+            );
             
-            console.log('✅ [Watermark] Barra de marca d\'água desenhada abaixo da imagem');
+            console.log('✅ [Watermark] Barra de marca d\'água desenhada abaixo da imagem:', {
+              textLines: textLines.length,
+              actualTextHeight,
+              barHeight
+            });
             
             // 11. Converter canvas para blob
             canvas.toBlob(
