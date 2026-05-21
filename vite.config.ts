@@ -25,7 +25,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'pdfjs-dist': 'pdfjs-dist/build/pdf.mjs',
     },
   },
   optimizeDeps: {
