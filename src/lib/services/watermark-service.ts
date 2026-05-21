@@ -430,17 +430,17 @@ export async function addWatermarkToImage(
               availableTextWidth
             });
             
-            // 6. Criar canvas COM ALTURA EXTRA para a barra de marca d'água
+            // 6. Criar canvas SEM altura extra - mesmo tamanho da imagem original
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
-            canvas.height = img.height + barHeight; // 🎯 ALTURA EXTRA PARA A BARRA
+            canvas.height = img.height; // 🎯 MESMA ALTURA - marca d'água sobreposta
             
             const ctx = canvas.getContext('2d');
             if (!ctx) {
               throw new Error('Não foi possível obter contexto 2D do canvas');
             }
             
-            // 7. Desenhar imagem original na parte SUPERIOR do canvas
+            // 7. Desenhar imagem original
             ctx.drawImage(img, 0, 0);
             
             console.log('📏 [Watermark] Dimensões finais:', {
@@ -450,11 +450,11 @@ export async function addWatermarkToImage(
               canvasWidth: canvas.width
             });
             
-            // 8. Desenhar barra de marca d'água ABAIXO da imagem (SEM FUNDO - efeito flutuante)
-            // A barra começa onde a imagem termina
-            const barStartY = img.height;
+            // 8. Desenhar marca d'água SOBREPOSTA na parte inferior da imagem (SEM FUNDO - efeito flutuante)
+            // A barra fica posicionada na parte inferior da imagem original
+            const barStartY = img.height - barHeight; // 🎯 Posiciona a barra NA PARTE INFERIOR da imagem
             
-            // 🎨 NÃO DESENHA FUNDO - texto e QR code flutuam diretamente
+            // 🎨 NÃO DESENHA FUNDO - texto e QR code flutuam diretamente sobre a imagem
             // Removemos completamente o ctx.fillRect para eliminar qualquer retângulo de fundo
             
             // 9. Desenhar QR Code na barra (se aplicável)
