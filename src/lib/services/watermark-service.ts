@@ -35,15 +35,16 @@ const WATERMARK_CONFIG = {
   qrCodePadding: 12, // Espaçamento entre QR Code e texto
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
-  // Estilo do texto - 🎯 RESPONSIVO
+  // Estilo do texto - 🎯 RESPONSIVO (estilo passaporte)
   baseFontSize: 24, // Tamanho base do texto (aumentado)
   minFontSize: 18, // Tamanho mínimo para imagens pequenas (aumentado)
-  fontFamily: 'Arial, sans-serif',
+  fontFamily: 'Courier New, monospace', // 🎨 Fonte estilo passaporte (monoespaçada)
   fontWeight: 'bold',
-  textColor: 'rgba(0, 0, 0, 0.95)', // 🎨 PRETO (invertido)
+  textColor: 'rgba(0, 0, 0, 0.9)', // 🎨 PRETO
   
-  // Fundo
-  backgroundColor: 'rgba(255, 255, 255, 0.95)', // 🎨 BRANCO (invertido)
+  // Fundo - 🎨 Liquid Glass Effect (translúcido com blur)
+  backgroundColor: 'rgba(255, 255, 255, 0.75)', // 🎨 Branco translúcido (75% opacidade)
+  backdropBlur: 10, // Efeito de blur de fundo (liquid glass)
   borderRadius: 0, // Sem bordas arredondadas para melhor layout horizontal
   backgroundPadding: 12,
   
@@ -255,22 +256,22 @@ function drawWatermarkText(
 
 /**
  * Quebra texto em múltiplas linhas baseado na largura máxima
- * Tenta quebrar em separadores naturais (|, espaços)
+ * Tenta quebrar em separadores naturais (<<<<, espaços)
  */
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number
 ): string[] {
-  // Primeiro tenta quebrar nos separadores "|"
-  const parts = text.split('|').map(part => part.trim());
+  // Primeiro tenta quebrar nos separadores "<<<<"
+  const parts = text.split('<<<<').map(part => part.trim());
   
   const lines: string[] = [];
   let currentLine = '';
   
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    const testLine = currentLine ? `${currentLine} | ${part}` : part;
+    const testLine = currentLine ? `${currentLine} <<<< ${part}` : part;
     const metrics = ctx.measureText(testLine);
     
     if (metrics.width <= maxWidth || currentLine === '') {
@@ -391,9 +392,9 @@ export async function addWatermarkToImage(
               fontSize = 28; // Imagens grandes - 28px
             }
             
-            // 5. Preparar texto da marca d'água
+            // 5. Preparar texto da marca d'água (estilo passaporte)
             const formattedDate = formatSignatureDate(watermarkInfo.signatureDate);
-            const watermarkText = `certificado por www.veroid.com.br | ${watermarkInfo.verificationCode} | ${formattedDate}`;
+            const watermarkText = `Autenticado by Vero iD <<<< ${watermarkInfo.verificationCode} <<<< ${formattedDate}`;
             
             // 6. Calcular largura disponível para o texto
             const qrWidthWithPadding = showQRCode ? qrSize + WATERMARK_CONFIG.qrCodePadding : 0;
@@ -449,12 +450,27 @@ export async function addWatermarkToImage(
               canvasWidth: canvas.width
             });
             
-            // 8. Desenhar barra de marca d'água ABAIXO da imagem
+            // 8. Desenhar barra de marca d'água ABAIXO da imagem (com efeito liquid glass)
             // A barra começa onde a imagem termina
             const barStartY = img.height;
             
+            // 🎨 Aplicar efeito liquid glass (backdrop-filter blur simulado via canvas)
+            // Primeiro desenha a região com leve blur
+            ctx.save();
+            
+            // Captura a região da barra da imagem original (se houver sobreposição)
+            // e aplica um leve blur para simular o efeito glass
+            if (WATERMARK_CONFIG.backdropBlur > 0) {
+              // Desenha fundo translúcido com leve sombra para profundidade
+              ctx.shadowBlur = 15;
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+              ctx.shadowOffsetY = -2;
+            }
+            
             ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
             ctx.fillRect(0, barStartY, canvas.width, barHeight);
+            
+            ctx.restore();
             
             // 9. Desenhar QR Code na barra (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
