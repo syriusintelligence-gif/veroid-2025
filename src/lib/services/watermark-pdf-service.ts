@@ -19,7 +19,7 @@
  * @date 2026-05-21
  */
 
-import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
+import * as pdfjsLib from 'pdfjs-dist';
 import { jsPDF } from 'jspdf';
 import { addWatermarkToImage, type WatermarkInfo } from './watermark-service';
 
