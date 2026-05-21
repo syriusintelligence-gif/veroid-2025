@@ -30,12 +30,18 @@ export default defineConfig({
   optimizeDeps: {
     include: ['pdfjs-dist'],
   },
+  ssr: {
+    noExternal: ['pdfjs-dist'],
+  },
   preview: {
     host: '0.0.0.0',
     port: 5173,
     strictPort: false
   },
   build: {
+    commonjsOptions: {
+      include: [/pdfjs-dist/, /node_modules/],
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
