@@ -34,8 +34,8 @@ const WATERMARK_CONFIG = {
   qrCodePadding: 12, // Espaçamento entre QR Code e texto
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
-  // Estilo do texto
-  fontSize: 14,
+  // Estilo do texto - 🎯 TAMANHO DOBRADO
+  fontSize: 28, // Aumentado de 14 para 28 (dobro)
   fontFamily: 'Arial, sans-serif',
   fontWeight: 'bold',
   textColor: 'rgba(255, 255, 255, 0.95)',
