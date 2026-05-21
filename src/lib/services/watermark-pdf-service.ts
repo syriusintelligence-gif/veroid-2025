@@ -153,8 +153,34 @@ export async function addWatermarkToPDF(
       // 2.1. Carregar página
       const page = await pdfDocument.getPage(pageNum);
       
-      // 2.2. Renderizar página em canvas
+      // 2.2. Renderizar página em canvas COM FUNDO BRANCO (evita fundo preto)
       const pageCanvas = await renderPDFPageToCanvas(page, PDF_CONFIG.scale);
+      
+      // 🎨 GARANTIR FUNDO BRANCO no canvas antes de converter
+      const ctx = pageCanvas.getContext('2d');
+      if (ctx) {
+        // Cria um novo canvas temporário com fundo branco
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = pageCanvas.width;
+        tempCanvas.height = pageCanvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (tempCtx) {
+          // Preenche com branco
+          tempCtx.fillStyle = '#FFFFFF';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Desenha o conteúdo da página por cima
+          tempCtx.drawImage(pageCanvas, 0, 0);
+          
+          // Usa o canvas com fundo branco
+          pageCanvas.width = tempCanvas.width;
+          pageCanvas.height = tempCanvas.height;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(tempCanvas, 0, 0);
+        }
+      }
       
       // 2.3. Converter canvas para blob
       const pageBlob = await new Promise<Blob>((resolve, reject) => {
