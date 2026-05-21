@@ -40,10 +40,10 @@ const WATERMARK_CONFIG = {
   minFontSize: 18, // Tamanho mínimo para imagens pequenas (aumentado)
   fontFamily: 'Arial, sans-serif',
   fontWeight: 'bold',
-  textColor: 'rgba(255, 255, 255, 0.95)',
+  textColor: 'rgba(0, 0, 0, 0.95)', // 🎨 PRETO (invertido)
   
   // Fundo
-  backgroundColor: 'rgba(0, 0, 0, 0.75)',
+  backgroundColor: 'rgba(255, 255, 255, 0.95)', // 🎨 BRANCO (invertido)
   borderRadius: 0, // Sem bordas arredondadas para melhor layout horizontal
   backgroundPadding: 12,
   
@@ -231,11 +231,11 @@ function drawWatermarkText(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   
-  // Sombra para melhor legibilidade
-  ctx.shadowBlur = 2;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
+  // 🎨 Sombra sutil para melhor legibilidade (adaptada para texto preto)
+  ctx.shadowBlur = 1;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
   
   // Quebra o texto em linhas se necessário
   const lines = wrapText(ctx, text, maxWidth);
