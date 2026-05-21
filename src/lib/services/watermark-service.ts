@@ -30,8 +30,8 @@ const WATERMARK_CONFIG = {
   padding: 15,
   
   // QR Code
-  qrCodeSize: 60, // Tamanho padrão do QR Code
-  qrCodePadding: 10, // Espaçamento entre QR Code e texto
+  qrCodeSize: 80, // Tamanho maior do QR Code para melhor leitura
+  qrCodePadding: 12, // Espaçamento entre QR Code e texto
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
   // Estilo do texto
@@ -102,18 +102,31 @@ function formatSignatureDate(isoDate: string): string {
 }
 
 /**
- * Gera QR Code como Data URL
+ * Gera QR Code como Data URL com alta qualidade
  */
 async function generateQRCodeDataUrl(url: string, size: number): Promise<string> {
   try {
+    // Gera QR Code com resolução 3x maior para melhor qualidade
+    const highResSize = size * 3;
+    
     const qrDataUrl = await QRCode.toDataURL(url, {
-      width: size,
-      margin: 1,
+      width: highResSize,
+      margin: 2, // Margem maior para melhor leitura
+      errorCorrectionLevel: 'H', // Nível máximo de correção de erro (30%)
+      type: 'image/png',
+      quality: 1.0, // Qualidade máxima
       color: {
         dark: '#000000',
         light: '#FFFFFF',
       },
     });
+    
+    console.log('✅ [Watermark] QR Code gerado em alta resolução:', {
+      requestedSize: size,
+      generatedSize: highResSize,
+      errorCorrection: 'High (30%)'
+    });
+    
     return qrDataUrl;
   } catch (error) {
     console.error('❌ [Watermark] Erro ao gerar QR Code:', error);
@@ -142,7 +155,7 @@ function drawWatermarkBackground(
 }
 
 /**
- * Desenha o QR Code na marca d'água
+ * Desenha o QR Code na marca d'água com fundo branco maior
  */
 async function drawQRCode(
   ctx: CanvasRenderingContext2D,
@@ -157,14 +170,27 @@ async function drawQRCode(
     qrImg.onload = () => {
       ctx.save();
       
-      // Desenha fundo branco para o QR Code
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(x - 2, y - 2, size + 4, size + 4);
+      // Padding maior ao redor do QR Code para melhor leitura
+      const padding = 4;
+      const bgSize = size + (padding * 2);
       
-      // Desenha o QR Code
+      // Desenha fundo branco maior para o QR Code
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(x - padding, y - padding, bgSize, bgSize);
+      
+      // Desabilita anti-aliasing para QR Code mais nítido
+      ctx.imageSmoothingEnabled = false;
+      
+      // Desenha o QR Code em alta resolução (downscaling de 3x)
       ctx.drawImage(qrImg, x, y, size, size);
       
+      // Restaura anti-aliasing
+      ctx.imageSmoothingEnabled = true;
+      
       ctx.restore();
+      
+      console.log('✅ [Watermark] QR Code desenhado com padding:', padding);
+      
       resolve();
     };
     
@@ -270,11 +296,11 @@ export async function addWatermarkToImage(
             // Se a imagem for menor que o mínimo, não mostra QR Code
             const showQRCode = img.width >= WATERMARK_CONFIG.qrCodeMinImageWidth && watermarkInfo.certificateUrl;
             
-            // Ajusta QR Code para imagens grandes
+            // Ajusta QR Code para imagens grandes (tamanhos maiores para melhor leitura)
             if (img.width > 1000) {
-              qrSize = 80;
-            } else if (img.width > 1500) {
               qrSize = 100;
+            } else if (img.width > 1500) {
+              qrSize = 120;
             }
             
             console.log('📊 [Watermark] Configuração:', {
