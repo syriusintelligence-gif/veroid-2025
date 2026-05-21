@@ -444,23 +444,36 @@ export default function Certificate() {
               className="w-full max-h-80 sm:max-h-96 object-contain rounded-lg shadow-md border-2 border-white"
             />
             
-            {/* Botão de Download - Canto superior esquerdo */}
+            {/* Botão de Download - Canto superior esquerdo - COM MARCA D'ÁGUA */}
             <button
               onClick={async () => {
                 try {
+                  console.log('📥 [Carousel] Iniciando download de imagem com marca d\'água...');
+                  
                   // Download da imagem atual
                   const response = await fetch(currentImage.thumbnail);
                   const blob = await response.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = currentImage.name || `carousel-image-${currentCarouselIndex + 1}.jpg`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
+                  
+                  // Aplica marca d'água se disponível
+                  const watermarkInfo = {
+                    verificationCode: content.verificationCode,
+                    creatorName: content.creatorName,
+                    signatureDate: content.createdAt,
+                    certificateUrl: window.location.href,
+                  };
+                  
+                  // Importa e usa a função de marca d'água
+                  const { downloadWithWatermark } = await import('@/lib/services/watermark-service');
+                  await downloadWithWatermark(
+                    blob,
+                    currentImage.name || `carousel-image-${currentCarouselIndex + 1}.jpg`,
+                    watermarkInfo,
+                    blob.type
+                  );
+                  
+                  console.log('✅ [Carousel] Download com marca d\'água concluído');
                 } catch (error) {
-                  console.error('Erro ao baixar imagem:', error);
+                  console.error('❌ [Carousel] Erro ao baixar imagem:', error);
                 }
               }}
               className="absolute top-2 left-2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-all shadow-lg z-10"
@@ -904,6 +917,7 @@ export default function Certificate() {
                         creatorName: content.creatorName,
                         signatureDate: content.createdAt,
                         certificateUrl: window.location.href,
+                        certificateId: content.id,
                       }}
                     />
                     <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
@@ -929,6 +943,7 @@ export default function Certificate() {
                             creatorName: content.creatorName,
                             signatureDate: content.createdAt,
                             certificateUrl: window.location.href,
+                            certificateId: content.id,
                           }}
                         />
                         <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">

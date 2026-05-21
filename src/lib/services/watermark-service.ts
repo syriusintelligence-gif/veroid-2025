@@ -65,6 +65,9 @@ export interface WatermarkInfo {
   
   /** URL do certificado para QR Code */
   certificateUrl?: string;
+  
+  /** 🆕 ID do certificado (para gerar URL compacta) */
+  certificateId?: string;
 }
 
 /**
@@ -102,19 +105,32 @@ function formatSignatureDate(isoDate: string): string {
 }
 
 /**
- * Gera QR Code como Data URL com alta qualidade
- * CORREÇÃO: Usa URL curta do certificado para redirecionar ao escanear
+ * Gera QR Code como Data URL com QUALIDADE OTIMIZADA
+ * SOLUÇÃO FINAL: Ajusta nível de correção baseado no tamanho da URL
  */
 async function generateQRCodeDataUrl(certificateUrl: string, size: number): Promise<string> {
   try {
     // Gera QR Code com resolução 3x maior para melhor qualidade
     const highResSize = size * 3;
     
-    // 🔧 CORREÇÃO: Usa a URL do certificado para redirecionar corretamente
+    // 🎯 AJUSTE INTELIGENTE: Nível de correção baseado no tamanho da URL
+    // URLs curtas (<150 chars): 'H' (30% correção) - melhor para ambientes difíceis
+    // URLs médias (150-500 chars): 'M' (15% correção) - bom equilíbrio
+    // URLs longas (>500 chars): 'L' (7% correção) - necessário para QR Code não ficar muito denso
+    let errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' = 'M';
+    
+    if (certificateUrl.length < 150) {
+      errorCorrectionLevel = 'H'; // URL curta - usa correção máxima
+    } else if (certificateUrl.length < 500) {
+      errorCorrectionLevel = 'M'; // URL média - usa correção média
+    } else {
+      errorCorrectionLevel = 'L'; // URL longa - usa correção baixa
+    }
+    
     const qrDataUrl = await QRCode.toDataURL(certificateUrl, {
       width: highResSize,
-      margin: 2, // Margem maior para melhor leitura
-      errorCorrectionLevel: 'M', // Nível médio de correção (15%) - suficiente para URLs
+      margin: 3, // Margem generosa para melhor leitura
+      errorCorrectionLevel,
       type: 'image/png',
       quality: 1.0, // Qualidade máxima
       color: {
@@ -123,11 +139,12 @@ async function generateQRCodeDataUrl(certificateUrl: string, size: number): Prom
       },
     });
     
-    console.log('✅ [Watermark] QR Code gerado em alta resolução:', {
+    console.log('✅ [Watermark] QR Code gerado com qualidade otimizada:', {
       requestedSize: size,
       generatedSize: highResSize,
-      errorCorrection: 'Medium (15%)',
-      urlLength: certificateUrl.length
+      errorCorrection: errorCorrectionLevel,
+      urlLength: certificateUrl.length,
+      margin: 3
     });
     
     return qrDataUrl;
@@ -339,20 +356,39 @@ export async function addWatermarkToImage(
             // 9. Desenhar QR Code (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
             
-            // 🔧 CORREÇÃO: Desenha QR Code com URL do certificado para redirecionamento correto
-            if (showQRCode && watermarkInfo.certificateUrl) {
+            // 🔧 SOLUÇÃO FINAL: Usa URL ULTRA-COMPACTA para QR Code mais legível
+            if (showQRCode) {
               try {
-                // Usa a URL do certificado para que ao escanear redirecione para a página correta
-                const qrDataUrl = await generateQRCodeDataUrl(watermarkInfo.certificateUrl, qrSize);
+                // 🎯 Gera URL ultra-compacta (apenas ID + código + nome)
+                // Reduz de ~1380 chars para ~100-150 chars
+                let qrUrl = watermarkInfo.certificateUrl || '';
                 
-                if (qrDataUrl) {
-                  const qrX = WATERMARK_CONFIG.backgroundPadding;
-                  const qrY = canvas.height - barHeight + WATERMARK_CONFIG.backgroundPadding;
+                // Se temos certificateId, gera URL compacta otimizada
+                if (watermarkInfo.certificateId) {
+                  // Importa função de geração de URL compacta
+                  const { generateCompactCertificateUrl } = await import('@/lib/services/watermark-qr-utils');
+                  qrUrl = generateCompactCertificateUrl(
+                    watermarkInfo.certificateId,
+                    watermarkInfo.verificationCode,
+                    watermarkInfo.creatorName
+                  );
+                  console.log('🔧 [Watermark] URL compacta gerada para QR Code:', qrUrl.length, 'caracteres');
+                } else if (qrUrl) {
+                  console.log('⚠️ [Watermark] Usando URL fornecida (pode ser longa):', qrUrl.length, 'caracteres');
+                }
+                
+                if (qrUrl) {
+                  const qrDataUrl = await generateQRCodeDataUrl(qrUrl, qrSize);
                   
-                  await drawQRCode(ctx, qrDataUrl, qrX, qrY, qrSize);
-                  
-                  qrXOffset = qrX + qrSize + WATERMARK_CONFIG.qrCodePadding;
-                  console.log('✅ [Watermark] QR Code desenhado com URL:', watermarkInfo.certificateUrl);
+                  if (qrDataUrl) {
+                    const qrX = WATERMARK_CONFIG.backgroundPadding;
+                    const qrY = canvas.height - barHeight + WATERMARK_CONFIG.backgroundPadding;
+                    
+                    await drawQRCode(ctx, qrDataUrl, qrX, qrY, qrSize);
+                    
+                    qrXOffset = qrX + qrSize + WATERMARK_CONFIG.qrCodePadding;
+                    console.log('✅ [Watermark] QR Code desenhado com URL compacta');
+                  }
                 }
               } catch (error) {
                 console.warn('⚠️ [Watermark] Erro ao desenhar QR Code, continuando sem ele:', error);
