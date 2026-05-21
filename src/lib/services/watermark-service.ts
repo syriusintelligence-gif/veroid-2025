@@ -32,7 +32,7 @@ const WATERMARK_CONFIG = {
   
   // QR Code
   qrCodeSize: 80, // Tamanho maior do QR Code para melhor leitura
-  qrCodePadding: 12, // Espaçamento entre QR Code e texto
+  qrCodePadding: 20, // Espaçamento entre QR Code e texto (aumentado de 12 para 20)
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
   // Estilo do texto - 🎯 RESPONSIVO (estilo passaporte)
@@ -585,15 +585,15 @@ export async function addWatermarkToImage(
               barHeight
             );
             
-            // 11. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente com o QR Code)
+            // 11. Desenhar texto ao lado do QR Code na barra (alinhado pela base com o QR Code)
             const textX = qrXOffset;
             const textMaxWidth = img.width - textX - WATERMARK_CONFIG.backgroundPadding;
             
-            // Calcula a posição Y para centralizar o texto verticalmente na barra
-            // Se houver QR Code, centraliza em relação ao QR Code
+            // Calcula a posição Y para alinhar o texto pela BASE do QR Code
+            // Se houver QR Code, alinha a última linha do texto com a base do QR Code
             // Caso contrário, centraliza em relação à barra toda
             const textY = showQRCode 
-              ? barStartY + (barHeight - textHeight) / 2  // Centraliza com QR Code
+              ? barStartY + qrSize + WATERMARK_CONFIG.backgroundPadding - textHeight  // Alinha base do texto com base do QR Code
               : barStartY + (barHeight - textHeight) / 2; // Centraliza na barra
             
             const { height: actualTextHeight } = drawWatermarkText(
