@@ -440,21 +440,21 @@ export async function addWatermarkToImage(
 }
 
 /**
- * Baixa arquivo com marca d'água (se for imagem)
+ * Baixa arquivo com marca d'água (se for imagem ou PDF)
  * 
  * @param blob - Blob do arquivo original
  * @param fileName - Nome do arquivo
- * @param watermarkInfo - Informações para marca d'água (apenas para imagens)
+ * @param watermarkInfo - Informações para marca d'água
  * @param mimeType - MIME type do arquivo
  * 
  * @example
  * ```typescript
- * await downloadWithWatermark(blob, 'image.jpg', {
+ * await downloadWithWatermark(blob, 'document.pdf', {
  *   verificationCode: 'VER-ABC123',
  *   creatorName: 'João Silva',
  *   signatureDate: '2026-05-21T14:30:00Z',
  *   certificateUrl: 'https://veroid.com.br/certificate?code=VER-ABC123'
- * }, 'image/jpeg');
+ * }, 'application/pdf');
  * ```
  */
 export async function downloadWithWatermark(
@@ -465,7 +465,9 @@ export async function downloadWithWatermark(
 ): Promise<void> {
   console.log('📥 [Watermark] Iniciando download:', {
     fileName,
-    isImage: isImageFile(mimeType, fileName)
+    mimeType,
+    isImage: isImageFile(mimeType, fileName),
+    isPDF: mimeType?.includes('pdf') || fileName.toLowerCase().endsWith('.pdf')
   });
   
   try {
@@ -475,11 +477,24 @@ export async function downloadWithWatermark(
     if (isImageFile(mimeType, fileName)) {
       console.log('🎨 [Watermark] Aplicando marca d\'água em imagem...');
       finalBlob = await addWatermarkToImage(blob, watermarkInfo);
-    } else {
-      console.log('ℹ️ [Watermark] Arquivo não é imagem, baixando sem marca d\'água');
+    } 
+    // Se for PDF, aplica marca d'água
+    else if (mimeType?.includes('pdf') || fileName.toLowerCase().endsWith('.pdf')) {
+      console.log('📄 [Watermark] Detectado PDF, aplicando marca d\'água...');
+      
+      // Importa dinamicamente o serviço de PDF (para não carregar se não for necessário)
+      const { downloadPDFWithWatermark } = await import('./watermark-pdf-service');
+      
+      // downloadPDFWithWatermark já faz o download, então retornamos aqui
+      await downloadPDFWithWatermark(blob, fileName, watermarkInfo);
+      console.log('✅ [Watermark] Download de PDF concluído');
+      return;
+    } 
+    else {
+      console.log('ℹ️ [Watermark] Arquivo não suporta marca d\'água, baixando original');
     }
     
-    // Download do arquivo
+    // Download do arquivo (para imagens e outros)
     const url = URL.createObjectURL(finalBlob);
     const link = document.createElement('a');
     link.href = url;

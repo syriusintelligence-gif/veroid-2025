@@ -133,11 +133,23 @@ export function DownloadButton({
         executionTime: result.executionTime,
       });
 
-      // 2. Se for imagem E tiver informações de marca d'água, aplicar marca d'água
-      if (watermarkInfo && isImageFile(mimeType, fileName)) {
-        console.log('🎨 [DownloadButton] Aplicando marca d\'água na imagem...');
+      // 2. Detectar tipo de arquivo e aplicar marca d'água se suportado
+      const isPDF = mimeType?.includes('pdf') || fileName.toLowerCase().endsWith('.pdf');
+      const isImage = isImageFile(mimeType, fileName);
+      const supportsWatermark = (isPDF || isImage) && watermarkInfo;
+      
+      console.log('🔍 [DownloadButton] Análise de arquivo:', {
+        isPDF,
+        isImage,
+        supportsWatermark,
+        mimeType,
+        fileName
+      });
+      
+      if (supportsWatermark) {
+        console.log('🎨 [DownloadButton] Aplicando marca d\'água...');
         
-        // Download da imagem
+        // Download do arquivo
         const response = await fetch(result.signedUrl);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -145,14 +157,14 @@ export function DownloadButton({
         
         const blob = await response.blob();
         
-        // Download com marca d'água
+        // Download com marca d'água (suporta imagens e PDFs)
         await downloadWithWatermark(blob, fileName, watermarkInfo, mimeType);
         
         console.log('✅ [DownloadButton] Download com marca d\'água concluído');
         
       } else {
         // 3. Download direto (sem marca d'água)
-        console.log('📥 [DownloadButton] Download direto (sem marca d\'água)');
+        console.log('📥 [DownloadButton] Download direto (arquivo não suporta marca d\'água ou sem watermarkInfo)');
         
         const link = document.createElement('a');
         link.href = result.signedUrl;

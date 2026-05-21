@@ -144,17 +144,30 @@ export function PublicDownloadButton({
       
       const blob = await response.blob();
       
-      // 3. Se for imagem E tiver informações de marca d'água, aplicar marca d'água
-      if (watermarkInfo && isImageFile(mimeType, fileName)) {
-        console.log('🎨 [PublicDownloadButton] Aplicando marca d\'água na imagem...');
+      // 3. Detectar tipo de arquivo e aplicar marca d'água se suportado
+      const isPDF = mimeType?.includes('pdf') || fileName.toLowerCase().endsWith('.pdf');
+      const isImage = isImageFile(mimeType, fileName);
+      const supportsWatermark = (isPDF || isImage) && watermarkInfo;
+      
+      console.log('🔍 [PublicDownloadButton] Análise de arquivo:', {
+        isPDF,
+        isImage,
+        supportsWatermark,
+        mimeType,
+        fileName
+      });
+      
+      if (supportsWatermark) {
+        console.log('🎨 [PublicDownloadButton] Aplicando marca d\'água...');
         
+        // Download com marca d'água (suporta imagens e PDFs)
         await downloadWithWatermark(blob, fileName, watermarkInfo, mimeType);
         
         console.log('✅ [PublicDownloadButton] Download com marca d\'água concluído');
         
       } else {
         // 4. Download direto (sem marca d'água)
-        console.log('📥 [PublicDownloadButton] Download direto (sem marca d\'água)');
+        console.log('📥 [PublicDownloadButton] Download direto (arquivo não suporta marca d\'água ou sem watermarkInfo)');
         
         const blobUrl = URL.createObjectURL(blob);
         
