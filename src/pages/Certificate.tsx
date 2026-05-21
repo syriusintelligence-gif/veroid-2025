@@ -902,6 +902,8 @@ export default function Certificate() {
                       watermarkInfo={{
                         verificationCode: content.verificationCode,
                         creatorName: content.creatorName,
+                        signatureDate: content.createdAt,
+                        certificateUrl: window.location.href,
                       }}
                     />
                     <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
@@ -925,6 +927,8 @@ export default function Certificate() {
                           watermarkInfo={{
                             verificationCode: content.verificationCode,
                             creatorName: content.creatorName,
+                            signatureDate: content.createdAt,
+                            certificateUrl: window.location.href,
                           }}
                         />
                         <p className="text-xs text-green-700 mt-4 text-center leading-relaxed">
