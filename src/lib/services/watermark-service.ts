@@ -36,8 +36,8 @@ const WATERMARK_CONFIG = {
   qrCodeMinImageWidth: 400, // Largura mínima da imagem para mostrar QR Code
   
   // Estilo do texto - 🎯 RESPONSIVO
-  baseFontSize: 20, // Tamanho base do texto
-  minFontSize: 12, // Tamanho mínimo para imagens pequenas
+  baseFontSize: 24, // Tamanho base do texto (aumentado)
+  minFontSize: 18, // Tamanho mínimo para imagens pequenas (aumentado)
   fontFamily: 'Arial, sans-serif',
   fontWeight: 'bold',
   textColor: 'rgba(255, 255, 255, 0.95)',
@@ -384,11 +384,11 @@ export async function addWatermarkToImage(
             
             // Ajusta tamanho da fonte para imagens menores
             if (img.width < 600) {
-              fontSize = WATERMARK_CONFIG.minFontSize; // Imagens pequenas (mobile)
+              fontSize = WATERMARK_CONFIG.minFontSize; // Imagens pequenas (mobile) - 18px
             } else if (img.width < 1000) {
-              fontSize = 16; // Imagens médias
+              fontSize = 20; // Imagens médias - 20px
             } else if (img.width >= 1500) {
-              fontSize = 24; // Imagens grandes
+              fontSize = 28; // Imagens grandes - 28px
             }
             
             // 5. Preparar texto da marca d'água
@@ -493,16 +493,22 @@ export async function addWatermarkToImage(
               }
             }
             
-            // 10. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente)
+            // 10. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente com o QR Code)
             const textX = qrXOffset;
             const textMaxWidth = img.width - textX - WATERMARK_CONFIG.backgroundPadding;
             
-            // Centraliza o texto verticalmente na barra
+            // Calcula a posição Y para centralizar o texto verticalmente na barra
+            // Se houver QR Code, centraliza em relação ao QR Code
+            // Caso contrário, centraliza em relação à barra toda
+            const textY = showQRCode 
+              ? barStartY + (barHeight - textHeight) / 2  // Centraliza com QR Code
+              : barStartY + (barHeight - textHeight) / 2; // Centraliza na barra
+            
             const { height: actualTextHeight } = drawWatermarkText(
               ctx, 
               watermarkText, 
               textX, 
-              barStartY + WATERMARK_CONFIG.backgroundPadding,
+              textY,
               textMaxWidth,
               fontSize
             );
@@ -510,7 +516,9 @@ export async function addWatermarkToImage(
             console.log('✅ [Watermark] Barra de marca d\'água desenhada abaixo da imagem:', {
               textLines: textLines.length,
               actualTextHeight,
-              barHeight
+              barHeight,
+              textY,
+              isCentered: true
             });
             
             // 11. Converter canvas para blob
