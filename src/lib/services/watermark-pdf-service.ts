@@ -31,11 +31,12 @@ async function loadPdfJs() {
     throw new Error('PDF.js can only be loaded in browser environment');
   }
 
-  // @ts-ignore - Carrega via CDN
+  // @ts-expect-error - Carrega via CDN
   if (!window.pdfjsLib) {
     const script = document.createElement('script');
     script.src = `${PDFJS_CDN}/pdf.min.mjs`;
     script.type = 'module';
+    script.crossOrigin = 'anonymous';
     
     await new Promise((resolve, reject) => {
       script.onload = resolve;
@@ -47,7 +48,7 @@ async function loadPdfJs() {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  // @ts-ignore
+  // @ts-expect-error - window.pdfjsLib é carregado dinamicamente via CDN
   const pdfjsLib = window.pdfjsLib;
   
   // Configura o worker
@@ -76,7 +77,7 @@ const PDF_CONFIG = {
  * Converte uma página de PDF em canvas
  */
 async function renderPDFPageToCanvas(
-  page: any,
+  page: Record<string, unknown>,
   scale: number = PDF_CONFIG.scale
 ): Promise<HTMLCanvasElement> {
   const viewport = page.getViewport({ scale });

@@ -21,7 +21,9 @@ export const CSP_DIRECTIVES = {
     "'unsafe-eval'",   // Necessário para dev tools e algumas bibliotecas
     'https://cdn.jsdelivr.net', // CDN para bibliotecas
     'https://*.sentry.io',      // Sentry error tracking
-    'https://*.supabase.co'     // Supabase SDK
+    'https://*.supabase.co',    // Supabase SDK
+    'https://cdnjs.cloudflare.com', // CDN para PDF.js
+    'blob:'
   ],
   
   // Estilos: permite inline (Tailwind, styled-components) e Google Fonts
