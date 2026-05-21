@@ -24,7 +24,10 @@ import { jsPDF } from 'jspdf';
 import { addWatermarkToImage, type WatermarkInfo } from './watermark-service';
 
 // Configura o worker do pdf.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Usa CDN para garantir compatibilidade em produção
+if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 /**
  * Configurações do serviço de PDF

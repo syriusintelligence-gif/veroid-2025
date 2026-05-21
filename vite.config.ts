@@ -25,7 +25,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'pdfjs-dist': 'pdfjs-dist/build/pdf.mjs',
     },
+  },
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
   },
   preview: {
     host: '0.0.0.0',
@@ -65,6 +69,10 @@ export default defineConfig({
             // Canvas libraries
             if (id.includes('html2canvas')) {
               return 'vendor-canvas';
+            }
+            // PDF libraries
+            if (id.includes('pdfjs-dist') || id.includes('jspdf')) {
+              return 'vendor-pdf';
             }
             // Other utilities
             return 'vendor-utils';
