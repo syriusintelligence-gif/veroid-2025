@@ -213,8 +213,62 @@ async function drawQRCode(
 }
 
 /**
+ * Detecta se o fundo é escuro ou claro analisando os pixels da área
+ * @returns true se o fundo for escuro, false se for claro
+ */
+function isBackgroundDark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): boolean {
+  try {
+    // Amostra pixels em 5 pontos da área (cantos e centro)
+    const samplePoints = [
+      { x: x + 10, y: y + 10 }, // Canto superior esquerdo
+      { x: x + width - 10, y: y + 10 }, // Canto superior direito
+      { x: x + width / 2, y: y + height / 2 }, // Centro
+      { x: x + 10, y: y + height - 10 }, // Canto inferior esquerdo
+      { x: x + width - 10, y: y + height - 10 }, // Canto inferior direito
+    ];
+    
+    let totalBrightness = 0;
+    let validSamples = 0;
+    
+    for (const point of samplePoints) {
+      const imageData = ctx.getImageData(point.x, point.y, 1, 1);
+      const [r, g, b] = imageData.data;
+      
+      // Calcula luminância (perceived brightness)
+      // Fórmula: 0.299*R + 0.587*G + 0.114*B
+      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+      totalBrightness += brightness;
+      validSamples++;
+    }
+    
+    const avgBrightness = totalBrightness / validSamples;
+    
+    // Threshold: < 128 = escuro, >= 128 = claro
+    const isDark = avgBrightness < 128;
+    
+    console.log('🎨 [Watermark] Detecção de fundo:', {
+      avgBrightness: avgBrightness.toFixed(2),
+      isDark,
+      samplesAnalyzed: validSamples
+    });
+    
+    return isDark;
+  } catch (error) {
+    console.warn('⚠️ [Watermark] Erro ao detectar cor de fundo, usando padrão claro:', error);
+    return false; // Default: assume fundo claro
+  }
+}
+
+/**
  * Desenha o texto da marca d'água com suporte a múltiplas linhas
  * Quebra automaticamente o texto se não couber na largura disponível
+ * Ajusta cores automaticamente baseado no fundo (escuro/claro)
  */
 function drawWatermarkText(
   ctx: CanvasRenderingContext2D,
@@ -222,29 +276,57 @@ function drawWatermarkText(
   x: number,
   y: number,
   maxWidth: number,
-  fontSize: number
+  fontSize: number,
+  isDarkBackground: boolean
 ): { height: number } {
   ctx.save();
   
   // Configuração do texto
   ctx.font = `${WATERMARK_CONFIG.fontWeight} ${fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
-  ctx.fillStyle = WATERMARK_CONFIG.textColor;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   
-  // 🎨 Sombra branca forte para garantir legibilidade sobre qualquer cor de fundo
-  ctx.shadowBlur = 3;
-  ctx.shadowColor = 'rgba(255, 255, 255, 1.0)';
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  // 🎨 AJUSTE INTELIGENTE DE CORES baseado no fundo
+  let textColor: string;
+  let shadowColor: string;
+  let strokeColor: string;
+  
+  if (isDarkBackground) {
+    // FUNDO ESCURO → Texto branco com sombra preta e contorno preto
+    textColor = 'rgba(255, 255, 255, 0.95)'; // Branco quase opaco
+    shadowColor = 'rgba(0, 0, 0, 0.8)'; // Sombra preta
+    strokeColor = 'rgba(0, 0, 0, 0.9)'; // Contorno preto
+    console.log('🎨 [Watermark] Aplicando estilo para FUNDO ESCURO (texto branco)');
+  } else {
+    // FUNDO CLARO → Texto preto com sombra branca e contorno branco
+    textColor = 'rgba(0, 0, 0, 0.9)'; // Preto
+    shadowColor = 'rgba(255, 255, 255, 1.0)'; // Sombra branca
+    strokeColor = 'rgba(255, 255, 255, 0.9)'; // Contorno branco
+    console.log('🎨 [Watermark] Aplicando estilo para FUNDO CLARO (texto preto)');
+  }
   
   // Quebra o texto em linhas se necessário
   const lines = wrapText(ctx, text, maxWidth);
   const lineHeightPx = fontSize * WATERMARK_CONFIG.lineHeight;
   
-  // Desenha cada linha
+  // Desenha cada linha com CONTORNO + SOMBRA + PREENCHIMENTO para máxima legibilidade
   lines.forEach((line, index) => {
-    ctx.fillText(line, x, y + (index * lineHeightPx));
+    const lineY = y + (index * lineHeightPx);
+    
+    // 1. Contorno (stroke) para destacar o texto
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 3;
+    ctx.strokeText(line, x, lineY);
+    
+    // 2. Sombra para profundidade
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // 3. Preenchimento do texto
+    ctx.fillStyle = textColor;
+    ctx.fillText(line, x, lineY);
   });
   
   const totalHeight = lines.length * lineHeightPx;
@@ -494,7 +576,16 @@ export async function addWatermarkToImage(
               }
             }
             
-            // 10. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente com o QR Code)
+            // 10. Detectar se o fundo é escuro ou claro na área da marca d'água
+            const isDarkBackground = isBackgroundDark(
+              ctx,
+              0,
+              barStartY,
+              img.width,
+              barHeight
+            );
+            
+            // 11. Desenhar texto ao lado do QR Code na barra (centralizado verticalmente com o QR Code)
             const textX = qrXOffset;
             const textMaxWidth = img.width - textX - WATERMARK_CONFIG.backgroundPadding;
             
@@ -511,7 +602,8 @@ export async function addWatermarkToImage(
               textX, 
               textY,
               textMaxWidth,
-              fontSize
+              fontSize,
+              isDarkBackground // 🎨 Passa detecção de fundo
             );
             
             console.log('✅ [Watermark] Barra de marca d\'água desenhada abaixo da imagem:', {
@@ -519,6 +611,7 @@ export async function addWatermarkToImage(
               actualTextHeight,
               barHeight,
               textY,
+              isDarkBackground,
               isCentered: true
             });
             
