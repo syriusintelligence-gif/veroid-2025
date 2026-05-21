@@ -110,15 +110,9 @@ const ALLOWED_EXTENSIONS: Record<FileCategory, string[]> = {
     '.aiff'
   ],
   
-  // Documentos: formatos de escritório e PDFs
+  // Documentos: apenas PDF
   document: [
-    '.pdf',
-    '.doc',
-    '.docx',
-    '.xls',
-    '.xlsx',
-    '.ppt',
-    '.pptx'
+    '.pdf'
   ],
   
   // Texto: formatos de texto puro
@@ -176,13 +170,7 @@ const ALLOWED_MIME_TYPES: Record<FileCategory, string[]> = {
   ],
   
   document: [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    'application/pdf'
   ],
   
   text: [
@@ -320,37 +308,7 @@ const MAGIC_NUMBERS: Record<string, number[][]> = {
     [0x25, 0x50, 0x44, 0x46], // 25 50 44 46 - %PDF
   ],
   
-  // DOCX, XLSX, PPTX - Microsoft Office (ZIP-based)
-  '.docx': [
-    [0x50, 0x4B, 0x03, 0x04], // 50 4B 03 04 - PK (ZIP)
-    [0x50, 0x4B, 0x05, 0x06], // 50 4B 05 06 - PK (empty ZIP)
-    [0x50, 0x4B, 0x07, 0x08], // 50 4B 07 08 - PK (spanned ZIP)
-  ],
-  '.xlsx': [
-    [0x50, 0x4B, 0x03, 0x04],
-    [0x50, 0x4B, 0x05, 0x06],
-    [0x50, 0x4B, 0x07, 0x08],
-  ],
-  '.pptx': [
-    [0x50, 0x4B, 0x03, 0x04],
-    [0x50, 0x4B, 0x05, 0x06],
-    [0x50, 0x4B, 0x07, 0x08],
-  ],
-  
-  // DOC - Microsoft Word 97-2003
-  '.doc': [
-    [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], // D0 CF 11 E0 - OLE2
-  ],
-  
-  // XLS - Microsoft Excel 97-2003
-  '.xls': [
-    [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], // D0 CF 11 E0 - OLE2
-  ],
-  
-  // PPT - Microsoft PowerPoint 97-2003
-  '.ppt': [
-    [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1], // D0 CF 11 E0 - OLE2
-  ],
+
   
 
   

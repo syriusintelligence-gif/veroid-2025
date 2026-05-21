@@ -45,7 +45,6 @@ type ContentType = 'text' | 'image' | 'video' | 'document' | 'music' | 'carousel
 type SocialPlatform = 'Instagram' | 'YouTube' | 'Twitter' | 'TikTok' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'Website' | 'Outros';
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
-  { value: 'text', label: 'Texto', icon: <FileText className="h-5 w-5" /> },
   { value: 'image', label: 'Imagem', icon: <ImageIcon className="h-5 w-5" /> },
   { value: 'video', label: 'Vídeo', icon: <Video className="h-5 w-5" /> },
   { value: 'document', label: 'Documento', icon: <FileType className="h-5 w-5" /> },
@@ -69,7 +68,7 @@ export default function SignContent() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [contentType, setContentType] = useState<ContentType>('text');
+  const [contentType, setContentType] = useState<ContentType>('image');
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
