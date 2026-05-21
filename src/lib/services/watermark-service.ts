@@ -154,25 +154,7 @@ async function generateQRCodeDataUrl(certificateUrl: string, size: number): Prom
   }
 }
 
-/**
- * Desenha o fundo da marca d'água (barra horizontal completa)
- */
-function drawWatermarkBackground(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  barHeight: number
-): void {
-  ctx.save();
-  
-  // Desenha barra horizontal na parte inferior
-  const y = height - barHeight;
-  
-  ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
-  ctx.fillRect(0, y, width, barHeight);
-  
-  ctx.restore();
-}
+
 
 /**
  * Desenha o QR Code na marca d'água com fundo branco maior
@@ -297,20 +279,7 @@ export async function addWatermarkToImage(
               height: img.height
             });
             
-            // 3. Criar canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              throw new Error('Não foi possível obter contexto 2D do canvas');
-            }
-            
-            // 4. Desenhar imagem original
-            ctx.drawImage(img, 0, 0);
-            
-            // 5. Calcular tamanho do QR Code baseado na largura da imagem
+            // 3. Calcular tamanho do QR Code baseado na largura da imagem
             let qrSize = WATERMARK_CONFIG.qrCodeSize;
             
             // Se a imagem for menor que o mínimo, não mostra QR Code
@@ -323,19 +292,20 @@ export async function addWatermarkToImage(
               qrSize = 120;
             }
             
-            console.log('📊 [Watermark] Configuração:', {
-              showQRCode,
-              qrSize,
-              imageWidth: img.width
-            });
-            
-            // 6. Preparar texto da marca d'água (UMA LINHA)
+            // 4. Preparar texto da marca d'água (UMA LINHA)
             const formattedDate = formatSignatureDate(watermarkInfo.signatureDate);
             const watermarkText = `certificado por www.veroid.com.br | ${watermarkInfo.verificationCode} | ${formattedDate}`;
             
-            // 7. Calcular dimensões da barra de marca d'água
-            ctx.font = `${WATERMARK_CONFIG.fontWeight} ${WATERMARK_CONFIG.fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
-            const textMetrics = ctx.measureText(watermarkText);
+            // 5. Calcular altura da barra de marca d'água
+            // Cria um canvas temporário para medir o texto
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            if (!tempCtx) {
+              throw new Error('Não foi possível obter contexto 2D temporário');
+            }
+            
+            tempCtx.font = `${WATERMARK_CONFIG.fontWeight} ${WATERMARK_CONFIG.fontSize}px ${WATERMARK_CONFIG.fontFamily}`;
+            const textMetrics = tempCtx.measureText(watermarkText);
             const textWidth = textMetrics.width;
             
             // Altura da barra (com padding)
@@ -344,16 +314,42 @@ export async function addWatermarkToImage(
               WATERMARK_CONFIG.fontSize + (WATERMARK_CONFIG.backgroundPadding * 2)
             );
             
-            console.log('📏 [Watermark] Dimensões:', {
-              textWidth,
+            console.log('📊 [Watermark] Configuração:', {
+              showQRCode,
+              qrSize,
+              imageWidth: img.width,
               barHeight,
+              textWidth
+            });
+            
+            // 6. Criar canvas COM ALTURA EXTRA para a barra de marca d'água
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height + barHeight; // 🎯 ALTURA EXTRA PARA A BARRA
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Não foi possível obter contexto 2D do canvas');
+            }
+            
+            // 7. Desenhar imagem original na parte SUPERIOR do canvas
+            ctx.drawImage(img, 0, 0);
+            
+            console.log('📏 [Watermark] Dimensões finais:', {
+              originalImageHeight: img.height,
+              barHeight,
+              totalCanvasHeight: canvas.height,
               canvasWidth: canvas.width
             });
             
-            // 8. Desenhar fundo da marca d'água (barra horizontal completa)
-            drawWatermarkBackground(ctx, canvas.width, canvas.height, barHeight);
+            // 8. Desenhar barra de marca d'água ABAIXO da imagem
+            // A barra começa onde a imagem termina
+            const barStartY = img.height;
             
-            // 9. Desenhar QR Code (se aplicável)
+            ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
+            ctx.fillRect(0, barStartY, canvas.width, barHeight);
+            
+            // 9. Desenhar QR Code na barra (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
             
             // 🎯 SOLUÇÃO DEFINITIVA: Captura o QR Code SVG já renderizado na página
@@ -371,13 +367,14 @@ export async function addWatermarkToImage(
                   const qrDataUrl = await captureQRCodeFromPage('.qr-code-container svg', qrSize * 3);
                   
                   if (qrDataUrl) {
+                    // QR Code posicionado na BARRA (abaixo da imagem)
                     const qrX = WATERMARK_CONFIG.backgroundPadding;
-                    const qrY = canvas.height - barHeight + WATERMARK_CONFIG.backgroundPadding;
+                    const qrY = barStartY + WATERMARK_CONFIG.backgroundPadding;
                     
                     await drawQRCode(ctx, qrDataUrl, qrX, qrY, qrSize);
                     
                     qrXOffset = qrX + qrSize + WATERMARK_CONFIG.qrCodePadding;
-                    console.log('✅ [Watermark] QR Code da página capturado e desenhado com sucesso');
+                    console.log('✅ [Watermark] QR Code da página capturado e desenhado na barra');
                   } else {
                     console.warn('⚠️ [Watermark] Falha na captura, continuando sem QR Code');
                   }
@@ -389,13 +386,13 @@ export async function addWatermarkToImage(
               }
             }
             
-            // 10. Desenhar texto ao lado do QR Code (ou no início se não houver QR)
+            // 10. Desenhar texto ao lado do QR Code na barra
             const textX = qrXOffset;
-            const textY = canvas.height - (barHeight / 2);
+            const textY = barStartY + (barHeight / 2);
             
             drawWatermarkText(ctx, watermarkText, textX, textY);
             
-            console.log('✅ [Watermark] Texto desenhado em linha única');
+            console.log('✅ [Watermark] Barra de marca d\'água desenhada abaixo da imagem');
             
             // 11. Converter canvas para blob
             canvas.toBlob(
