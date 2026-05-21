@@ -103,19 +103,18 @@ function formatSignatureDate(isoDate: string): string {
 
 /**
  * Gera QR Code como Data URL com alta qualidade
- * CORREÇÃO: Usa apenas o código de verificação ao invés da URL completa
+ * CORREÇÃO: Usa URL curta do certificado para redirecionar ao escanear
  */
-async function generateQRCodeDataUrl(verificationCode: string, size: number): Promise<string> {
+async function generateQRCodeDataUrl(certificateUrl: string, size: number): Promise<string> {
   try {
     // Gera QR Code com resolução 3x maior para melhor qualidade
     const highResSize = size * 3;
     
-    // 🔧 CORREÇÃO: Usa apenas o código de verificação (muito menor)
-    // Exemplo: "DD8CD2CA" ao invés de "https://www.veroid.com.br/certificate?d=eyJp..."
-    const qrDataUrl = await QRCode.toDataURL(verificationCode, {
+    // 🔧 CORREÇÃO: Usa a URL do certificado para redirecionar corretamente
+    const qrDataUrl = await QRCode.toDataURL(certificateUrl, {
       width: highResSize,
       margin: 2, // Margem maior para melhor leitura
-      errorCorrectionLevel: 'H', // Nível máximo de correção de erro (30%)
+      errorCorrectionLevel: 'M', // Nível médio de correção (15%) - suficiente para URLs
       type: 'image/png',
       quality: 1.0, // Qualidade máxima
       color: {
@@ -127,8 +126,8 @@ async function generateQRCodeDataUrl(verificationCode: string, size: number): Pr
     console.log('✅ [Watermark] QR Code gerado em alta resolução:', {
       requestedSize: size,
       generatedSize: highResSize,
-      errorCorrection: 'High (30%)',
-      dataLength: verificationCode.length
+      errorCorrection: 'Medium (15%)',
+      urlLength: certificateUrl.length
     });
     
     return qrDataUrl;
@@ -298,7 +297,7 @@ export async function addWatermarkToImage(
             let qrSize = WATERMARK_CONFIG.qrCodeSize;
             
             // Se a imagem for menor que o mínimo, não mostra QR Code
-            const showQRCode = img.width >= WATERMARK_CONFIG.qrCodeMinImageWidth;
+            const showQRCode = img.width >= WATERMARK_CONFIG.qrCodeMinImageWidth && watermarkInfo.certificateUrl;
             
             // Ajusta QR Code para imagens grandes (tamanhos maiores para melhor leitura)
             if (img.width > 1000) {
@@ -340,11 +339,11 @@ export async function addWatermarkToImage(
             // 9. Desenhar QR Code (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
             
-            // 🔧 CORREÇÃO: Sempre tenta desenhar QR Code com o código de verificação
-            if (showQRCode) {
+            // 🔧 CORREÇÃO: Desenha QR Code com URL do certificado para redirecionamento correto
+            if (showQRCode && watermarkInfo.certificateUrl) {
               try {
-                // Usa apenas o código de verificação (ex: "DD8CD2CA") ao invés da URL completa
-                const qrDataUrl = await generateQRCodeDataUrl(watermarkInfo.verificationCode, qrSize);
+                // Usa a URL do certificado para que ao escanear redirecione para a página correta
+                const qrDataUrl = await generateQRCodeDataUrl(watermarkInfo.certificateUrl, qrSize);
                 
                 if (qrDataUrl) {
                   const qrX = WATERMARK_CONFIG.backgroundPadding;
@@ -353,7 +352,7 @@ export async function addWatermarkToImage(
                   await drawQRCode(ctx, qrDataUrl, qrX, qrY, qrSize);
                   
                   qrXOffset = qrX + qrSize + WATERMARK_CONFIG.qrCodePadding;
-                  console.log('✅ [Watermark] QR Code desenhado com código:', watermarkInfo.verificationCode);
+                  console.log('✅ [Watermark] QR Code desenhado com URL:', watermarkInfo.certificateUrl);
                 }
               } catch (error) {
                 console.warn('⚠️ [Watermark] Erro ao desenhar QR Code, continuando sem ele:', error);
