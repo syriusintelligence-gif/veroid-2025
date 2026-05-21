@@ -20,6 +20,7 @@
  */
 
 import QRCode from 'qrcode';
+import { addInvisibleWatermark, type InvisibleWatermarkInfo } from './image-protection-service';
 
 /**
  * Configurações da marca d'água
@@ -396,7 +397,7 @@ export async function addWatermarkToImage(
             
             // 11. Converter canvas para blob
             canvas.toBlob(
-              (blob) => {
+              async (blob) => {
                 // Limpar URL temporária
                 URL.revokeObjectURL(imageUrl);
                 
@@ -410,7 +411,23 @@ export async function addWatermarkToImage(
                   watermarkedSizeKB: (blob.size / 1024).toFixed(2)
                 });
                 
-                resolve(blob);
+                // 12. Adicionar marca d'água invisível (metadados)
+                try {
+                  const invisibleMetadata: InvisibleWatermarkInfo = {
+                    verificationCode: watermarkInfo.verificationCode,
+                    certificateId: watermarkInfo.certificateId || watermarkInfo.verificationCode,
+                    creatorName: watermarkInfo.creatorName,
+                    createdAt: watermarkInfo.signatureDate,
+                    certificateUrl: watermarkInfo.certificateUrl,
+                  };
+                  
+                  const protectedBlob = await addInvisibleWatermark(blob, invisibleMetadata);
+                  console.log('🔍 [Watermark] Marca d\'água invisível adicionada');
+                  resolve(protectedBlob);
+                } catch (error) {
+                  console.warn('⚠️ [Watermark] Erro ao adicionar marca invisível, usando blob original:', error);
+                  resolve(blob);
+                }
               },
               imageBlob.type || 'image/png',
               0.95 // Qualidade 95%

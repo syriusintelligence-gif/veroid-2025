@@ -21,6 +21,7 @@
 
 import { jsPDF } from 'jspdf';
 import { addWatermarkToImage, type WatermarkInfo } from './watermark-service';
+import { applyPDFProtection } from './pdf-protection-service';
 
 // Carrega pdf.js dinamicamente via CDN
 const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379';
@@ -253,13 +254,25 @@ export async function addWatermarkToPDF(
     }
     
     // 5. Gerar blob do PDF final
-    const pdfOutput = pdf.output('blob');
+    let pdfOutput = pdf.output('blob');
     
     console.log('✅ [PDF Watermark] PDF com marca d\'água gerado com sucesso:', {
       originalSizeKB: (pdfBlob.size / 1024).toFixed(2),
       watermarkedSizeKB: (pdfOutput.size / 1024).toFixed(2),
       pages: numPages,
     });
+    
+    // 6. Aplicar proteções de segurança (metadados e flags)
+    try {
+      pdfOutput = await applyPDFProtection(pdfOutput, {
+        disableCopy: true,
+        disableModify: true,
+        disablePrint: false,
+      });
+      console.log('🔒 [PDF Watermark] Proteções aplicadas no PDF');
+    } catch (error) {
+      console.warn('⚠️ [PDF Watermark] Não foi possível aplicar todas as proteções:', error);
+    }
     
     return pdfOutput;
     
