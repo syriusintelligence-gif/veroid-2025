@@ -356,29 +356,19 @@ export async function addWatermarkToImage(
             // 9. Desenhar QR Code (se aplicável)
             let qrXOffset = WATERMARK_CONFIG.backgroundPadding;
             
-            // 🔧 SOLUÇÃO FINAL: Usa URL ULTRA-COMPACTA para QR Code mais legível
+            // 🎯 SOLUÇÃO DEFINITIVA: Captura o QR Code SVG já renderizado na página
+            // Garante identidade visual perfeita e elimina problemas de densidade
             if (showQRCode) {
               try {
-                // 🎯 Gera URL ultra-compacta (apenas ID + código + nome)
-                // Reduz de ~1380 chars para ~100-150 chars
-                let qrUrl = watermarkInfo.certificateUrl || '';
+                // Importa função de captura do SVG
+                const { captureQRCodeFromPage, hasQRCodeOnPage } = await import('@/lib/services/watermark-svg-capture');
                 
-                // Se temos certificateId, gera URL compacta otimizada
-                if (watermarkInfo.certificateId) {
-                  // Importa função de geração de URL compacta
-                  const { generateCompactCertificateUrl } = await import('@/lib/services/watermark-qr-utils');
-                  qrUrl = generateCompactCertificateUrl(
-                    watermarkInfo.certificateId,
-                    watermarkInfo.verificationCode,
-                    watermarkInfo.creatorName
-                  );
-                  console.log('🔧 [Watermark] URL compacta gerada para QR Code:', qrUrl.length, 'caracteres');
-                } else if (qrUrl) {
-                  console.log('⚠️ [Watermark] Usando URL fornecida (pode ser longa):', qrUrl.length, 'caracteres');
-                }
-                
-                if (qrUrl) {
-                  const qrDataUrl = await generateQRCodeDataUrl(qrUrl, qrSize);
+                // Verifica se há QR Code na página
+                if (hasQRCodeOnPage()) {
+                  console.log('📸 [Watermark] Capturando QR Code da página...');
+                  
+                  // Captura o QR Code em alta resolução (3x o tamanho final)
+                  const qrDataUrl = await captureQRCodeFromPage('.qr-code-container svg', qrSize * 3);
                   
                   if (qrDataUrl) {
                     const qrX = WATERMARK_CONFIG.backgroundPadding;
@@ -387,11 +377,15 @@ export async function addWatermarkToImage(
                     await drawQRCode(ctx, qrDataUrl, qrX, qrY, qrSize);
                     
                     qrXOffset = qrX + qrSize + WATERMARK_CONFIG.qrCodePadding;
-                    console.log('✅ [Watermark] QR Code desenhado com URL compacta');
+                    console.log('✅ [Watermark] QR Code da página capturado e desenhado com sucesso');
+                  } else {
+                    console.warn('⚠️ [Watermark] Falha na captura, continuando sem QR Code');
                   }
+                } else {
+                  console.warn('⚠️ [Watermark] QR Code não encontrado na página');
                 }
               } catch (error) {
-                console.warn('⚠️ [Watermark] Erro ao desenhar QR Code, continuando sem ele:', error);
+                console.warn('⚠️ [Watermark] Erro ao capturar QR Code, continuando sem ele:', error);
               }
             }
             
