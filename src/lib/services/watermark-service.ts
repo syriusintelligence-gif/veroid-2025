@@ -43,8 +43,8 @@ const WATERMARK_CONFIG = {
   textColor: 'rgba(0, 0, 0, 0.9)', // 🎨 PRETO
   
   // Fundo - 🎨 Liquid Glass Effect (translúcido com blur)
-  backgroundColor: 'rgba(255, 255, 255, 0.75)', // 🎨 Branco translúcido (75% opacidade)
-  backdropBlur: 10, // Efeito de blur de fundo (liquid glass)
+  backgroundColor: 'rgba(255, 255, 255, 0.4)', // 🎨 Branco translúcido (40% opacidade - muito suave)
+  backdropBlur: 8, // Efeito de blur de fundo (liquid glass)
   borderRadius: 0, // Sem bordas arredondadas para melhor layout horizontal
   backgroundPadding: 12,
   
@@ -392,9 +392,9 @@ export async function addWatermarkToImage(
               fontSize = 28; // Imagens grandes - 28px
             }
             
-            // 5. Preparar texto da marca d'água (estilo passaporte)
+            // 5. Preparar texto da marca d'água (estilo passaporte - CAIXA ALTA)
             const formattedDate = formatSignatureDate(watermarkInfo.signatureDate);
-            const watermarkText = `Autenticado by Vero iD <<<< ${watermarkInfo.verificationCode} <<<< ${formattedDate}`;
+            const watermarkText = `AUTENTICADO BY VERO ID <<<< ${watermarkInfo.verificationCode} <<<< ${formattedDate}`;
             
             // 6. Calcular largura disponível para o texto
             const qrWidthWithPadding = showQRCode ? qrSize + WATERMARK_CONFIG.qrCodePadding : 0;
@@ -461,10 +461,10 @@ export async function addWatermarkToImage(
             // Captura a região da barra da imagem original (se houver sobreposição)
             // e aplica um leve blur para simular o efeito glass
             if (WATERMARK_CONFIG.backdropBlur > 0) {
-              // Desenha fundo translúcido com leve sombra para profundidade
-              ctx.shadowBlur = 15;
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-              ctx.shadowOffsetY = -2;
+              // Desenha fundo translúcido com sombra muito sutil para profundidade
+              ctx.shadowBlur = 8;
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.05)';
+              ctx.shadowOffsetY = -1;
             }
             
             ctx.fillStyle = WATERMARK_CONFIG.backgroundColor;
