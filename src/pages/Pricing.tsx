@@ -118,16 +118,26 @@ export default function Pricing() {
       setUser(currentUser);
       
       if (currentUser) {
-        // Buscar assinatura atual do usuário
-        const { data: subscription } = await supabase
+        // Buscar TODAS assinaturas ativas do usuário (pode haver múltiplas)
+        const { data: subscriptions } = await supabase
           .from('subscriptions')
           .select('*')
           .eq('user_id', currentUser.id)
-          .single();
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
         
-        setCurrentSubscription(subscription);
+        console.log('🔍 All active subscriptions:', subscriptions);
         
-        console.log('🔍 Current subscription:', subscription);
+        // Filtrar apenas subscriptions mensais (não pacotes avulsos)
+        // Identificamos por ter stripe_subscription_id preenchido
+        const activeMonthlySubscription = subscriptions?.find(sub => 
+          sub.stripe_subscription_id && 
+          sub.stripe_subscription_id.startsWith('sub_')
+        );
+        
+        setCurrentSubscription(activeMonthlySubscription || null);
+        
+        console.log('🔍 Active monthly subscription:', activeMonthlySubscription);
       }
       
       // Debug: Log session info
@@ -204,6 +214,17 @@ export default function Pricing() {
         currentSubscription.status === 'active' && 
         currentSubscription.stripe_subscription_id;
 
+      console.log('🔍 Decisão de fluxo:', {
+        isSubscriptionPlan,
+        hasActiveSubscription,
+        currentSubscription: currentSubscription ? {
+          status: currentSubscription.status,
+          stripe_subscription_id: currentSubscription.stripe_subscription_id,
+          stripe_price_id: currentSubscription.stripe_price_id
+        } : null,
+        targetPriceId: plan.priceId
+      });
+
       // Se tem assinatura ativa E está tentando assinar outro plano mensal = UPGRADE/DOWNGRADE
       if (isSubscriptionPlan && hasActiveSubscription) {
         console.log('🔄 Detectado UPGRADE/DOWNGRADE de plano');
@@ -219,6 +240,7 @@ export default function Pricing() {
 
         // Chamar Edge Function de UPDATE ao invés de CREATE
         console.log('🔐 Chamando update-subscription Edge Function...');
+        console.log('📤 Request body:', { newPriceId: plan.priceId });
         
         const { data, error } = await supabase.functions.invoke('update-subscription', {
           body: {
@@ -244,6 +266,8 @@ export default function Pricing() {
         navigate('/dashboard');
         return;
       }
+
+      console.log('➡️ Criando nova checkout session (não é upgrade/downgrade)');
 
       // Se não tem assinatura ativa OU é pacote avulso = CRIAR NOVA CHECKOUT SESSION
       console.log('🔐 Token obtido, chamando Edge Function...');
