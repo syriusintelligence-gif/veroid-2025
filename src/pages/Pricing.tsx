@@ -145,7 +145,6 @@ export default function Pricing() {
             id: activeMonthlySubscription.id,
             stripe_subscription_id: activeMonthlySubscription.stripe_subscription_id,
             stripe_price_id: activeMonthlySubscription.stripe_price_id,
-            plan_type: activeMonthlySubscription.plan_type,
             status: activeMonthlySubscription.status
           });
           
