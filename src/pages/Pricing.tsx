@@ -101,6 +101,11 @@ export default function Pricing() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<{
+    status: string;
+    stripe_subscription_id: string;
+    stripe_price_id: string;
+  } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,6 +116,19 @@ export default function Pricing() {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
+      
+      if (currentUser) {
+        // Buscar assinatura atual do usuário
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .single();
+        
+        setCurrentSubscription(subscription);
+        
+        console.log('🔍 Current subscription:', subscription);
+      }
       
       // Debug: Log session info
       const { data: { session } } = await supabase.auth.getSession();
@@ -180,6 +198,54 @@ export default function Pricing() {
         throw new Error('Token de acesso não encontrado. Por favor, faça login novamente.');
       }
 
+      // 🆕 CORREÇÃO CRÍTICA: Verificar se é upgrade/downgrade de plano existente
+      const isSubscriptionPlan = plan.type === 'subscription';
+      const hasActiveSubscription = currentSubscription && 
+        currentSubscription.status === 'active' && 
+        currentSubscription.stripe_subscription_id;
+
+      // Se tem assinatura ativa E está tentando assinar outro plano mensal = UPGRADE/DOWNGRADE
+      if (isSubscriptionPlan && hasActiveSubscription) {
+        console.log('🔄 Detectado UPGRADE/DOWNGRADE de plano');
+        console.log('📋 Plano atual:', currentSubscription.stripe_price_id);
+        console.log('📋 Novo plano:', plan.priceId);
+
+        // Verificar se é o mesmo plano
+        if (currentSubscription.stripe_price_id === plan.priceId) {
+          setError('Você já está inscrito neste plano.');
+          setLoading(null);
+          return;
+        }
+
+        // Chamar Edge Function de UPDATE ao invés de CREATE
+        console.log('🔐 Chamando update-subscription Edge Function...');
+        
+        const { data, error } = await supabase.functions.invoke('update-subscription', {
+          body: {
+            newPriceId: plan.priceId
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (error) {
+          console.error('❌ Erro ao atualizar assinatura:', error);
+          throw error;
+        }
+
+        console.log('✅ Assinatura atualizada com sucesso:', data);
+        
+        // Mostrar mensagem de sucesso
+        alert(`✅ ${data.message || 'Plano atualizado com sucesso! Sua assinatura foi modificada e o ajuste proporcional será aplicado.'}`);
+        
+        // Recarregar dados e redirecionar
+        await checkUser();
+        navigate('/dashboard');
+        return;
+      }
+
+      // Se não tem assinatura ativa OU é pacote avulso = CRIAR NOVA CHECKOUT SESSION
       console.log('🔐 Token obtido, chamando Edge Function...');
       console.log('📊 Session access_token (primeiros 20 chars):', session.access_token.substring(0, 20));
 
