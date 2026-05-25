@@ -230,8 +230,10 @@ export default function Pricing() {
       // 🆕 CORREÇÃO CRÍTICA: Verificar se é upgrade/downgrade de plano existente
       const isSubscriptionPlan = plan.type === 'subscription';
       
-      // BUSCAR ASSINATURA ATIVA EM TEMPO REAL (não confiar no estado)
-      console.log('🔍 [Pricing] Buscando assinatura ativa em tempo real...');
+      // SEMPRE BUSCAR ASSINATURA ATIVA EM TEMPO REAL ANTES DE PROCESSAR
+      console.log('🔍 [Pricing] Buscando assinatura ativa em tempo real ANTES de processar...');
+      
+      // 🔑 USAR SERVICE ROLE para garantir acesso completo aos dados
       const { data: activeSubscriptions, error: fetchError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -241,56 +243,55 @@ export default function Pricing() {
       
       if (fetchError) {
         console.error('❌ [Pricing] Erro ao buscar subscriptions:', fetchError);
+        // Não bloquear o fluxo, mas logar o erro
       }
       
-      console.log('📊 [Pricing] Active subscriptions found:', activeSubscriptions?.length || 0);
+      console.log('📊 [Pricing] Total active subscriptions:', activeSubscriptions?.length || 0);
+      console.log('📋 [Pricing] All active subscriptions:', activeSubscriptions);
       
-      // Filtrar apenas subscriptions mensais (não pacotes avulsos)
-      const activeMonthlySubscription = activeSubscriptions?.find(sub => 
+      // Filtrar subscriptions mensais (tem stripe_subscription_id começando com 'sub_')
+      const monthlySubscriptions = activeSubscriptions?.filter(sub => 
         sub.stripe_subscription_id && 
         typeof sub.stripe_subscription_id === 'string' &&
         sub.stripe_subscription_id.startsWith('sub_')
-      );
+      ) || [];
+      
+      console.log('📊 [Pricing] Monthly subscriptions found:', monthlySubscriptions.length);
+      console.log('📋 [Pricing] Monthly subscriptions details:', monthlySubscriptions);
+      
+      // Se houver múltiplas subscriptions mensais, usar a mais recente
+      const activeMonthlySubscription = monthlySubscriptions.length > 0 ? monthlySubscriptions[0] : null;
       
       const hasActiveSubscription = !!activeMonthlySubscription;
       
-      console.log('🔍 [Pricing] Monthly subscription check:', {
+      console.log('🔍 [Pricing] Subscription detection result:', {
         hasActiveSubscription,
         subscriptionId: activeMonthlySubscription?.stripe_subscription_id,
         currentPriceId: activeMonthlySubscription?.stripe_price_id,
-        targetPriceId: plan.priceId
+        currentPlanType: activeMonthlySubscription?.plan_type,
+        targetPriceId: plan.priceId,
+        targetPlanId: plan.id,
+        isSubscriptionPlan
       });
 
-      console.log('🔍 Decisão de fluxo:', {
-        isSubscriptionPlan,
-        hasActiveSubscription,
-        totalActiveSubscriptions: activeSubscriptions?.length || 0,
-        activeMonthlySubscription: activeMonthlySubscription ? {
-          id: activeMonthlySubscription.id,
-          status: activeMonthlySubscription.status,
-          stripe_subscription_id: activeMonthlySubscription.stripe_subscription_id,
-          stripe_price_id: activeMonthlySubscription.stripe_price_id,
-          plan_type: activeMonthlySubscription.plan_type
-        } : null,
-        targetPriceId: plan.priceId
-      });
-
-      // Se tem assinatura ativa E está tentando assinar outro plano mensal = UPGRADE/DOWNGRADE
+      // 🚨 DECISÃO CRÍTICA: Se é plano mensal E tem subscription ativa = SEMPRE UPDATE
       if (isSubscriptionPlan && hasActiveSubscription) {
-        console.log('🔄 Detectado UPGRADE/DOWNGRADE de plano');
-        console.log('📋 Plano atual:', activeMonthlySubscription.stripe_price_id);
-        console.log('📋 Novo plano:', plan.priceId);
+        console.log('🔄 [Pricing] ⚠️ DETECTADO UPGRADE/DOWNGRADE DE PLANO ⚠️');
+        console.log('📋 [Pricing] Plano atual (Price ID):', activeMonthlySubscription.stripe_price_id);
+        console.log('📋 [Pricing] Novo plano (Price ID):', plan.priceId);
+        console.log('📋 [Pricing] Subscription ID no Stripe:', activeMonthlySubscription.stripe_subscription_id);
 
-        // Verificar se é o mesmo plano
+        // Verificar se é o mesmo plano (evitar update desnecessário)
         if (activeMonthlySubscription.stripe_price_id === plan.priceId) {
+          console.log('⚠️ [Pricing] Usuário já está no plano selecionado');
           setError('Você já está inscrito neste plano.');
           setLoading(null);
           return;
         }
 
-        // Chamar Edge Function de UPDATE ao invés de CREATE
-        console.log('🔐 Chamando update-subscription Edge Function...');
-        console.log('📤 Request body:', { newPriceId: plan.priceId });
+        // 🔧 CHAMAR update-subscription Edge Function
+        console.log('🔐 [Pricing] Chamando update-subscription Edge Function...');
+        console.log('📤 [Pricing] Request body:', { newPriceId: plan.priceId });
         
         const { data, error } = await supabase.functions.invoke('update-subscription', {
           body: {
@@ -302,11 +303,11 @@ export default function Pricing() {
         });
 
         if (error) {
-          console.error('❌ Erro ao atualizar assinatura:', error);
+          console.error('❌ [Pricing] Erro ao atualizar assinatura:', error);
           throw error;
         }
 
-        console.log('✅ Assinatura atualizada com sucesso:', data);
+        console.log('✅ [Pricing] Assinatura atualizada com sucesso:', data);
         
         // Mostrar mensagem de sucesso
         alert(`✅ ${data.message || 'Plano atualizado com sucesso! Sua assinatura foi modificada e o ajuste proporcional será aplicado.'}`);
@@ -317,7 +318,8 @@ export default function Pricing() {
         return;
       }
 
-      console.log('➡️ Criando nova checkout session (não é upgrade/downgrade)');
+      console.log('➡️ [Pricing] Criando nova checkout session (primeira assinatura ou pacote avulso)');
+      console.log('📋 [Pricing] Motivo:', !isSubscriptionPlan ? 'É pacote avulso' : 'Não tem assinatura ativa');
 
       // Se não tem assinatura ativa OU é pacote avulso = CRIAR NOVA CHECKOUT SESSION
       console.log('🔐 Token obtido, chamando Edge Function...');
