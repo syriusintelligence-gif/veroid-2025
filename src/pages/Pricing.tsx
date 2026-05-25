@@ -210,17 +210,34 @@ export default function Pricing() {
 
       // 🆕 CORREÇÃO CRÍTICA: Verificar se é upgrade/downgrade de plano existente
       const isSubscriptionPlan = plan.type === 'subscription';
-      const hasActiveSubscription = currentSubscription && 
-        currentSubscription.status === 'active' && 
-        currentSubscription.stripe_subscription_id;
+      
+      // BUSCAR ASSINATURA ATIVA EM TEMPO REAL (não confiar no estado)
+      console.log('🔍 Buscando assinatura ativa em tempo real...');
+      const { data: activeSubscriptions } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      // Filtrar apenas subscriptions mensais (não pacotes avulsos)
+      const activeMonthlySubscription = activeSubscriptions?.find(sub => 
+        sub.stripe_subscription_id && 
+        sub.stripe_subscription_id.startsWith('sub_')
+      );
+      
+      const hasActiveSubscription = !!activeMonthlySubscription;
 
       console.log('🔍 Decisão de fluxo:', {
         isSubscriptionPlan,
         hasActiveSubscription,
-        currentSubscription: currentSubscription ? {
-          status: currentSubscription.status,
-          stripe_subscription_id: currentSubscription.stripe_subscription_id,
-          stripe_price_id: currentSubscription.stripe_price_id
+        totalActiveSubscriptions: activeSubscriptions?.length || 0,
+        activeMonthlySubscription: activeMonthlySubscription ? {
+          id: activeMonthlySubscription.id,
+          status: activeMonthlySubscription.status,
+          stripe_subscription_id: activeMonthlySubscription.stripe_subscription_id,
+          stripe_price_id: activeMonthlySubscription.stripe_price_id,
+          plan_type: activeMonthlySubscription.plan_type
         } : null,
         targetPriceId: plan.priceId
       });
@@ -228,11 +245,11 @@ export default function Pricing() {
       // Se tem assinatura ativa E está tentando assinar outro plano mensal = UPGRADE/DOWNGRADE
       if (isSubscriptionPlan && hasActiveSubscription) {
         console.log('🔄 Detectado UPGRADE/DOWNGRADE de plano');
-        console.log('📋 Plano atual:', currentSubscription.stripe_price_id);
+        console.log('📋 Plano atual:', activeMonthlySubscription.stripe_price_id);
         console.log('📋 Novo plano:', plan.priceId);
 
         // Verificar se é o mesmo plano
-        if (currentSubscription.stripe_price_id === plan.priceId) {
+        if (activeMonthlySubscription.stripe_price_id === plan.priceId) {
           setError('Você já está inscrito neste plano.');
           setLoading(null);
           return;
