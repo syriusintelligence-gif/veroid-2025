@@ -409,14 +409,26 @@ export default function Pricing() {
             Assinatura recorrente com autenticações mensais
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {displaySubscriptionPlans.map((plan) => (
+            {displaySubscriptionPlans.map((plan) => {
+              // Verificar se este é o plano atual do usuário
+              const isCurrentPlan = currentSubscription?.stripe_price_id === plan.priceId;
+              
+              return (
               <Card
                 key={plan.id}
                 className={`relative bg-slate-800/50 border-slate-700/50 backdrop-blur-sm hover:border-cyan-500/50 transition-all flex flex-col ${
+                  isCurrentPlan ? 'border-2 border-green-500 shadow-lg shadow-green-500/20' : 
                   plan.popular ? 'border-2 border-cyan-500 shadow-lg shadow-cyan-500/20' : ''
                 }`}
               >
-                {plan.popular && (
+                {/* Badge de Plano Atual tem prioridade sobre Mais Popular */}
+                {isCurrentPlan ? (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                      ✓ Plano Atual
+                    </span>
+                  </div>
+                ) : plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <span className="bg-cyan-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
                       Mais Popular
@@ -446,19 +458,24 @@ export default function Pricing() {
                 <CardFooter className="mt-auto">
                   <Button
                     className={`w-full border-2 ${
-                      plan.popular
+                      isCurrentPlan
+                        ? 'bg-green-600 hover:bg-green-700 text-white border-green-600 cursor-not-allowed opacity-75'
+                        : plan.popular
                         ? 'bg-cyan-500 hover:bg-cyan-600 text-white border-cyan-500'
                         : 'border-slate-600 text-white hover:bg-slate-700'
                     }`}
                     variant={plan.popular ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
-                    disabled={loading === plan.id}
+                    disabled={loading === plan.id || isCurrentPlan}
                   >
-                    {loading === plan.id ? 'Processando...' : user ? 'Assinar Agora' : 'Fazer Login'}
+                    {loading === plan.id ? 'Processando...' : 
+                     isCurrentPlan ? '✓ Plano Ativo' :
+                     user ? 'Assinar Agora' : 'Fazer Login'}
                   </Button>
                 </CardFooter>
               </Card>
-            ))}
+            );
+            })}
           </div>
         </div>
 
