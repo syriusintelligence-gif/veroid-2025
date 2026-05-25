@@ -1385,6 +1385,7 @@ export async function updateSocialLinks(
 
 /**
  * 🆕 Atualiza o nome público do usuário
+ * VERSÃO COM VALIDAÇÃO DE UNICIDADE
  */
 export async function updatePublicName(
   userId: string,
@@ -1407,9 +1408,66 @@ export async function updatePublicName(
       return { success: false, error: 'Nome público não pode estar vazio' };
     }
     
-    if (publicName.trim().length < 2) {
-      return { success: false, error: 'Nome público deve ter no mínimo 2 caracteres' };
+    if (publicName.trim().length < 3) {
+      return { success: false, error: 'Nome público deve ter no mínimo 3 caracteres' };
     }
+    
+    if (publicName.length > 50) {
+      return { success: false, error: 'Nome público deve ter no máximo 50 caracteres' };
+    }
+    
+    // 🆕 VERIFICAÇÃO PRÉVIA: Chama função do banco para validar ANTES de tentar salvar
+    console.log('🔍 Verificando disponibilidade do nome público via RPC...');
+    
+    const { data: availabilityResult, error: rpcError } = await supabase.rpc(
+      'check_public_name_available',
+      {
+        p_user_id: userId,
+        p_public_name: publicName.trim()
+      }
+    );
+    
+    console.log('📥 Resposta RPC:', { availabilityResult, rpcError });
+    
+    if (rpcError) {
+      console.error('❌ Erro na verificação RPC:', rpcError);
+      // Se a RPC falhar, continua com o UPDATE normal (fallback para o trigger)
+      console.log('⚠️ RPC falhou, continuando com UPDATE (trigger fará a validação)...');
+    } else if (availabilityResult) {
+      console.log('🔍 Analisando resultado RPC...');
+      
+      // A RPC retorna um array com um objeto
+      const result = Array.isArray(availabilityResult) ? availabilityResult[0] : availabilityResult;
+      console.log('   - Resultado:', result);
+      console.log('   - is_available:', result?.is_available);
+      
+      if (result && result.is_available === false) {
+        // 🚫 NOME JÁ EM USO!
+        console.log('🚫 Nome público já está em uso!');
+        
+        const conflictEmail = result.conflict_email || '';
+        
+        let userMessage = 'Este nome público já está em uso';
+        if (conflictEmail && !conflictEmail.includes('muito curto') && !conflictEmail.includes('muito longo')) {
+          userMessage += ` pela conta "${conflictEmail}"`;
+        } else if (conflictEmail) {
+          // É uma mensagem de validação (tamanho)
+          userMessage = conflictEmail;
+        }
+        userMessage += '. Por favor, escolha outro nome.';
+        
+        console.log('🚫 Retornando erro para o frontend:', userMessage);
+        
+        return {
+          success: false,
+          error: userMessage
+        };
+      } else {
+        console.log('✅ RPC: Nome público disponível');
+      }
+    }
+    
+    console.log('✅ Nome disponível, prosseguindo com UPDATE...');
     
     // Atualiza o nome público
     const { data, error } = await supabase
@@ -1421,7 +1479,35 @@ export async function updatePublicName(
     
     if (error) {
       console.error('❌ Erro ao atualizar nome público:', error);
-      return { success: false, error: 'Erro ao atualizar nome público' };
+      console.error('📊 Código do erro:', error.code);
+      console.error('📊 Mensagem:', error.message);
+      
+      // Detecta erro de duplicação do trigger
+      if (error.code === '23505' || error.message.includes('já está em uso')) {
+        const emailMatch = error.message.match(/conta "([^"]+)"/i);
+        const conflictEmail = emailMatch ? emailMatch[1] : '';
+        
+        let userMessage = 'Este nome público já está em uso';
+        if (conflictEmail) {
+          userMessage += ` pela conta "${conflictEmail}"`;
+        }
+        userMessage += '. Por favor, escolha outro nome.';
+        
+        return { 
+          success: false, 
+          error: userMessage
+        };
+      }
+      
+      // Detecta erro de validação (tamanho)
+      if (error.code === '22023') {
+        return {
+          success: false,
+          error: error.message || 'Nome público inválido'
+        };
+      }
+      
+      return { success: false, error: 'Erro ao atualizar nome público. Por favor, tente novamente.' };
     }
     
     console.log('✅ Nome público atualizado com sucesso');
@@ -1439,9 +1525,29 @@ export async function updatePublicName(
     };
   } catch (error) {
     console.error('❌ Erro crítico ao atualizar nome público:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    
+    // Detecta erro de duplicação
+    if (errorMessage.includes('já está em uso') || errorMessage.includes('unique_violation') || errorMessage.includes('23505')) {
+      const emailMatch = errorMessage.match(/conta "([^"]+)"/i);
+      const conflictEmail = emailMatch ? emailMatch[1] : '';
+      
+      let userMessage = 'Este nome público já está em uso';
+      if (conflictEmail) {
+        userMessage += ` pela conta "${conflictEmail}"`;
+      }
+      userMessage += '. Por favor, escolha outro nome.';
+      
+      return { 
+        success: false, 
+        error: userMessage
+      };
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      error: errorMessage,
     };
   }
 }
