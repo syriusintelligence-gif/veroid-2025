@@ -522,6 +522,10 @@ export async function addWatermarkToImage(
               throw new Error('Não foi possível obter contexto 2D do canvas');
             }
             
+            // 🎨 PREENCHER ÁREA EXTRA COM FUNDO BRANCO (evita barra preta)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, img.height, img.width, barHeight);
+            
             // 7. Desenhar imagem original NO TOPO do canvas
             ctx.drawImage(img, 0, 0);
             
