@@ -119,25 +119,45 @@ export default function Pricing() {
       
       if (currentUser) {
         // Buscar TODAS assinaturas ativas do usuário (pode haver múltiplas)
-        const { data: subscriptions } = await supabase
+        const { data: subscriptions, error: subError } = await supabase
           .from('subscriptions')
           .select('*')
           .eq('user_id', currentUser.id)
           .eq('status', 'active')
           .order('created_at', { ascending: false });
         
-        console.log('🔍 All active subscriptions:', subscriptions);
+        if (subError) {
+          console.error('❌ [Pricing] Erro ao buscar subscriptions:', subError);
+        }
+        
+        console.log('🔍 [Pricing] All active subscriptions:', subscriptions);
         
         // Filtrar apenas subscriptions mensais (não pacotes avulsos)
-        // Identificamos por ter stripe_subscription_id preenchido
+        // Identificamos por ter stripe_subscription_id preenchido E começando com 'sub_'
         const activeMonthlySubscription = subscriptions?.find(sub => 
           sub.stripe_subscription_id && 
+          typeof sub.stripe_subscription_id === 'string' &&
           sub.stripe_subscription_id.startsWith('sub_')
         );
         
-        setCurrentSubscription(activeMonthlySubscription || null);
-        
-        console.log('🔍 Active monthly subscription:', activeMonthlySubscription);
+        if (activeMonthlySubscription) {
+          console.log('✅ [Pricing] Active monthly subscription found:', {
+            id: activeMonthlySubscription.id,
+            stripe_subscription_id: activeMonthlySubscription.stripe_subscription_id,
+            stripe_price_id: activeMonthlySubscription.stripe_price_id,
+            plan_type: activeMonthlySubscription.plan_type,
+            status: activeMonthlySubscription.status
+          });
+          
+          setCurrentSubscription({
+            status: activeMonthlySubscription.status,
+            stripe_subscription_id: activeMonthlySubscription.stripe_subscription_id,
+            stripe_price_id: activeMonthlySubscription.stripe_price_id
+          });
+        } else {
+          console.log('ℹ️ [Pricing] No active monthly subscription found');
+          setCurrentSubscription(null);
+        }
       }
       
       // Debug: Log session info
@@ -212,21 +232,35 @@ export default function Pricing() {
       const isSubscriptionPlan = plan.type === 'subscription';
       
       // BUSCAR ASSINATURA ATIVA EM TEMPO REAL (não confiar no estado)
-      console.log('🔍 Buscando assinatura ativa em tempo real...');
-      const { data: activeSubscriptions } = await supabase
+      console.log('🔍 [Pricing] Buscando assinatura ativa em tempo real...');
+      const { data: activeSubscriptions, error: fetchError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
       
+      if (fetchError) {
+        console.error('❌ [Pricing] Erro ao buscar subscriptions:', fetchError);
+      }
+      
+      console.log('📊 [Pricing] Active subscriptions found:', activeSubscriptions?.length || 0);
+      
       // Filtrar apenas subscriptions mensais (não pacotes avulsos)
       const activeMonthlySubscription = activeSubscriptions?.find(sub => 
         sub.stripe_subscription_id && 
+        typeof sub.stripe_subscription_id === 'string' &&
         sub.stripe_subscription_id.startsWith('sub_')
       );
       
       const hasActiveSubscription = !!activeMonthlySubscription;
+      
+      console.log('🔍 [Pricing] Monthly subscription check:', {
+        hasActiveSubscription,
+        subscriptionId: activeMonthlySubscription?.stripe_subscription_id,
+        currentPriceId: activeMonthlySubscription?.stripe_price_id,
+        targetPriceId: plan.priceId
+      });
 
       console.log('🔍 Decisão de fluxo:', {
         isSubscriptionPlan,
