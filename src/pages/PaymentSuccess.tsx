@@ -90,26 +90,74 @@ export default function PaymentSuccess() {
     setProcessing(true);
 
     try {
-      // 🆕 1. Verificar se é um PLANO DE ASSINATURA
+      // 🆕 CORREÇÃO CRÍTICA: Aguardar webhook processar primeiro (polling)
+      console.log('⏳ [PaymentSuccess] Aguardando webhook processar assinatura...');
+      
+      const maxAttempts = 10; // 10 tentativas
+      const delayMs = 2000; // 2 segundos entre tentativas
+      
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`🔍 [PaymentSuccess] Tentativa ${attempt}/${maxAttempts} - Verificando subscription...`);
+        
+        // Buscar subscription criada/atualizada pelo webhook
+        const { data: subscription, error: fetchError } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .single();
+        
+        if (!fetchError && subscription) {
+          // Verificar se é um PLANO DE ASSINATURA
+          const planInfo = PRICE_TO_PLAN[priceId];
+          if (planInfo) {
+            // Verificar se o webhook já processou (stripe_subscription_id preenchido)
+            if (subscription.stripe_subscription_id) {
+              console.log('✅ [PaymentSuccess] Webhook processou assinatura recorrente!');
+              console.log('📋 [PaymentSuccess] Stripe Subscription ID:', subscription.stripe_subscription_id);
+              setPlanActivated(planInfo.name);
+              return;
+            } else {
+              console.log('⏳ [PaymentSuccess] Aguardando webhook preencher stripe_subscription_id...');
+            }
+          }
+
+          // Verificar se é um PACOTE AVULSO
+          const packageInfo = PRICE_TO_PACKAGE[priceId];
+          if (packageInfo) {
+            // Para pacotes, verificar se o metadata foi atualizado
+            const metadata = subscription.metadata as Record<string, unknown> || {};
+            const lastPurchase = metadata.last_package_purchase as Record<string, unknown> | undefined;
+            
+            if (lastPurchase && lastPurchase.stripe_session_id === sessionId) {
+              console.log('✅ [PaymentSuccess] Webhook processou pacote avulso!');
+              setCreditsAdded(packageInfo.credits);
+              return;
+            } else {
+              console.log('⏳ [PaymentSuccess] Aguardando webhook processar pacote...');
+            }
+          }
+        }
+        
+        // Aguardar antes da próxima tentativa
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+      
+      // Se chegou aqui, webhook não processou a tempo
+      console.warn('⚠️ [PaymentSuccess] Webhook demorou mais que o esperado');
+      console.log('ℹ️ [PaymentSuccess] Isso é normal em alguns casos. O webhook processará em breve.');
+      
+      // Identificar tipo para mensagem de feedback
       const planInfo = PRICE_TO_PLAN[priceId];
-      if (planInfo) {
-        console.log(`📋 [PaymentSuccess] Plano identificado: ${planInfo.name}`);
-        await activateSubscriptionPlan(userId, sessionId, priceId, planInfo);
-        return;
-      }
-
-      // 2. Verificar se é um PACOTE AVULSO
       const packageInfo = PRICE_TO_PACKAGE[priceId];
-      if (packageInfo) {
-        console.log(`📦 [PaymentSuccess] Pacote identificado: ${packageInfo.name}`);
-        await processPackagePurchase(userId, sessionId, priceId, packageInfo);
-        return;
+      
+      if (planInfo) {
+        setPlanActivated(planInfo.name);
+      } else if (packageInfo) {
+        setCreditsAdded(packageInfo.credits);
       }
-
-      // 3. Se não for nem plano nem pacote
-      console.log('⚠️ [PaymentSuccess] Price ID não reconhecido');
-      console.log('ℹ️ [PaymentSuccess] Planos disponíveis:', Object.keys(PRICE_TO_PLAN));
-      console.log('ℹ️ [PaymentSuccess] Pacotes disponíveis:', Object.keys(PRICE_TO_PACKAGE));
       
     } catch (error) {
       console.error('❌ [PaymentSuccess] Erro ao processar pagamento:', error);
@@ -119,175 +167,7 @@ export default function PaymentSuccess() {
     }
   }
 
-  // 🆕 Função para ativar plano de assinatura
-  async function activateSubscriptionPlan(
-    userId: string, 
-    sessionId: string, 
-    priceId: string, 
-    planInfo: { plan_type: string; signatures_limit: number; name: string }
-  ) {
-    console.log(`🎯 [PaymentSuccess] Ativando plano ${planInfo.name}...`);
 
-    try {
-      // 1. Buscar assinatura existente
-      const { data: existingSubscription } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      const now = new Date();
-      const periodEnd = new Date(now);
-      periodEnd.setMonth(periodEnd.getMonth() + 1); // 30 dias
-
-      if (existingSubscription) {
-        // Atualizar assinatura existente
-        console.log('📝 [PaymentSuccess] Atualizando assinatura existente...');
-        
-        const { error: updateError } = await supabase
-          .from('subscriptions')
-          .update({
-            plan_type: planInfo.plan_type,
-            signatures_limit: planInfo.signatures_limit,
-            status: 'active',
-            current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            stripe_price_id: priceId,
-            updated_at: now.toISOString(),
-          })
-          .eq('user_id', userId);
-
-        if (updateError) {
-          console.error('❌ [PaymentSuccess] Erro ao atualizar assinatura:', updateError);
-          setError('Erro ao ativar plano. Por favor, contate o suporte.');
-          return;
-        }
-      } else {
-        // Criar nova assinatura
-        console.log('✨ [PaymentSuccess] Criando nova assinatura...');
-        
-        const { error: insertError } = await supabase
-          .from('subscriptions')
-          .insert({
-            user_id: userId,
-            plan_type: planInfo.plan_type,
-            signatures_limit: planInfo.signatures_limit,
-            signatures_used: 0,
-            overage_signatures_available: 0,
-            status: 'active',
-            current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            stripe_price_id: priceId,
-            metadata: {
-              activated_by: 'payment_success_fallback',
-              activation_date: now.toISOString(),
-              stripe_session_id: sessionId,
-            },
-          });
-
-        if (insertError) {
-          console.error('❌ [PaymentSuccess] Erro ao criar assinatura:', insertError);
-          setError('Erro ao ativar plano. Por favor, contate o suporte.');
-          return;
-        }
-      }
-
-      console.log(`✅ [PaymentSuccess] Plano ${planInfo.name} ativado com sucesso!`);
-      setPlanActivated(planInfo.name);
-
-      // 🔑 NOTA: subscription_tier será sincronizado automaticamente pelo webhook
-      // Não tentamos atualizar aqui para evitar conflitos de permissão RLS
-
-    } catch (error) {
-      console.error('❌ [PaymentSuccess] Erro ao ativar plano:', error);
-      setError('Erro ao ativar plano. Por favor, contate o suporte.');
-    }
-  }
-
-  // Função para processar pacote avulso (já existente, mantida)
-  async function processPackagePurchase(
-    userId: string, 
-    sessionId: string, 
-    priceId: string,
-    packageInfo: { credits: number; name: string }
-  ) {
-    console.log(`📦 [PaymentSuccess] Processando pacote ${packageInfo.name}...`);
-
-    try {
-      // Buscar assinatura do usuário
-      const { data: subscription, error: fetchError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError || !subscription) {
-        console.error('❌ [PaymentSuccess] Assinatura não encontrada:', fetchError);
-        setError('Assinatura não encontrada. Por favor, contate o suporte.');
-        return;
-      }
-
-      console.log('✅ [PaymentSuccess] Assinatura encontrada:', subscription.id);
-
-      // Verificar idempotência
-      const metadata = (subscription.metadata as SubscriptionMetadata) || {};
-      const lastPurchase = metadata.last_package_purchase;
-      
-      if (lastPurchase && lastPurchase.stripe_session_id === sessionId) {
-        console.log('⚠️ [PaymentSuccess] Compra já processada anteriormente');
-        setCreditsAdded(packageInfo.credits);
-        return;
-      }
-
-      // Adicionar créditos extras
-      const currentOverage = subscription.overage_signatures_available || 0;
-      const newOverage = currentOverage + packageInfo.credits;
-      
-      // Pacote avulso vale 30 dias a partir da data de compra (independente do plano)
-      // Usar a data atual como data de compra (momento em que o usuário chegou nesta página)
-      const purchaseDate = new Date();
-      const expirationDate = new Date(purchaseDate);
-      expirationDate.setDate(expirationDate.getDate() + 30);
-
-      console.log('📅 [PaymentSuccess] Data de compra:', purchaseDate.toISOString());
-      console.log('📅 [PaymentSuccess] Data de expiração do pacote:', expirationDate.toISOString());
-
-      const updateData = {
-        overage_signatures_available: newOverage,
-        metadata: {
-          ...metadata,
-          last_package_purchase: {
-            package_name: packageInfo.name,
-            credits_added: packageInfo.credits,
-            purchase_date: purchaseDate.toISOString(),
-            expiration_date: expirationDate.toISOString(),
-            stripe_session_id: sessionId,
-            stripe_price_id: priceId,
-            processed_by: 'payment_success_fallback',
-          },
-        },
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: updateError } = await supabase
-        .from('subscriptions')
-        .update(updateData)
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error('❌ [PaymentSuccess] Erro ao adicionar créditos:', updateError);
-        setError('Erro ao adicionar créditos. Por favor, contate o suporte.');
-        return;
-      }
-
-      console.log(`✅ [PaymentSuccess] ${packageInfo.credits} créditos adicionados com sucesso!`);
-      setCreditsAdded(packageInfo.credits);
-
-    } catch (error) {
-      console.error('❌ [PaymentSuccess] Erro ao processar pacote:', error);
-      setError('Erro ao processar pacote. Por favor, contate o suporte.');
-    }
-  }
 
   useEffect(() => {
     if (!loading && !user) {
