@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/supabase-auth-v2';
 import type { User } from '@/lib/supabase-auth-v2';
 import { useNavigate } from 'react-router-dom';
+import { UpgradeConfirmDialog } from '@/components/UpgradeConfirmDialog';
 
 interface Plan {
   id: string;
@@ -106,6 +107,9 @@ export default function Pricing() {
     stripe_subscription_id: string;
     stripe_price_id: string;
   } | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -171,6 +175,47 @@ export default function Pricing() {
       console.error('Erro ao verificar usuário:', error);
     }
   }
+
+  const handleConfirmUpgrade = async () => {
+    if (!pendingPlan || !user) return;
+
+    try {
+      setLoading(pendingPlan.id);
+      setShowUpgradeDialog(false);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Token de acesso não encontrado');
+      }
+
+      console.log('🔐 [Pricing] Confirmando mudança de plano...');
+
+      const { data, error } = await supabase.functions.invoke('update-subscription', {
+        body: { newPriceId: pendingPlan.priceId },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+
+      if (error) {
+        console.error('❌ [Pricing] Erro ao atualizar assinatura:', error);
+        throw error;
+      }
+
+      console.log('✅ [Pricing] Assinatura atualizada com sucesso:', data);
+
+      alert(`✅ ${data.message || 'Plano atualizado com sucesso!'}`);
+
+      await checkUser();
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('❌ Erro ao confirmar mudança:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar plano. Tente novamente.';
+      setError(errorMessage);
+    } finally {
+      setLoading(null);
+      setPendingPlan(null);
+      setPreviewData(null);
+    }
+  };
 
   const handleSubscribe = async (plan: Plan) => {
     console.log('📦 Plano selecionado:', { id: plan.id, priceId: plan.priceId });
@@ -297,32 +342,26 @@ export default function Pricing() {
           return;
         }
 
-        // 🔧 CHAMAR update-subscription Edge Function
-        console.log('🔐 [Pricing] Chamando update-subscription Edge Function...');
-        console.log('📤 [Pricing] Request body:', { newPriceId: plan.priceId });
+        // 🆕 BUSCAR PREVIEW ANTES DE CONFIRMAR
+        console.log('🔍 [Pricing] Buscando preview da mudança de plano...');
         
-        const { data, error } = await supabase.functions.invoke('update-subscription', {
-          body: {
-            newPriceId: plan.priceId
-          },
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
+        const { data: preview, error: previewError } = await supabase.functions.invoke('preview-upgrade', {
+          body: { newPriceId: plan.priceId },
+          headers: { Authorization: `Bearer ${session.access_token}` }
         });
 
-        if (error) {
-          console.error('❌ [Pricing] Erro ao atualizar assinatura:', error);
-          throw error;
+        if (previewError) {
+          console.error('❌ [Pricing] Erro ao buscar preview:', previewError);
+          throw previewError;
         }
 
-        console.log('✅ [Pricing] Assinatura atualizada com sucesso:', data);
-        
-        // Mostrar mensagem de sucesso
-        alert(`✅ ${data.message || 'Plano atualizado com sucesso! Sua assinatura foi modificada e o ajuste proporcional será aplicado.'}`);
-        
-        // Recarregar dados e redirecionar
-        await checkUser();
-        navigate('/dashboard');
+        console.log('✅ [Pricing] Preview recebido:', preview);
+
+        // Salvar dados e mostrar dialog de confirmação
+        setPreviewData(preview);
+        setPendingPlan(plan);
+        setShowUpgradeDialog(true);
+        setLoading(null);
         return;
       }
 
@@ -619,6 +658,15 @@ export default function Pricing() {
           </div>
         </div>
       </div>
+
+      {/* Dialog de Confirmação de Upgrade/Downgrade */}
+      <UpgradeConfirmDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        onConfirm={handleConfirmUpgrade}
+        previewData={previewData}
+        loading={loading !== null}
+      />
     </div>
   );
 }
