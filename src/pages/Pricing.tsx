@@ -133,11 +133,11 @@ export default function Pricing() {
         console.log('🔍 [Pricing] All active subscriptions:', subscriptions);
         
         // Filtrar apenas subscriptions mensais (não pacotes avulsos)
-        // Identificamos por ter stripe_subscription_id preenchido E começando com 'sub_'
+        // Identificamos por plan_id que não seja de pacote avulso (package-*)
         const activeMonthlySubscription = subscriptions?.find(sub => 
-          sub.stripe_subscription_id && 
-          typeof sub.stripe_subscription_id === 'string' &&
-          sub.stripe_subscription_id.startsWith('sub_')
+          sub.plan_id && 
+          typeof sub.plan_id === 'string' &&
+          !sub.plan_id.startsWith('package-') // Exclui pacotes avulsos
         );
         
         if (activeMonthlySubscription) {
