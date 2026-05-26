@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/supabase-auth-v2';
 import type { User } from '@/lib/supabase-auth-v2';
 import { useNavigate } from 'react-router-dom';
-import { UpgradeConfirmDialog } from '@/components/UpgradeConfirmDialog';
+import { UpgradeConfirmDialog } from '@/components/UpgradeConfirmDialog.tsx';
 
 interface Plan {
   id: string;
