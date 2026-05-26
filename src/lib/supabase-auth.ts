@@ -207,14 +207,14 @@ export async function registerUser(
     
     // Valida email
     if (!isValidEmail(user.email)) {
-      return { success: false, error: 'Email inválido' };
+      return { success: false, error: 'Email inválido. Por favor, verifique o formato do email.' };
     }
     
     // Valida senha
     if (!isValidPassword(senha)) {
       return { 
         success: false, 
-        error: 'A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial' 
+        error: 'Senha inválida. A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial (!@#$%^&*(),.?":{}|<>)' 
       };
     }
     
@@ -226,11 +226,11 @@ export async function registerUser(
     
     if (checkError) {
       console.error('❌ Erro ao verificar email:', checkError);
-      return { success: false, error: 'Erro ao verificar email' };
+      return { success: false, error: 'Erro ao validar email. Por favor, tente novamente.' };
     }
     
     if (existingUsers && existingUsers.length > 0) {
-      return { success: false, error: 'Este email já está cadastrado' };
+      return { success: false, error: 'Este email já está cadastrado. Por favor, use outro email ou faça login se já possui conta.' };
     }
     
     // Verifica se CPF/CNPJ já existe
@@ -241,11 +241,32 @@ export async function registerUser(
     
     if (cpfError) {
       console.error('❌ Erro ao verificar CPF/CNPJ:', cpfError);
-      return { success: false, error: 'Erro ao verificar CPF/CNPJ' };
+      return { success: false, error: 'Erro ao validar CPF/CNPJ. Por favor, tente novamente.' };
     }
     
     if (existingCpf && existingCpf.length > 0) {
-      return { success: false, error: 'Este CPF/CNPJ já está cadastrado' };
+      return { success: false, error: 'Este CPF/CNPJ já está cadastrado. Por favor, use outro CPF/CNPJ ou faça login se já possui conta.' };
+      console.error('❌ Erro ao criar autenticação:', authError);
+      console.error('❌ Detalhes completos do erro:', {
+        message: authError.message,
+        status: authError.status,
+        name: authError.name,
+      });
+      
+      // Traduz mensagens de erro comuns do Supabase
+      let errorMessage = authError.message;
+      
+      if (authError.message.includes('User already registered')) {
+        errorMessage = 'Este email já está cadastrado. Por favor, use outro email ou faça login.';
+      } else if (authError.message.includes('Password should be')) {
+        errorMessage = 'Senha inválida. A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial.';
+      } else if (authError.message.includes('Invalid email')) {
+        errorMessage = 'Email inválido. Por favor, verifique o formato do email.';
+      } else if (authError.message.includes('rate limit')) {
+        errorMessage = 'Muitas tentativas de cadastro. Por favor, aguarde alguns minutos e tente novamente.';
+      }
+      
+      return { success: false, error: errorMessage };
     }
     
     console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
@@ -274,7 +295,7 @@ export async function registerUser(
     }
     
     if (!authData.user) {
-      return { success: false, error: 'Erro ao criar usuário no Auth' };
+      return { success: false, error: 'Erro ao criar conta. Por favor, verifique seus dados e tente novamente.' };
     }
     
     console.log('✅ Usuário criado no Auth. ID:', authData.user.id);
@@ -319,7 +340,21 @@ export async function registerUser(
       } catch (e) {
         console.error('❌ Erro ao reverter criação do usuário:', e);
       }
-      return { success: false, error: result.error || 'Erro ao salvar dados do usuário' };
+      
+      // Mensagem de erro mais específica
+      let errorMessage = result.error || 'Erro ao salvar dados do usuário';
+      
+      if (result.error?.includes('duplicate') || result.error?.includes('already exists')) {
+        if (result.error.includes('email')) {
+          errorMessage = 'Este email já está cadastrado. Por favor, use outro email.';
+        } else if (result.error.includes('cpf') || result.error.includes('cnpj')) {
+          errorMessage = 'Este CPF/CNPJ já está cadastrado. Por favor, use outro CPF/CNPJ.';
+        } else {
+          errorMessage = 'Dados duplicados. Verifique se você já possui uma conta cadastrada.';
+        }
+      }
+      
+      return { success: false, error: errorMessage };
     }
     
     const userData = result.user;
@@ -376,7 +411,7 @@ export async function loginUser(
     
     // Valida email
     if (!isValidEmail(email)) {
-      return { success: false, error: 'Email inválido', debugInfo };
+      return { success: false, error: 'Email inválido. Por favor, verifique o formato do email.', debugInfo };
     }
     
     debugInfo.step = 'validacao_ok';
