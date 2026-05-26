@@ -133,11 +133,11 @@ export default function Pricing() {
         console.log('🔍 [Pricing] All active subscriptions:', subscriptions);
         
         // Filtrar apenas subscriptions mensais (não pacotes avulsos)
-        // Identificamos por plan_id que não seja de pacote avulso (package-*)
+        // Identificamos por plan_type que não seja de pacote avulso (package-*)
         const activeMonthlySubscription = subscriptions?.find(sub => 
-          sub.plan_id && 
-          typeof sub.plan_id === 'string' &&
-          !sub.plan_id.startsWith('package-') // Exclui pacotes avulsos
+          sub.plan_type && 
+          typeof sub.plan_type === 'string' &&
+          !sub.plan_type.startsWith('package-') // Exclui pacotes avulsos (package-10, package-20, package-50)
         );
         
         if (activeMonthlySubscription) {
@@ -257,11 +257,11 @@ export default function Pricing() {
       console.log('📊 [Pricing] Total active subscriptions:', activeSubscriptions?.length || 0);
       console.log('📋 [Pricing] All active subscriptions:', activeSubscriptions);
       
-      // Filtrar subscriptions mensais (tem stripe_subscription_id começando com 'sub_')
+      // Filtrar subscriptions mensais (plan_type NÃO começa com 'package-')
       const monthlySubscriptions = activeSubscriptions?.filter(sub => 
-        sub.stripe_subscription_id && 
-        typeof sub.stripe_subscription_id === 'string' &&
-        sub.stripe_subscription_id.startsWith('sub_')
+        sub.plan_type && 
+        typeof sub.plan_type === 'string' &&
+        !sub.plan_type.startsWith('package-') // Ignora pacotes avulsos (package-10, package-20, package-50)
       ) || [];
       
       console.log('📊 [Pricing] Monthly subscriptions found:', monthlySubscriptions.length);
