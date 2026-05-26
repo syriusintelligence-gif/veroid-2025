@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, ArrowLeft, Loader2, LogIn, AlertCircle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, isValidEmail } from '@/lib/supabase-auth-v2';
+import { checkPasswordExpiration } from '@/lib/password-policy';
 
 interface DebugInfo {
   step: string;
@@ -76,7 +77,30 @@ export default function LoginV2() {
         console.log('👤 Usuário:', result.user.email);
         console.log('🔑 Admin:', result.user.isAdmin);
         
-        // Pequeno delay antes de navegar
+        // Verifica expiração de senha após login bem-sucedido
+        console.log('🔐 [PASSWORD POLICY] Verificando expiração de senha...');
+        try {
+          const expirationStatus = await checkPasswordExpiration(result.user.id);
+          console.log('📊 [PASSWORD POLICY] Status:', expirationStatus);
+          
+          // Se senha expirou ou deve ser trocada (exceto para admins)
+          if ((expirationStatus.isExpired || expirationStatus.mustChangePassword) && !expirationStatus.isAdmin) {
+            console.log('⚠️ [PASSWORD POLICY] Senha expirada! Redirecionando para troca de senha...');
+            
+            // Redireciona para página de troca de senha com informações
+            setTimeout(() => {
+              navigate('/change-password', {
+                state: { expirationStatus }
+              });
+            }, 100);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ [PASSWORD POLICY] Erro ao verificar expiração:', error);
+          // Continua com o login mesmo se houver erro na verificação
+        }
+        
+        // Login normal - redireciona para dashboard
         setTimeout(() => {
           navigate('/dashboard');
         }, 100);

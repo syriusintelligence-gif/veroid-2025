@@ -27,6 +27,7 @@ import Terms from './pages/Terms';
 import Empresas from './pages/Empresas';
 import TrialExpired from './pages/TrialExpired';
 import ShortUrlRedirect from './pages/ShortUrlRedirect';
+import ChangePassword from './pages/ChangePassword';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import { TrialExpiredGuard } from './components/TrialExpiredGuard';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
@@ -169,6 +170,9 @@ function App() {
           {/* Recuperação de senha */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Troca de senha (pode ser acessada por usuários autenticados ou com senha expirada) */}
+          <Route path="/change-password" element={<ChangePassword />} />
           
           {/* Auth Callback - Processa tokens de autenticação do Supabase */}
           <Route path="/auth/callback" element={<AuthCallback />} />

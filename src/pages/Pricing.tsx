@@ -108,7 +108,7 @@ export default function Pricing() {
     stripe_price_id: string;
   } | null>(null);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null);
   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
