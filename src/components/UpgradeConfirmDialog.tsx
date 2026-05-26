@@ -27,6 +27,10 @@ export function UpgradeConfirmDialog({
   if (!previewData) return null;
 
   const { isUpgrade, isDowngrade, currentPlan, newPlan, prorationAmount, daysRemaining, message } = previewData;
+  
+  // Garantir valores seguros para exibição
+  const safeProrationAmount = prorationAmount ?? 0;
+  const safeDaysRemaining = daysRemaining ?? 0;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -60,7 +64,7 @@ export function UpgradeConfirmDialog({
                   <Calendar className="h-4 w-4" />
                   Dias Restantes:
                 </span>
-                <span className="font-semibold text-white">{daysRemaining} dias</span>
+                <span className="font-semibold text-white">{safeDaysRemaining} dias</span>
               </div>
             </div>
 
@@ -72,7 +76,7 @@ export function UpgradeConfirmDialog({
                 </span>
               </div>
               <p className={`text-2xl font-bold ${isUpgrade ? 'text-green-400' : 'text-blue-400'}`}>
-                R$ {prorationAmount.toFixed(2)}
+                R$ {safeProrationAmount.toFixed(2)}
               </p>
               <p className="text-sm text-gray-300 mt-2">
                 {message}
