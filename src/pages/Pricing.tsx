@@ -183,6 +183,14 @@ export default function Pricing() {
       return;
     }
 
+    // 🆕 VERIFICAÇÃO: Bloquear clique no plano atual (redundância de segurança)
+    const isCurrentPlan = currentSubscription?.stripe_price_id === plan.priceId;
+    if (isCurrentPlan) {
+      console.log('⚠️ [Pricing] Usuário tentou clicar no plano atual - bloqueando ação');
+      setError('Você já está inscrito neste plano.');
+      return;
+    }
+
     // Plano Free não precisa de checkout
     if (plan.id === 'free') {
       try {
