@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, Shield, AlertCircle, Gift, Building2, ArrowRight } from 'lucide-react';
+import { Check, Shield, AlertCircle, Gift, Building2, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -110,6 +110,7 @@ export default function Pricing() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -181,6 +182,7 @@ export default function Pricing() {
 
     try {
       setLoading(pendingPlan.id);
+      setIsProcessing(true);
       setShowUpgradeDialog(false);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -202,7 +204,27 @@ export default function Pricing() {
 
       console.log('✅ [Pricing] Assinatura atualizada com sucesso:', data);
 
-      alert(`✅ ${data.message || 'Plano atualizado com sucesso!'}`);
+      // 🆕 Traduzir mensagem de sucesso para português
+      let successMessage = data.message || 'Plano atualizado com sucesso!';
+      
+      // Tradução das mensagens mais comuns do backend
+      const translations: Record<string, string> = {
+        'Subscription upgraded successfully': 'Upgrade realizado com sucesso',
+        'Subscription downgraded successfully': 'Downgrade realizado com sucesso',
+        'Plan changed successfully': 'Plano alterado com sucesso',
+        'Subscription updated successfully': 'Assinatura atualizada com sucesso',
+        'Upgrade completed': 'Upgrade concluído',
+        'Downgrade completed': 'Downgrade concluído'
+      };
+
+      // Aplicar tradução se houver correspondência
+      for (const [english, portuguese] of Object.entries(translations)) {
+        if (successMessage.includes(english)) {
+          successMessage = successMessage.replace(english, portuguese);
+        }
+      }
+
+      alert(`✅ ${successMessage}`);
 
       await checkUser();
       navigate('/dashboard');
@@ -212,6 +234,7 @@ export default function Pricing() {
       setError(errorMessage);
     } finally {
       setLoading(null);
+      setIsProcessing(false);
       setPendingPlan(null);
       setPreviewData(null);
     }
@@ -416,7 +439,27 @@ export default function Pricing() {
   const displaySubscriptionPlans = subscriptionPlans.filter(plan => plan.id !== 'free');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative">
+      {/* 🆕 Loading Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center">
+          <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-cyan-500/30 max-w-md w-full mx-4">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-16 w-16 text-cyan-400 animate-spin" />
+              <h3 className="text-xl font-bold text-white text-center">
+                Processando sua solicitação
+              </h3>
+              <p className="text-gray-300 text-center text-sm">
+                Estamos atualizando seu plano. Isso pode levar alguns instantes...
+              </p>
+              <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full animate-pulse" style={{ width: '70%' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
