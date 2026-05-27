@@ -1067,6 +1067,69 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
     const userId = currentUser.id;
     console.log('👤 Usuário a ser excluído:', userId, currentUser.email);
     
+    // 🆕 PASSO 1: CANCELAR ASSINATURA NO STRIPE ANTES DE EXCLUIR A CONTA
+    console.log('🚫 [DELETE SELF ACCOUNT] Verificando assinatura ativa...');
+    try {
+      const { data: subscriptions } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active');
+      
+      if (subscriptions && subscriptions.length > 0) {
+        console.log(`📊 [DELETE SELF ACCOUNT] Encontradas ${subscriptions.length} assinatura(s) ativa(s)`);
+        
+        // Obter sessão atual para autenticação
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          // Cancelar cada assinatura ativa
+          for (const subscription of subscriptions) {
+            if (subscription.stripe_subscription_id && subscription.stripe_subscription_id.startsWith('sub_')) {
+              console.log('🚫 [DELETE SELF ACCOUNT] Cancelando assinatura no Stripe:', subscription.stripe_subscription_id);
+              
+              try {
+                // Chamar a Edge Function de cancelamento
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const functionUrl = `${supabaseUrl}/functions/v1/cancel-subscription`;
+                
+                const response = await fetch(functionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    userId: userId,
+                  }),
+                });
+                
+                if (response.ok) {
+                  console.log('✅ [DELETE SELF ACCOUNT] Assinatura cancelada no Stripe com sucesso');
+                } else {
+                  const errorData = await response.json();
+                  console.warn('⚠️ [DELETE SELF ACCOUNT] Falha ao cancelar assinatura no Stripe:', errorData);
+                  // Continua com a exclusão mesmo se o cancelamento falhar
+                }
+              } catch (cancelError) {
+                console.warn('⚠️ [DELETE SELF ACCOUNT] Erro ao cancelar assinatura:', cancelError);
+                // Continua com a exclusão mesmo se o cancelamento falhar
+              }
+            } else {
+              console.log('ℹ️ [DELETE SELF ACCOUNT] Assinatura sem stripe_subscription_id, pulando cancelamento no Stripe');
+            }
+          }
+        } else {
+          console.warn('⚠️ [DELETE SELF ACCOUNT] Sessão não disponível, não foi possível cancelar assinatura no Stripe');
+        }
+      } else {
+        console.log('ℹ️ [DELETE SELF ACCOUNT] Nenhuma assinatura ativa encontrada');
+      }
+    } catch (subscriptionError) {
+      console.warn('⚠️ [DELETE SELF ACCOUNT] Erro ao verificar/cancelar assinatura:', subscriptionError);
+      // Continua com a exclusão mesmo se houver erro ao verificar assinatura
+    }
+    
     // 📊 Log de auditoria ANTES da exclusão
     try {
       await logAuditEvent(AuditAction.USER_DELETED, {
