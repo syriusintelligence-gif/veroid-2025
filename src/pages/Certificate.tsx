@@ -7,6 +7,7 @@ import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, In
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
 import { DownloadButton } from '@/components/DownloadButton';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
+import { motion } from 'framer-motion';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -311,26 +312,49 @@ export default function Certificate() {
         {/* Header */}
         <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-4 sm:p-6 text-white relative">
           <div className="relative flex flex-col">
-            {/* Logo no canto superior esquerdo */}
+            {/* Logo no canto superior esquerdo - aumentada em 20% */}
             <div className="mb-4">
               <img 
                 src="/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-20 sm:h-24 md:h-28 drop-shadow-lg"
+                className="h-24 sm:h-28 md:h-32 drop-shadow-lg"
               />
             </div>
             
-            {/* Título e subtítulo centralizados */}
-            <div className="text-center">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Certificado Digital</h1>
-              <p className="text-sm sm:text-base opacity-90 mb-3">Sistema de Autenticação Vero iD</p>
+            {/* Título e subtítulo centralizados com fontes 30% maiores */}
+            <div className="text-center flex flex-col items-center">
+              {/* Ícone rotativo acima do título */}
+              <motion.div
+                animate={{
+                  rotate: 360,
+                  scale: [1, 1.2, 1],
+                }}
+                transition={{
+                  rotate: {
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  },
+                  scale: {
+                    duration: 1,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }
+                }}
+                className="mb-3"
+              >
+                <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
+              </motion.div>
+              
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
+              <p className="text-base sm:text-lg md:text-xl opacity-90 mb-3">Sistema de Autenticação Vero iD</p>
               
               {/* Link do site oficial */}
               <a 
                 href="https://www.veroid.com.br" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 text-xs sm:text-sm font-semibold underline transition-colors inline-block"
+                className="text-cyan-400 hover:text-cyan-300 text-sm sm:text-base font-semibold underline transition-colors inline-block"
               >
                 www.veroid.com.br
               </a>
