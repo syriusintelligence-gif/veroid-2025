@@ -2,7 +2,8 @@
  * Funções de criptografia e gerenciamento de chaves
  * Inclui backup automático no Supabase
  * 🆕 ATUALIZADO: Limpa chaves locais no logout
- * 🔧 CORRIGIDO: generateKeyPair agora usa RSA-2048 e gera chaves com prefixo VID-PRIV-
+ * 🚀 OTIMIZADO: Usa ECDSA P-256 para chaves menores (~200 chars vs 1600+ do RSA-2048)
+ * 🎨 UI-FRIENDLY: Usa hash SHA-256 como identificador visual (16 caracteres)
  */
 
 import { saveKeyPairToSupabase, getKeyPair as getKeyPairFromSupabase } from './supabase-crypto';
@@ -12,7 +13,9 @@ const STORAGE_PREFIX = 'veroId_keyPair_';
 const BACKUP_PREFIX = 'veroId_backup_';
 
 /**
- * 🆕 CORRIGIDO: Gera um par de chaves RSA-2048 com validação robusta e prefixo VID-PRIV-
+ * 🚀 OTIMIZADO: Gera um par de chaves ECDSA P-256 com hash SHA-256 para UI
+ * Tamanho aproximado: ~200 caracteres (vs 1600+ do RSA-2048)
+ * Hash visual: 16 caracteres hexadecimais
  */
 export async function generateKeyPair(userId: string): Promise<KeyPair> {
   console.log('[generateKeyPair] ========== INÍCIO ==========');
@@ -24,13 +27,12 @@ export async function generateKeyPair(userId: string): Promise<KeyPair> {
     throw new Error('userId é obrigatório para gerar chaves');
   }
 
-  // 🔧 CORREÇÃO: Usar RSA-2048 ao invés de ECDSA P-256
+  // 🚀 OTIMIZAÇÃO: Usar ECDSA P-256 (muito menor que RSA-2048)
+  // P-256 oferece segurança equivalente a RSA-3072 com chaves 10x menores
   const keyPair = await window.crypto.subtle.generateKey(
     {
-      name: 'RSASSA-PKCS1-v1_5',
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: 'SHA-256',
+      name: 'ECDSA',
+      namedCurve: 'P-256',
     },
     true,
     ['sign', 'verify']
@@ -39,26 +41,37 @@ export async function generateKeyPair(userId: string): Promise<KeyPair> {
   const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
   const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
-  // Serializar chaves para string com prefixos corretos
-  // 🔧 CORRIGIDO: Remover truncamento - salvar chave completa
-  const publicKeyString = `VID-PUB-${btoa(JSON.stringify(publicKeyJwk))}`;
-  const privateKeyString = `VID-PRIV-${btoa(JSON.stringify(privateKeyJwk))}`;
+  // Serializar chaves para JSON
+  const publicKeyJson = JSON.stringify(publicKeyJwk);
+  const privateKeyJson = JSON.stringify(privateKeyJwk);
+
+  // 🎨 Gerar hash SHA-256 para identificador visual (16 primeiros caracteres)
+  const publicKeyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(publicKeyJson));
+  const publicKeyHashHex = Array.from(new Uint8Array(publicKeyHash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .substring(0, 16); // 16 caracteres do hash
+
+  // Serializar chaves para string com prefixos corretos (chave completa)
+  const publicKeyString = `VID-PUB-${btoa(publicKeyJson)}`;
+  const privateKeyString = `VID-PRIV-${btoa(privateKeyJson)}`;
 
   // Criar objeto de resultado
   const result: KeyPair = {
     id: crypto.randomUUID(),
     userId: userId,
-    publicKey: publicKeyString,
-    privateKey: privateKeyString,
+    publicKey: publicKeyString, // Chave completa (para Supabase)
+    privateKey: privateKeyString, // Chave completa (para Supabase)
+    publicKeyHash: publicKeyHashHex, // Hash curto (para exibição no UI)
     createdAt: new Date().toISOString()
   };
   
-  console.log('[generateKeyPair] KeyPair gerado:', {
+  console.log('[generateKeyPair] KeyPair gerado (ECDSA P-256):', {
     id: result.id,
-    publicKey: result.publicKey,
-    privateKey: result.privateKey.substring(0, 20) + '...',
-    userId: result.userId,
-    userIdType: typeof result.userId
+    publicKeySize: publicKeyString.length,
+    privateKeySize: privateKeyString.length,
+    publicKeyHash: publicKeyHashHex,
+    userId: result.userId
   });
   console.log('[generateKeyPair] ========== FIM ==========');
   
