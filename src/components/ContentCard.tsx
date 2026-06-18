@@ -19,6 +19,7 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
   const [content, setContent] = useState<SignedContent>(initialContent);
   const [isLoadingSocialLinks, setIsLoadingSocialLinks] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedVerification, setCopiedVerification] = useState(false);
   const [imageError, setImageError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -138,6 +139,17 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
     }
   };
   
+  const handleCopyVerificationText = async () => {
+    try {
+      const verificationText = `Verifique a autenticidade desse conteúdo em www.veroid.com.br - código ${content.verificationCode}`;
+      await navigator.clipboard.writeText(verificationText);
+      setCopiedVerification(true);
+      setTimeout(() => setCopiedVerification(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar texto de verificação:', err);
+    }
+  };
+  
   // Determina o ícone baseado no tipo de conteúdo (se houver plataformas)
   const getContentIcon = () => {
     if (!content.platforms || content.platforms.length === 0) {
@@ -241,6 +253,34 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
           <p className="text-xs opacity-75 mt-3 text-center">
             Use este código para verificar a autenticidade em nosso site
           </p>
+        </div>
+        
+        {/* Copiar Frase de Verificação para Redes Sociais */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
+          <p className="text-sm font-semibold text-green-900 mb-2">Compartilhe nas Redes Sociais</p>
+          <div className="bg-white p-3 rounded-lg border border-green-300 mb-3">
+            <p className="text-sm text-gray-700 break-words">
+              Verifique a autenticidade desse conteúdo em www.veroid.com.br - código {content.verificationCode}
+            </p>
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleCopyVerificationText}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            {copiedVerification ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Texto de Verificação
+              </>
+            )}
+          </Button>
         </div>
         
         {/* Conteúdo */}
