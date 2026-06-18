@@ -8,6 +8,9 @@ import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
 import { DownloadButton } from '@/components/DownloadButton';
 import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 import { motion } from 'framer-motion';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import type { CarouselMetadata } from '@/lib/types/carousel';
+import { supabase } from '@/lib/supabase';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -376,18 +379,41 @@ export default function Certificate() {
             </div>
           </div>
 
-          {/* Thumbnail */}
+          {/* Thumbnail ou Carrossel */}
           {content.thumbnail && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Preview do Conteúdo
+                Preview do Conteúdo {content.totalImages && content.totalImages > 1 && `(${content.totalImages} imagens)`}
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
-                <img 
-                  src={content.thumbnail} 
-                  alt="Thumbnail do conteúdo" 
-                  className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
-                />
+                {content.totalImages && content.totalImages > 1 && content.carouselMetadata ? (
+                  <Carousel className="w-full max-w-4xl mx-auto">
+                    <CarouselContent>
+                      {(content.carouselMetadata as CarouselMetadata).images.map((image, index) => (
+                        <CarouselItem key={image.id}>
+                          <div className="relative">
+                            <img 
+                              src={image.url} 
+                              alt={`Imagem ${index + 1} do conteúdo`}
+                              className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                            />
+                            <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                              {index + 1} / {content.totalImages}
+                            </div>
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="left-2" />
+                    <CarouselNext className="right-2" />
+                  </Carousel>
+                ) : (
+                  <img 
+                    src={content.thumbnail} 
+                    alt="Thumbnail do conteúdo" 
+                    className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                  />
+                )}
               </div>
             </div>
           )}

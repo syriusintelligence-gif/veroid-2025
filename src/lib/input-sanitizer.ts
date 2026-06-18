@@ -14,13 +14,11 @@ export function sanitizeInput(input: string): string {
   
   // Usa DOMPurify para remover conteúdo malicioso
   // Configuração: remove todas as tags HTML, mantém apenas texto
-  const clean = DOMPurify.sanitize(trimmed, {
+  return DOMPurify.sanitize(trimmed, {
     ALLOWED_TAGS: [], // Não permite nenhuma tag HTML
     ALLOWED_ATTR: [], // Não permite nenhum atributo
     KEEP_CONTENT: true, // Mantém o conteúdo de texto
   });
-  
-  return clean;
 }
 
 /**
@@ -211,7 +209,7 @@ export function sanitizeFileName(
   }
 
   // Remove espaços no início e fim
-  let clean = fileName.trim();
+  const clean = fileName.trim();
 
   // Se arquivo está vazio após trim, gera nome único
   if (!clean) {
@@ -241,12 +239,13 @@ export function sanitizeFileName(
   name = name.replace(/\.\./g, '');
   
   // Remove barras (/ e \)
-  name = name.replace(/[\/\\]/g, replacement);
+  name = name.replace(/[/\\]/g, replacement);
 
   // =====================================================
   // ETAPA 2: REMOÇÃO DE NULL BYTES
   // =====================================================
   // Remove null bytes (\x00) - usado em null byte injection
+  // eslint-disable-next-line no-control-regex
   name = name.replace(/\x00/g, '');
   name = name.replace(/\0/g, '');
 
@@ -321,7 +320,7 @@ export function sanitizeFileName(
   name = name.replace(/\.{2,}/g, '.');
 
   // Remove underscore/hífen no início e fim
-  name = name.replace(/^[_\-]+|[_\-]+$/g, '');
+  name = name.replace(/^[_-]+|[_-]+$/g, '');
 
   // =====================================================
   // ETAPA 12: VALIDAÇÃO DE NOMES RESERVADOS (WINDOWS)
