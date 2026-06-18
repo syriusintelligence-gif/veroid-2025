@@ -198,6 +198,65 @@ export default function Certificate() {
     }
   };
 
+  // Função para renderizar links sociais
+  const renderSocialLinks = () => {
+    console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
+    console.log('🔍 [DEBUG] content:', content);
+    console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
+    
+    if (!content?.creatorSocialLinks) {
+      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
+      return null;
+    }
+
+    const relevantLinks: Array<{ platform: string; url: string }> = [];
+    const socialLinks = content.creatorSocialLinks;
+    
+    // Itera sobre todos os links sociais disponíveis
+    Object.entries(socialLinks).forEach(([platform, url]) => {
+      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
+      if (url && typeof url === 'string' && url.trim() !== '') {
+        relevantLinks.push({ platform, url });
+      }
+    });
+
+    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
+
+    if (relevantLinks.length === 0) {
+      console.log('⚠️ [DEBUG] Nenhum link válido encontrado');
+      return null;
+    }
+
+    return (
+      <div className="mb-6 sm:mb-8">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          Perfis Oficiais do Criador
+        </div>
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 rounded-xl border-2 border-blue-200">
+          <p className="text-sm sm:text-base text-gray-800 mb-4 font-medium">
+            🔗 Conecte-se com <strong className="text-blue-600">{content.creatorName}</strong>:
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {relevantLinks.map(({ platform, url }) => (
+              <a
+                key={platform}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-4 sm:px-5 py-2 sm:py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-sm sm:text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
+              >
+                {getSocialIcon(platform)}
+                <span className="text-gray-800">{getPlatformLabel(platform)}</span>
+                <LinkIcon className="h-4 w-4 text-blue-500" />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return <PageLoadingSpinner />;
   }
