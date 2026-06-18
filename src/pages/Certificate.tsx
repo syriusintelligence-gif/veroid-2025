@@ -339,8 +339,8 @@ export default function Certificate() {
               </motion.div>
             </div>
             
-            {/* Título e subtítulo centralizados - mais próximos do ícone */}
-            <div className="text-center mt-4 sm:mt-5">
+            {/* Título e subtítulo centralizados - bem próximos do ícone */}
+            <div className="text-center mt-2 sm:mt-3">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">Certificado Digital</h1>
               <p className="text-base sm:text-lg md:text-xl opacity-90 mb-1">Sistema de Autenticação Vero iD</p>
               
