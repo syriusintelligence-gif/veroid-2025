@@ -15,15 +15,15 @@
  * - Logs detalhados para auditoria
  * 
  * BUCKETS:
- * - temp-uploads: Arquivos temporários (max 200MB para vídeos, deletados após 24h)
+ * - temp-uploads: Arquivos temporários (max 10MB, deletados após 24h)
  * - signed-documents: Documentos assinados (max 50MB, permanentes)
  * 
  * NOTA: A operação MOVE foi substituída por COPY + DELETE devido a
  * limitações do Supabase Storage com políticas RLS entre buckets.
  * 
  * @author VeroID Security Team
- * @version 1.3.0 - Aumentado limite para vídeos (200MB)
- * @date 2026-01-27
+ * @version 1.2.0 - Adicionado logging de auditoria (Fase 2)
+ * @date 2026-01-24
  */
 
 import { supabase } from '@/lib/supabase';
@@ -141,8 +141,7 @@ const CONFIG = {
   SIGNED_BUCKET: 'signed-documents',
   
   // Limites
-  // 🆕 ATUALIZADO: Aumentado para 200MB para suportar vídeos
-  MAX_FILE_SIZE_TEMP: 200 * 1024 * 1024, // 200MB (vídeos)
+  MAX_FILE_SIZE_TEMP: 10 * 1024 * 1024, // 10MB
   MAX_FILE_SIZE_SIGNED: 50 * 1024 * 1024, // 50MB
 };
 
@@ -655,6 +654,10 @@ export async function moveToSignedDocuments(
 /**
  * Gera URL assinada temporária para download de arquivo
  * 
+ * SEGURANÇA:
+ * - Para bucket 'signed-documents': Acesso PÚBLICO permitido (certificados são públicos)
+ * - Para outros buckets: Valida autenticação e permissões
+ * 
  * @param filePath - Path do arquivo
  * @param expiresIn - Tempo de expiração em segundos (padrão: 1 hora)
  * @param bucket - Bucket onde o arquivo está (padrão: signed-documents)
@@ -685,17 +688,7 @@ export async function getSignedDownloadUrl(
   // VALIDAÇÕES DE SEGURANÇA
   // =====================================================
   
-  // 1. Validar usuário autenticado
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return {
-      success: false,
-      error: 'Usuário não autenticado',
-      executionTime: Date.now() - startTime
-    };
-  }
-  
-  // 2. Validar path
+  // 1. Validar path (sempre necessário para prevenir path traversal)
   if (!isValidPath(filePath)) {
     return {
       success: false,
@@ -704,13 +697,31 @@ export async function getSignedDownloadUrl(
     };
   }
   
-  // 3. Validar userId no path
-  if (!validateUserIdInPath(filePath, currentUser.id)) {
-    return {
-      success: false,
-      error: 'Permissão negada: você não tem acesso a este arquivo',
-      executionTime: Date.now() - startTime
-    };
+  // 2. Para bucket 'signed-documents': PERMITIR ACESSO PÚBLICO
+  //    Para outros buckets: EXIGIR AUTENTICAÇÃO
+  const isPublicBucket = bucket === CONFIG.SIGNED_BUCKET;
+  
+  if (!isPublicBucket) {
+    // Validar usuário autenticado (apenas para buckets privados)
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return {
+        success: false,
+        error: 'Usuário não autenticado',
+        executionTime: Date.now() - startTime
+      };
+    }
+    
+    // Validar userId no path (apenas para buckets privados)
+    if (!validateUserIdInPath(filePath, currentUser.id)) {
+      return {
+        success: false,
+        error: 'Permissão negada: você não tem acesso a este arquivo',
+        executionTime: Date.now() - startTime
+      };
+    }
+  } else {
+    console.log('🌐 [Storage] Acesso público permitido para bucket signed-documents');
   }
   
   // =====================================================
@@ -735,18 +746,24 @@ export async function getSignedDownloadUrl(
     
     console.log('✅ [Storage] URL assinada gerada com sucesso:', {
       expiresAt: expiresAt.toISOString(),
-      executionTime: `${executionTime}ms`
+      executionTime: `${executionTime}ms`,
+      publicAccess: isPublicBucket
     });
     
     // 🆕 FASE 2: Registrar log de auditoria
+    // Obter usuário atual se disponível (para auditoria)
+    const currentUser = await getCurrentUser();
+    const userId = currentUser?.id || 'anonymous'; // anonymous para downloads públicos
+    
     logAuditEvent(AuditAction.FILE_DOWNLOADED, {
       success: true,
       bucket,
       filePath,
       expiresIn,
       expiresAt: expiresAt.toISOString(),
-      executionTime
-    }, currentUser.id).catch(err => {
+      executionTime,
+      publicAccess: isPublicBucket
+    }, userId).catch(err => {
       console.warn('⚠️ [Storage] Erro ao registrar log de download (não crítico):', err);
     });
     
@@ -762,13 +779,17 @@ export async function getSignedDownloadUrl(
     console.error('❌ [Storage] Erro ao gerar URL assinada:', error);
     
     // 🆕 FASE 2: Registrar log de falha
+    const currentUser = await getCurrentUser();
+    const userId = currentUser?.id || 'anonymous';
+    
     logAuditEvent(AuditAction.FILE_DOWNLOADED, {
       success: false,
       bucket,
       filePath,
       error: (error as Error).message || 'Erro desconhecido ao gerar URL',
-      executionTime
-    }, currentUser.id).catch(err => {
+      executionTime,
+      publicAccess: isPublicBucket
+    }, userId).catch(err => {
       console.warn('⚠️ [Storage] Erro ao registrar log de falha (não crítico):', err);
     });
     
