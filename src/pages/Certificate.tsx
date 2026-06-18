@@ -71,6 +71,10 @@ export default function Certificate() {
           console.log('✅ [QRCODE] Conteúdo completo carregado do Supabase');
           console.log('🔍 [QRCODE] Links sociais do Supabase:', fullContent.creatorSocialLinks);
           console.log('🔍 [QRCODE] Quantidade de links:', fullContent.creatorSocialLinks ? Object.keys(fullContent.creatorSocialLinks).length : 0);
+          console.log('🎠 [QRCODE] totalImages do Supabase:', fullContent.totalImages);
+          console.log('🎠 [QRCODE] carouselMetadata do Supabase:', fullContent.carouselMetadata);
+          console.log('🎠 [QRCODE] Tipo de carouselMetadata:', typeof fullContent.carouselMetadata);
+          console.log('🎠 [QRCODE] fullContent completo:', JSON.stringify(fullContent, null, 2));
           setContent(fullContent);
           
           // Incrementa contador de verificações
