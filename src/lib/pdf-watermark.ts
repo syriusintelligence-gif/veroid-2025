@@ -5,12 +5,14 @@
  * Utiliza pdf-lib para manipulação client-side de PDFs.
  * 
  * @module pdf-watermark
- * @version 3.1.0
- * @updated 2026-06-18 - Ajustes finais: barra compacta + distanciamento + marca diagonal
+ * @version 3.2.0
+ * @updated 2026-06-18 - Adicionado QR code na barra e página final
  */
 
 import { PDFDocument, rgb, StandardFonts, degrees, PageSizes } from 'pdf-lib';
 import { SignedContent } from './supabase-crypto';
+import QRCode from 'qrcode';
+import { generateQRData } from './qrcode';
 
 /**
  * Verifica se uma URL aponta para um PDF
@@ -30,9 +32,9 @@ export function isPdfMimeType(mimeType?: string): boolean {
 
 /**
  * Adiciona watermark a um PDF:
- * 1. Barra inferior compacta em TODAS as páginas originais
+ * 1. Barra inferior compacta em TODAS as páginas originais (com QR code)
  * 2. Marca diagonal "VERIFICADO" discreta no centro
- * 3. Página extra de certificação completa ao final
+ * 3. Página extra de certificação completa ao final (com QR code)
  */
 export async function addWatermarkToPdf(
   pdfUrl: string,
@@ -52,6 +54,27 @@ export async function addWatermarkToPdf(
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     
+    // Gerar QR code como imagem PNG
+    console.log('📄 [PDF Watermark] Gerando QR code...');
+    const qrData = generateQRData(certificateData);
+    const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+      width: 200,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF',
+      },
+    });
+    
+    // Converter data URL para bytes
+    const qrCodeBytes = Uint8Array.from(
+      atob(qrCodeDataUrl.split(',')[1]),
+      c => c.charCodeAt(0)
+    );
+    
+    // Embed QR code image
+    const qrCodeImage = await pdfDoc.embedPng(qrCodeBytes);
+    
     // Obter todas as páginas originais
     const pages = pdfDoc.getPages();
     
@@ -68,6 +91,7 @@ export async function addWatermarkToPdf(
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
+      const qrSize = 28; // QR code pequeno na barra
       
       // Mover conteúdo para cima (com margem)
       page.translateContent(0, totalSpace);
@@ -93,9 +117,17 @@ export async function addWatermarkToPdf(
         color: rgb(0.7, 0.7, 0.7),
       });
       
-      // Título
-      page.drawText('Verificado by Vero iD', {
+      // QR code pequeno no canto esquerdo
+      page.drawImage(qrCodeImage, {
         x: padding,
+        y: 3.5,
+        width: qrSize,
+        height: qrSize,
+      });
+      
+      // Título (ajustado para dar espaço ao QR code)
+      page.drawText('Verificado by Vero iD', {
+        x: padding + qrSize + 8,
         y: watermarkHeight - 12,
         size: fontSize,
         font: font,
@@ -109,7 +141,7 @@ export async function addWatermarkToPdf(
       const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
       
       page.drawText(infoLine, {
-        x: padding,
+        x: padding + qrSize + 8,
         y: watermarkHeight - 25,
         size: fontSizeSmall,
         font: fontRegular,
@@ -293,6 +325,44 @@ export async function addWatermarkToPdf(
       color: rgb(0.2, 0.6, 0.9),
       opacity: 0.08,
       rotate: degrees(-45),
+    });
+    
+    // QR Code grande na página de certificação
+    const qrSizeLarge = 150;
+    const qrX = (width - qrSizeLarge) / 2; // Centralizado
+    
+    currentY -= lineHeight * 2;
+    
+    // Título do QR Code
+    certPage.drawText('QR Code de Verificação', {
+      x: padding,
+      y: currentY,
+      size: 12,
+      font: font,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    
+    currentY -= lineHeight * 1.5;
+    
+    // QR Code centralizado
+    certPage.drawImage(qrCodeImage, {
+      x: qrX,
+      y: currentY - qrSizeLarge,
+      width: qrSizeLarge,
+      height: qrSizeLarge,
+    });
+    
+    currentY -= qrSizeLarge + lineHeight;
+    
+    // Instrução abaixo do QR Code
+    const instructionText = 'Escaneie este QR Code para verificar a autenticidade do certificado';
+    const instructionWidth = fontRegular.widthOfTextAtSize(instructionText, 9);
+    certPage.drawText(instructionText, {
+      x: (width - instructionWidth) / 2,
+      y: currentY,
+      size: 9,
+      font: fontRegular,
+      color: rgb(0.4, 0.4, 0.4),
     });
     
     // Rodapé
