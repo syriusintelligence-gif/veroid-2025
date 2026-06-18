@@ -5,15 +5,17 @@
  * Gera URLs assinadas temporárias (válidas por 1 hora) para download seguro.
  * 
  * @module DownloadButton
- * @version 1.0.0
- * @phase FASE 4 - Implementar Download
+ * @version 2.0.0
+ * @phase FASE 4 - Implementar Download com opções
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, FileText, Image, Video, File } from 'lucide-react';
+import { Download, Loader2, FileText, Image, Video, File, ExternalLink } from 'lucide-react';
 import { getSignedDownloadUrl } from '@/lib/services/storage-service';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SignedContent } from '@/lib/supabase-crypto';
+import { downloadImageWithWatermark, isImageMimeType } from '@/lib/watermark';
 
 /**
  * Props do componente DownloadButton
@@ -42,6 +44,12 @@ interface DownloadButtonProps {
   
   /** Mostrar informações do arquivo (padrão: true) */
   showFileInfo?: boolean;
+  
+  /** Dados do certificado (opcional, para watermark em imagens) */
+  certificateData?: SignedContent;
+  
+  /** Adicionar watermark em imagens (padrão: true) */
+  addWatermark?: boolean;
 }
 
 /**
@@ -70,17 +78,7 @@ function getFileIcon(mimeType?: string) {
  * Componente DownloadButton
  * 
  * Permite download seguro de documentos assinados do Supabase Storage.
- * Gera URLs assinadas temporárias que expiram em 1 hora.
- * 
- * @example
- * ```tsx
- * <DownloadButton
- *   filePath="user-123/signed_1737360000_document.pdf"
- *   fileName="document.pdf"
- *   mimeType="application/pdf"
- *   fileSize={1234567}
- * />
- * ```
+ * Oferece opções de "Abrir" (nova aba) ou "Baixar" (salvar como).
  */
 export function DownloadButton({
   filePath,
@@ -91,15 +89,50 @@ export function DownloadButton({
   variant = 'outline',
   size = 'sm',
   showFileInfo = true,
+  certificateData,
+  addWatermark = true,
 }: DownloadButtonProps) {
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Manipula o download do arquivo
+   * Abre o arquivo em nova aba
+   */
+  const handleOpen = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔓 [DownloadButton] Abrindo arquivo em nova aba:', {
+        filePath,
+        fileName,
+        bucket,
+      });
+
+      const result = await getSignedDownloadUrl(filePath, 3600, bucket);
+
+      if (!result.success || !result.signedUrl) {
+        throw new Error(result.error || 'Erro ao gerar URL');
+      }
+
+      // Abrir em nova aba
+      window.open(result.signedUrl, '_blank', 'noopener,noreferrer');
+      console.log('✅ [DownloadButton] Arquivo aberto em nova aba');
+
+    } catch (error) {
+      console.error('❌ [DownloadButton] Erro ao abrir:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao abrir arquivo';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Faz download do arquivo (salvar como)
    */
   const handleDownload = async () => {
-    setIsDownloading(true);
+    setIsLoading(true);
     setError(null);
 
     try {
@@ -107,68 +140,89 @@ export function DownloadButton({
         filePath,
         fileName,
         bucket,
+        mimeType,
+        hasWatermark: addWatermark && isImageMimeType(mimeType) && !!certificateData,
       });
 
-      // 1. Obter URL assinada (válida por 1 hora)
       const result = await getSignedDownloadUrl(filePath, 3600, bucket);
 
-      if (!result.success) {
+      if (!result.success || !result.signedUrl) {
         throw new Error(result.error || 'Erro ao gerar URL de download');
       }
 
-      if (!result.signedUrl) {
-        throw new Error('URL de download não foi gerada');
+      console.log('✅ [DownloadButton] URL assinada gerada');
+
+      // Se for imagem e tiver certificateData, adiciona watermark
+      if (addWatermark && isImageMimeType(mimeType) && certificateData) {
+        console.log('🖼️ [DownloadButton] Adicionando watermark à imagem...');
+        await downloadImageWithWatermark(result.signedUrl, certificateData, fileName);
+        console.log('✅ [DownloadButton] Download com watermark concluído');
+      } else {
+        // Download direto
+        const link = document.createElement('a');
+        link.href = result.signedUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        console.log('✅ [DownloadButton] Download direto iniciado');
       }
-
-      console.log('✅ [DownloadButton] URL assinada gerada:', {
-        expiresAt: result.expiresAt?.toISOString(),
-        executionTime: result.executionTime,
-      });
-
-      // 2. Download via browser
-      const link = document.createElement('a');
-      link.href = result.signedUrl;
-      link.download = fileName;
-      link.target = '_blank'; // Abre em nova aba se o navegador bloquear download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log('✅ [DownloadButton] Download iniciado com sucesso');
 
     } catch (error) {
       console.error('❌ [DownloadButton] Erro no download:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao baixar arquivo';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao baixar arquivo';
       setError(errorMessage);
     } finally {
-      setIsDownloading(false);
+      setIsLoading(false);
     }
   };
 
   const FileIcon = getFileIcon(mimeType);
 
   return (
-    <div className="space-y-2">
-      {/* Botão de Download */}
-      <Button
-        onClick={handleDownload}
-        disabled={isDownloading}
-        variant={variant}
-        size={size}
-        className="w-full sm:w-auto"
-      >
-        {isDownloading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Baixando...
-          </>
-        ) : (
-          <>
-            <Download className="mr-2 h-4 w-4" />
-            Baixar Documento
-          </>
-        )}
-      </Button>
+    <div className="space-y-3">
+      {/* Botões de Ação */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button
+          onClick={handleOpen}
+          disabled={isLoading}
+          variant="outline"
+          size={size}
+          className="flex-1"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            <>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Abrir
+            </>
+          )}
+        </Button>
+        
+        <Button
+          onClick={handleDownload}
+          disabled={isLoading}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+          size={size}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Baixando...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar Documento
+            </>
+          )}
+        </Button>
+      </div>
 
       {/* Informações do Arquivo */}
       {showFileInfo && (mimeType || fileSize) && (
@@ -188,7 +242,7 @@ export function DownloadButton({
       {error && (
         <Alert variant="destructive" className="mt-2">
           <AlertDescription>
-            <strong>Erro ao baixar:</strong> {error}
+            <strong>Erro:</strong> {error}
           </AlertDescription>
         </Alert>
       )}

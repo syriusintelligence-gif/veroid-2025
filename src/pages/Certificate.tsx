@@ -224,84 +224,6 @@ export default function Certificate() {
 
   const { date: formattedDate, time: formattedTime } = formatDate(content.createdAt);
 
-  // 🆕 FUNÇÃO RENDERIZAÇÃO DE LINKS SOCIAIS - MOVIDA PARA CIMA E COM CSS FORÇADO
-  const renderSocialLinks = () => {
-    console.log('🔍 [DEBUG renderSocialLinks] Verificando links sociais...');
-    console.log('🔍 [DEBUG] content:', content);
-    console.log('🔍 [DEBUG] content.creatorSocialLinks:', content?.creatorSocialLinks);
-    
-    if (!content?.creatorSocialLinks) {
-      console.log('⚠️ [DEBUG] Sem links sociais disponíveis');
-      return null;
-    }
-
-    const relevantLinks: Array<{ platform: string; url: string }> = [];
-    const socialLinks = content.creatorSocialLinks;
-    
-    // Itera sobre todos os links sociais disponíveis
-    Object.entries(socialLinks).forEach(([platform, url]) => {
-      console.log(`🔍 [DEBUG] Processando ${platform}: ${url}`);
-      if (url && typeof url === 'string' && url.trim() !== '') {
-        relevantLinks.push({ platform, url });
-      }
-    });
-
-    console.log(`✅ [DEBUG] Total de links encontrados: ${relevantLinks.length}`);
-
-    if (relevantLinks.length === 0) {
-      console.log('⚠️ [DEBUG] Nenhum link válido encontrado');
-      return null;
-    }
-
-    return (
-      <div 
-        className="mb-8 w-full"
-        style={{ 
-          display: 'block !important',
-          visibility: 'visible !important',
-          opacity: '1 !important',
-          position: 'relative',
-          zIndex: 10,
-          minHeight: '100px'
-        }}
-      >
-        <div className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Globe className="h-5 w-5" />
-          Perfis Oficiais do Criador
-        </div>
-        <div 
-          className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border-2 border-blue-300 shadow-lg"
-          style={{ 
-            display: 'block !important',
-            visibility: 'visible !important'
-          }}
-        >
-          <p className="text-base text-gray-800 mb-4 font-medium">
-            🔗 Conecte-se com <strong className="text-blue-600">{content.creatorName}</strong>:
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {relevantLinks.map(({ platform, url }) => (
-              <a
-                key={platform}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 px-5 py-3 rounded-full border-2 border-blue-400 hover:border-blue-600 text-base font-semibold transition-all shadow-md hover:shadow-xl transform hover:scale-105"
-                style={{ 
-                  display: 'inline-flex !important',
-                  visibility: 'visible !important'
-                }}
-              >
-                {getSocialIcon(platform)}
-                <span className="text-gray-800">{getPlatformLabel(platform)}</span>
-                <LinkIcon className="h-4 w-4 text-blue-500" />
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
@@ -326,6 +248,39 @@ export default function Certificate() {
             ✓ Conteúdo Autenticado
           </div>
 
+          {/* Instruções de Verificação */}
+          <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 rounded-xl border-2 border-blue-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-5 w-5 text-blue-600" />
+              <h3 className="text-base sm:text-lg font-bold text-blue-900">
+                Como Verificar Este Certificado
+              </h3>
+            </div>
+            <div className="space-y-3 text-sm sm:text-base text-gray-700">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">1. Verifique o Código</p>
+                  <p className="text-gray-600">Compare o código de verificação exibido com o código fornecido pelo criador</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">2. Confira os Dados</p>
+                  <p className="text-gray-600">Verifique o nome do criador, data de assinatura e hash do conteúdo</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">3. Perfis Oficiais</p>
+                  <p className="text-gray-600">Verifique pelos links do certificado se os perfis oficiais correspondem ao do criador</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Thumbnail */}
           {content.thumbnail && (
             <div className="mb-6 sm:mb-8">
@@ -342,21 +297,7 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* Conteúdo do Certificado */}
-          {content.content && (
-            <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Conteúdo
-              </div>
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
-                <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">
-                  {content.content}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Download Original File */}
+                    {/* Download Original File */}
           {content.filePath && content.fileName && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -379,45 +320,23 @@ export default function Certificate() {
             </div>
           )}
 
-          {/* Instruções de Verificação */}
-          <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 rounded-xl border-2 border-blue-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Info className="h-5 w-5 text-blue-600" />
-              <h3 className="text-base sm:text-lg font-bold text-blue-900">
-                Como Verificar Este Certificado
-              </h3>
-            </div>
-            <div className="space-y-3 text-sm sm:text-base text-gray-700">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900">1. Escaneie o QR Code</p>
-                  <p className="text-gray-600">Use a câmera do seu celular para escanear o QR Code e acessar este certificado</p>
-                </div>
+          {/* Conteúdo do Certificado */}
+          {content.content && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Descrição
               </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900">2. Verifique o Código</p>
-                  <p className="text-gray-600">Compare o código de verificação exibido com o código fornecido pelo criador</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900">3. Confira os Dados</p>
-                  <p className="text-gray-600">Verifique o nome do criador, data de assinatura e hash do conteúdo</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900">4. Valide a Autenticidade</p>
-                  <p className="text-gray-600">Este certificado garante que o conteúdo não foi alterado desde sua criação</p>
-                </div>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
+                <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">
+                  {content.content}
+                </p>
               </div>
             </div>
-          </div>
+          )}
+
+
+
+
 
           {/* Creator */}
           <div className="mb-6 sm:mb-8">
@@ -429,8 +348,7 @@ export default function Certificate() {
             </div>
           </div>
 
-          {/* 🆕 LINKS SOCIAIS MOVIDOS PARA LOGO APÓS O NOME DO CRIADOR */}
-          {renderSocialLinks()}
+
 
           {/* Date */}
           <div className="mb-6 sm:mb-8">
