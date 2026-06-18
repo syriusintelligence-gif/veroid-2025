@@ -310,29 +310,23 @@ export default function Certificate() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-3 sm:p-4 text-white relative">
+        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-2 sm:p-3 text-white relative">
           <div className="relative">
-            {/* Primeira linha: Logo à esquerda e Ícone rotativo à direita do centro */}
-            <div className="flex items-start justify-between mb-2">
-              {/* Logo no canto superior esquerdo */}
+            {/* Primeira linha: Logo à esquerda e Ícone pulsante no centro */}
+            <div className="flex items-start justify-between mb-1">
+              {/* Logo no canto superior esquerdo - aumentada em 30% */}
               <img 
                 src="/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-16 sm:h-20 md:h-24 drop-shadow-lg"
+                className="h-20 sm:h-26 md:h-32 drop-shadow-lg"
               />
               
-              {/* Ícone rotativo */}
+              {/* Ícone pulsante (sem rotação) */}
               <motion.div
                 animate={{
-                  rotate: 360,
                   scale: [1, 1.2, 1],
                 }}
                 transition={{
-                  rotate: {
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "linear"
-                  },
                   scale: {
                     duration: 2,
                     repeat: Infinity,
@@ -345,10 +339,10 @@ export default function Certificate() {
               </motion.div>
             </div>
             
-            {/* Título e subtítulo centralizados */}
-            <div className="text-center mt-8 sm:mt-10">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
-              <p className="text-base sm:text-lg md:text-xl opacity-90 mb-2">Sistema de Autenticação Vero iD</p>
+            {/* Título e subtítulo centralizados - mais próximos do ícone */}
+            <div className="text-center mt-4 sm:mt-5">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">Certificado Digital</h1>
+              <p className="text-base sm:text-lg md:text-xl opacity-90 mb-1">Sistema de Autenticação Vero iD</p>
               
               {/* Link do site oficial */}
               <a 
