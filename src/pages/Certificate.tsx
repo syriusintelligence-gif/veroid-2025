@@ -306,23 +306,35 @@ export default function Certificate() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-6 sm:p-8 md:p-12 text-center text-white relative">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'40\' fill=\'none\' stroke=\'white\' stroke-width=\'2\'/%3E%3C/svg%3E")',
-            }}></div>
-          </div>
-          <div className="relative">
-            <img 
-              src="/logo-veroid.png" 
-              alt="Vero iD Logo" 
-              className="h-16 sm:h-20 md:h-24 mx-auto mb-4 sm:mb-6 drop-shadow-lg"
-            />
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
-            <p className="text-sm sm:text-base md:text-lg opacity-90">Sistema de Autenticação Vero iD</p>
+        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-4 sm:p-6 text-white relative">
+          <div className="relative flex flex-col">
+            {/* Logo no canto superior esquerdo */}
+            <div className="mb-4">
+              <img 
+                src="/logo-veroid.png" 
+                alt="Vero iD Logo" 
+                className="h-20 sm:h-24 md:h-28 drop-shadow-lg"
+              />
+            </div>
+            
+            {/* Título e subtítulo centralizados */}
+            <div className="text-center">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Certificado Digital</h1>
+              <p className="text-sm sm:text-base opacity-90 mb-3">Sistema de Autenticação Vero iD</p>
+              
+              {/* Link do site oficial */}
+              <a 
+                href="https://www.veroid.com.br" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 text-xs sm:text-sm font-semibold underline transition-colors inline-block"
+              >
+                www.veroid.com.br
+              </a>
+            </div>
           </div>
         </div>
 
