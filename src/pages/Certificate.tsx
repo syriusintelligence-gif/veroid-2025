@@ -443,7 +443,8 @@ export default function Certificate() {
             </div>
           </div>
 
-
+          {/* Perfis Oficiais do Criador */}
+          {renderSocialLinks()}
 
           {/* Date */}
           <div className="mb-6 sm:mb-8">
@@ -487,9 +488,6 @@ export default function Certificate() {
               </div>
             </div>
           )}
-
-          {/* Perfis Oficiais do Criador */}
-          {renderSocialLinks()}
 
           {/* Verification Code */}
           <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
