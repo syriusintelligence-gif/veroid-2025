@@ -386,34 +386,54 @@ export default function Certificate() {
                 Preview do Conteúdo {content.totalImages && content.totalImages > 1 && `(${content.totalImages} imagens)`}
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
-                {content.totalImages && content.totalImages > 1 && content.carouselMetadata ? (
-                  <Carousel className="w-full max-w-4xl mx-auto">
-                    <CarouselContent>
-                      {(content.carouselMetadata as CarouselMetadata).images.map((image, index) => (
-                        <CarouselItem key={image.id}>
-                          <div className="relative">
-                            <img 
-                              src={image.url} 
-                              alt={`Imagem ${index + 1} do conteúdo`}
-                              className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
-                            />
-                            <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
-                              {index + 1} / {content.totalImages}
-                            </div>
-                          </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="left-2" />
-                    <CarouselNext className="right-2" />
-                  </Carousel>
-                ) : (
-                  <img 
-                    src={content.thumbnail} 
-                    alt="Thumbnail do conteúdo" 
-                    className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
-                  />
-                )}
+                {(() => {
+                  console.log('🔍 [CAROUSEL DEBUG] totalImages:', content.totalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] carouselMetadata:', content.carouselMetadata);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição para exibir carrossel:', content.totalImages && content.totalImages > 1 && content.carouselMetadata);
+                  
+                  if (content.totalImages && content.totalImages > 1 && content.carouselMetadata) {
+                    const metadata = content.carouselMetadata as CarouselMetadata;
+                    console.log('🔍 [CAROUSEL DEBUG] images array:', metadata.images);
+                    console.log('🔍 [CAROUSEL DEBUG] Número de imagens no array:', metadata.images?.length);
+                    
+                    return (
+                      <Carousel className="w-full max-w-4xl mx-auto">
+                        <CarouselContent>
+                          {metadata.images.map((image, index) => {
+                            console.log(`🔍 [CAROUSEL DEBUG] Renderizando imagem ${index + 1}:`, image.url);
+                            return (
+                              <CarouselItem key={image.id}>
+                                <div className="relative">
+                                  <img 
+                                    src={image.url} 
+                                    alt={`Imagem ${index + 1} do conteúdo`}
+                                    className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                                    onLoad={() => console.log(`✅ [CAROUSEL] Imagem ${index + 1} carregada com sucesso`)}
+                                    onError={(e) => console.error(`❌ [CAROUSEL] Erro ao carregar imagem ${index + 1}:`, e)}
+                                  />
+                                  <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                                    {index + 1} / {content.totalImages}
+                                  </div>
+                                </div>
+                              </CarouselItem>
+                            );
+                          })}
+                        </CarouselContent>
+                        <CarouselPrevious className="left-2" />
+                        <CarouselNext className="right-2" />
+                      </Carousel>
+                    );
+                  } else {
+                    console.log('🔍 [CAROUSEL DEBUG] Exibindo imagem única (thumbnail)');
+                    return (
+                      <img 
+                        src={content.thumbnail} 
+                        alt="Thumbnail do conteúdo" 
+                        className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
+                      />
+                    );
+                  }
+                })()}
               </div>
             </div>
           )}
