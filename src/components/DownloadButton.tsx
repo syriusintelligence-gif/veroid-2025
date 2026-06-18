@@ -5,13 +5,13 @@
  * Gera URLs assinadas temporárias (válidas por 1 hora) para download seguro.
  * 
  * @module DownloadButton
- * @version 2.0.0
- * @phase FASE 4 - Implementar Download com opções
+ * @version 3.0.0
+ * @updated 2026-06-18 - Removido botão "Abrir", mantido apenas "Baixar Documento"
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, FileText, Image, Video, File, ExternalLink } from 'lucide-react';
+import { Download, Loader2, FileText, Image, Video, File } from 'lucide-react';
 import { getSignedDownloadUrl } from '@/lib/services/storage-service';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SignedContent } from '@/lib/supabase-crypto';
@@ -79,7 +79,7 @@ function getFileIcon(mimeType?: string) {
  * Componente DownloadButton
  * 
  * Permite download seguro de documentos assinados do Supabase Storage.
- * Oferece opções de "Abrir" (nova aba) ou "Baixar" (salvar como).
+ * Versão simplificada: apenas botão de download.
  */
 export function DownloadButton({
   filePath,
@@ -87,47 +87,14 @@ export function DownloadButton({
   mimeType,
   fileSize,
   bucket = 'signed-documents',
-  variant = 'outline',
-  size = 'sm',
+  variant = 'default',
+  size = 'default',
   showFileInfo = true,
   certificateData,
   addWatermark = true,
 }: DownloadButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Abre o arquivo em nova aba
-   */
-  const handleOpen = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log('🔓 [DownloadButton] Abrindo arquivo em nova aba:', {
-        filePath,
-        fileName,
-        bucket,
-      });
-
-      const result = await getSignedDownloadUrl(filePath, 3600, bucket);
-
-      if (!result.success || !result.signedUrl) {
-        throw new Error(result.error || 'Erro ao gerar URL');
-      }
-
-      // Abrir em nova aba
-      window.open(result.signedUrl, '_blank', 'noopener,noreferrer');
-      console.log('✅ [DownloadButton] Arquivo aberto em nova aba');
-
-    } catch (error) {
-      console.error('❌ [DownloadButton] Erro ao abrir:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao abrir arquivo';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   /**
    * Faz download do arquivo (salvar como)
@@ -190,47 +157,26 @@ export function DownloadButton({
 
   return (
     <div className="space-y-3">
-      {/* Botões de Ação */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button
-          onClick={handleOpen}
-          disabled={isLoading}
-          variant="outline"
-          size={size}
-          className="flex-1"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processando...
-            </>
-          ) : (
-            <>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Abrir
-            </>
-          )}
-        </Button>
-        
-        <Button
-          onClick={handleDownload}
-          disabled={isLoading}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-          size={size}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Baixando...
-            </>
-          ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Baixar Documento
-            </>
-          )}
-        </Button>
-      </div>
+      {/* Botão de Download */}
+      <Button
+        onClick={handleDownload}
+        disabled={isLoading}
+        className="w-full bg-green-600 hover:bg-green-700 text-white"
+        size={size}
+        variant={variant}
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Baixando...
+          </>
+        ) : (
+          <>
+            <Download className="mr-2 h-4 w-4" />
+            Baixar Documento
+          </>
+        )}
+      </Button>
 
       {/* Informações do Arquivo */}
       {showFileInfo && (mimeType || fileSize) && (
