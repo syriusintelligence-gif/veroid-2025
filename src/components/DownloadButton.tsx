@@ -16,6 +16,7 @@ import { getSignedDownloadUrl } from '@/lib/services/storage-service';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SignedContent } from '@/lib/supabase-crypto';
 import { downloadImageWithWatermark, isImageMimeType } from '@/lib/watermark';
+import { downloadPdfWithWatermark, isPdfMimeType } from '@/lib/pdf-watermark';
 
 /**
  * Props do componente DownloadButton
@@ -157,7 +158,14 @@ export function DownloadButton({
         console.log('🖼️ [DownloadButton] Adicionando watermark à imagem...');
         await downloadImageWithWatermark(result.signedUrl, certificateData, fileName);
         console.log('✅ [DownloadButton] Download com watermark concluído');
-      } else {
+      } 
+      // Se for PDF e tiver certificateData, adiciona watermark
+      else if (addWatermark && isPdfMimeType(mimeType) && certificateData) {
+        console.log('📄 [DownloadButton] Adicionando watermark ao PDF...');
+        await downloadPdfWithWatermark(result.signedUrl, certificateData, fileName);
+        console.log('✅ [DownloadButton] Download de PDF com watermark concluído');
+      } 
+      else {
         // Download direto
         const link = document.createElement('a');
         link.href = result.signedUrl;
