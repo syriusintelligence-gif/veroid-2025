@@ -306,17 +306,21 @@ export default function Certificate() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 md:p-12 text-center text-white relative">
+        <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-6 sm:p-8 md:p-12 text-center text-white relative">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'40\' fill=\'none\' stroke=\'white\' stroke-width=\'2\'/%3E%3C/svg%3E")',
             }}></div>
           </div>
           <div className="relative">
-            <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🛡️</div>
+            <img 
+              src="/logo-veroid.png" 
+              alt="Vero iD Logo" 
+              className="h-16 sm:h-20 md:h-24 mx-auto mb-4 sm:mb-6 drop-shadow-lg"
+            />
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
             <p className="text-sm sm:text-base md:text-lg opacity-90">Sistema de Autenticação Vero iD</p>
           </div>
@@ -477,7 +481,7 @@ export default function Certificate() {
           {renderSocialLinks()}
 
           {/* Verification Code */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
+          <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
             <div className="text-xs sm:text-sm opacity-90 mb-2 sm:mb-3">Código de Verificação</div>
             <div className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-[0.3em] sm:tracking-[0.5em] font-mono break-all mb-4">
               {content.verificationCode}
@@ -506,7 +510,7 @@ export default function Certificate() {
           <div className="mb-6 sm:mb-8">
             <Button
               onClick={handleCopyLink}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-sm sm:text-base"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-sm sm:text-base"
               size="lg"
             >
               {copied ? (
@@ -574,7 +578,7 @@ export default function Certificate() {
               </Button>
               <Button
                 onClick={handleDownloadCertificate}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-sm sm:text-base"
+                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-sm sm:text-base"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Baixar Certificado
