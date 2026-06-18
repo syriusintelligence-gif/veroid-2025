@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -20,13 +20,7 @@ import type { KeyPair } from '@/lib/supabase-crypto';
 import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
-import { SubscriptionCard } from '@/components/SubscriptionCard';
-import TwoFactorAlert from '@/components/TwoFactorAlert';
-import SocialLinksAlert from '@/components/SocialLinksAlert';
-import { TrialBanner } from '@/components/TrialBanner';
-import { TrialModal } from '@/components/TrialModal';
-import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
-import { InstructionsModal } from '@/components/InstructionsModal';
+import FolderManager from '@/components/FolderManager';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,21 +46,18 @@ export default function Dashboard() {
   const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   
-  // Estado para o modal de instruções
-  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
-  
   // Filtros
   const [searchTitle, setSearchTitle] = useState('');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
   
+  // 🆕 Sistema de Pastas
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  
   useEffect(() => {
-    // 🆕 CORREÇÃO: Removida dependência de navigate para evitar loop de re-renderização
-    // O navigate é estável e não precisa ser uma dependência
     loadUserData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate]);
   
   const loadUserData = async () => {
     try {
@@ -113,45 +104,121 @@ export default function Dashboard() {
   };
   
   const handleGenerateKeys = async () => {
-    if (!currentUser) return;
-    
     console.log('🚀 === INICIANDO GERAÇÃO DE CHAVES ===');
-    console.log('👤 Usuário atual:', { id: currentUser.id, email: currentUser.email });
+    console.log('👤 Usuário atual (currentUser):', currentUser);
+    console.log('👤 currentUser?.id:', currentUser?.id);
+    console.log('👤 Tipo de currentUser?.id:', typeof currentUser?.id);
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 1: Verifica se currentUser existe
+    if (!currentUser) {
+      console.error('❌ ERRO CRÍTICO: currentUser é null ou undefined');
+      alert('Erro: Nenhum usuário autenticado. Por favor, faça login novamente.');
+      return;
+    }
+    
+    // 🆕 VALIDAÇÃO CRÍTICA 2: Verifica se currentUser.id existe
+    if (!currentUser.id) {
+      console.error('❌ ERRO CRÍTICO: currentUser.id é null ou undefined');
+      console.error('📊 currentUser completo:', JSON.stringify(currentUser, null, 2));
+      alert('Erro: ID do usuário não encontrado. Por favor, faça login novamente.');
+      return;
+    }
+    
+    console.log('✅ Validação de currentUser passou');
+    console.log('📊 currentUser.id:', currentUser.id);
+    console.log('📊 Tipo de currentUser.id:', typeof currentUser.id);
     
     setIsGeneratingKeys(true);
+    
     try {
       console.log('🔑 Chamando generateKeyPair com userId:', currentUser.id);
-      const newKeyPair = await generateKeyPair(currentUser.id);
-      console.log('✅ KeyPair gerado com sucesso:', { 
-        publicKey: newKeyPair.publicKey.substring(0, 20) + '...',
-        userId: newKeyPair.userId 
-      });
       
-      console.log('💾 Chamando saveKeyPair (irá criptografar antes de salvar)...');
-      const saveResult = await saveKeyPair(newKeyPair);
-      console.log('📊 Resultado do saveKeyPair:', saveResult);
+      // 🆕 CRÍTICO: Passar currentUser.id explicitamente
+      const keyPair = await generateKeyPair(currentUser.id);
       
-      if (saveResult.success) {
-        console.log('✅ Chaves salvas com sucesso (criptografadas no Supabase)! Atualizando estado...');
-        setKeyPair(newKeyPair);
+      console.log('✅ KeyPair gerado');
+      console.log('📊 keyPair completo:', JSON.stringify(keyPair, null, 2));
+      console.log('📊 keyPair.userId:', keyPair?.userId);
+      console.log('📊 Tipo de keyPair.userId:', typeof keyPair?.userId);
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 3: Verifica se keyPair foi gerado corretamente
+      if (!keyPair) {
+        console.error('❌ ERRO: generateKeyPair retornou null ou undefined');
+        console.error('❌ keyPair recebido:', keyPair);
+        alert('Erro: Falha ao gerar chaves (retorno nulo)');
+        return;
+      }
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 4: Verifica se userId está presente no keyPair
+      if (!keyPair.userId) {
+        console.error('❌ ERRO: KeyPair gerado sem userId!');
+        console.error('📊 KeyPair gerado:', JSON.stringify(keyPair, null, 2));
+        alert('Erro: KeyPair gerado sem userId. Por favor, tente novamente.');
+        return;
+      }
+      
+      console.log('✅ Validação de KeyPair passou');
+      console.log('💾 Chamando saveKeyPair...');
+      
+      const result = await saveKeyPair(keyPair);
+      
+      console.log('📊 Resultado do saveKeyPair:', JSON.stringify(result, null, 2));
+      console.log('📊 Tipo do resultado:', typeof result);
+      console.log('📊 result?.success:', result?.success);
+      
+      // 🆕 VALIDAÇÃO CRÍTICA 5: Verifica se result é válido
+      if (!result) {
+        console.error('❌ ERRO: saveKeyPair retornou null ou undefined');
+        console.error('❌ result recebido:', result);
+        alert('Erro: Falha ao salvar chaves (retorno nulo). Por favor, tente novamente.');
+        return;
+      }
+      
+      if (typeof result !== 'object') {
+        console.error('❌ ERRO: saveKeyPair retornou tipo inválido:', typeof result);
+        console.error('❌ result recebido:', result);
+        alert('Erro: Falha ao salvar chaves (tipo de retorno inválido). Por favor, tente novamente.');
+        return;
+      }
+      
+      if (typeof result.success === 'undefined') {
+        console.error('❌ ERRO: saveKeyPair retornou objeto sem propriedade success');
+        console.error('📊 Objeto retornado:', JSON.stringify(result, null, 2));
+        alert('Erro: Resposta inválida ao salvar chaves. Por favor, tente novamente.');
+        return;
+      }
+      
+      if (result.success) {
+        console.log('✅ Chaves salvas com sucesso!');
+        setKeyPair(keyPair);
         
         // Verifica se as chaves foram realmente salvas
         console.log('🔍 Verificando se as chaves foram realmente salvas...');
         const verifyKeyPair = await getKeyPair(currentUser.id);
+        
         if (verifyKeyPair) {
           console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão salvas e criptografadas!');
+          alert('✅ Chaves criptográficas geradas e salvas com sucesso!');
+          
+          // Recarrega a página para atualizar todos os dados
+          console.log('🔄 Recarregando página para atualizar dados...');
+          window.location.reload();
         } else {
           console.error('❌❌❌ ERRO! Chaves não foram encontradas após salvar!');
+          alert('⚠️ Chaves geradas mas não foram encontradas após salvar. Por favor, tente gerar novamente.');
         }
-        
-        console.log('🎉 Processo de geração de chaves concluído com sucesso!');
       } else {
-        console.error('❌ Falha ao salvar chaves:', saveResult.error);
-        alert('Erro ao salvar chaves: ' + saveResult.error);
+        console.error('❌ Falha ao salvar chaves:', result.error);
+        alert(`Erro ao salvar chaves: ${result.error || 'Erro desconhecido'}. Por favor, tente novamente.`);
       }
     } catch (error) {
-      console.error('❌ Erro ao gerar chaves:', error);
-      alert('Erro ao gerar chaves. Tente novamente.');
+      console.error('❌ ERRO INESPERADO na geração de chaves:', error);
+      console.error('📊 Tipo do erro:', typeof error);
+      console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      console.error('📊 error.message:', error instanceof Error ? error.message : String(error));
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Erro ao gerar chaves: ${errorMessage}. Por favor, tente novamente.`);
     } finally {
       setIsGeneratingKeys(false);
       console.log('🏁 === FIM DO PROCESSO DE GERAÇÃO ===');
@@ -212,6 +279,11 @@ export default function Dashboard() {
   // Função para filtrar e ordenar conteúdos
   const getFilteredAndSortedContents = () => {
     let filtered = [...signedContents];
+    
+    // 🆕 Filtro por pasta
+    if (selectedFolderId !== null) {
+      filtered = filtered.filter(content => content.folderId === selectedFolderId);
+    }
     
     // Filtro por título
     if (searchTitle.trim()) {
@@ -293,9 +365,6 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* 🆕 FASE 2: Modal de Trial (aparece ao fazer login) */}
-      {currentUser && <TrialModal userId={currentUser.id} />}
-      
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -306,35 +375,6 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/admin/dashboard')} 
-                className="border-blue-600 text-blue-600 hover:bg-blue-50"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
-                <span className="sm:hidden">Admin</span>
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/pricing')} 
-              className="border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Planos</span>
-              <span className="sm:hidden">Planos</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsInstructionsModalOpen(true)} 
-              className="border-purple-600 text-purple-600 hover:bg-purple-50"
-            >
-              <BookOpen className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Instruções</span>
-              <span className="sm:hidden">Instruções</span>
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -440,37 +480,33 @@ export default function Dashboard() {
         </div>
       </header>
       
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            Olá, {currentUser?.nomePublico || currentUser?.nomeCompleto}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Gerencie suas assinaturas digitais e proteja seu conteúdo
-          </p>
-        </div>
-        
-        {/* 🆕 AVISO DE PROBLEMAS DE PAGAMENTO */}
-        <PaymentFailureAlert className="mb-6" />
-        
-        {/* 🆕 FASE 2: Banner de Trial (aparece no topo do dashboard) */}
-        <TrialBanner className="mb-6" />
-        
-        {/* 🔐 2FA Security Alert */}
-        {currentUser && (
-          <TwoFactorAlert userId={currentUser.id} className="mb-6" />
-        )}
-        
-        {/* 🔗 Social Links Alert */}
-        {currentUser && (
-          <SocialLinksAlert userId={currentUser.id} className="mb-6" />
-        )}
-        
-        {/* Subscription Card - NEW */}
-        <div className="mb-8">
-          <SubscriptionCard />
-        </div>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* 🆕 Layout com Sidebar */}
+        <div className="flex gap-6">
+          {/* Sidebar - FolderManager */}
+          <aside className="w-80 flex-shrink-0">
+            <div className="sticky top-24 space-y-6">
+              <Card className="overflow-hidden">
+                <FolderManager
+                  userId={currentUser?.id || ''}
+                  onFolderSelect={setSelectedFolderId}
+                  selectedFolderId={selectedFolderId}
+                />
+              </Card>
+            </div>
+          </aside>
+          
+          {/* Conteúdo Principal */}
+          <main className="flex-1 min-w-0">
+            {/* Welcome Section */}
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold mb-2">
+                Olá, {currentUser?.nomePublico || currentUser?.nomeCompleto}! 👋
+              </h1>
+              <p className="text-muted-foreground">
+                Gerencie suas assinaturas digitais e proteja seu conteúdo
+              </p>
+            </div>
         
         {/* Key Status Card */}
         <Card className="mb-8">
@@ -479,6 +515,9 @@ export default function Dashboard() {
               <Key className="h-5 w-5" />
               Status das Chaves Criptográficas
             </CardTitle>
+            <CardDescription>
+              🔐 Suas chaves privadas são criptografadas com AES-256-GCM antes de serem salvas no Supabase
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {keyPair ? (
@@ -488,6 +527,7 @@ export default function Dashboard() {
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                   <div>
                     <p className="font-semibold text-green-900">Chaves Ativas e Criptografadas</p>
+                    <p className="text-sm text-green-700">Sincronizadas com Supabase e prontas para uso</p>
                   </div>
                 </div>
                 
@@ -614,89 +654,48 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        {/* Quick Actions - Ações Principais em Destaque */}
+        {/* Quick Actions */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Card Assinar Conteúdo - Destaque Principal */}
-          <Card 
-            className="relative overflow-hidden border-2 border-blue-500 bg-gradient-to-br from-blue-50 via-white to-blue-100 hover:shadow-2xl hover:shadow-blue-200 hover:border-blue-600 transition-all duration-300 cursor-pointer group" 
-            onClick={() => navigate('/sign')}
-          >
-            {/* Decoração de fundo */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-300/10 to-cyan-300/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-150 transition-transform duration-500" />
-            
-            <CardHeader className="relative z-10 pb-2">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <FileSignature className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-bold text-blue-900 group-hover:text-blue-700 transition-colors">
-                    Assinar Conteúdo
-                  </CardTitle>
-                  <CardDescription className="text-blue-600/80 font-medium">
-                    Proteja seu conteúdo digital
-                  </CardDescription>
-                </div>
-              </div>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign')}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSignature className="h-5 w-5 text-blue-600" />
+                Assinar Conteúdo
+              </CardTitle>
+              <CardDescription>
+                Adicione uma assinatura digital ao seu conteúdo
+              </CardDescription>
             </CardHeader>
-            <CardContent className="relative z-10 pt-0">
-              <p className="text-sm text-gray-600 mb-4">
-                Adicione uma assinatura digital criptografada ao seu conteúdo para comprovar autoria e autenticidade.
-              </p>
+            <CardContent>
               <Button 
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 h-12 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300" 
+                className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
                 disabled={!keyPair}
               >
-                {keyPair ? (
-                  <>
-                    <FileSignature className="mr-2 h-5 w-5" />
-                    Criar Nova Assinatura
-                  </>
-                ) : 'Gere suas chaves primeiro'}
+                {keyPair ? 'Criar Nova Assinatura' : 'Gere suas chaves primeiro'}
               </Button>
             </CardContent>
           </Card>
           
-          {/* Card Verificar Conteúdo - Destaque Secundário */}
-          <Card 
-            className="relative overflow-hidden border-2 border-green-500 bg-gradient-to-br from-green-50 via-white to-emerald-100 hover:shadow-2xl hover:shadow-green-200 hover:border-green-600 transition-all duration-300 cursor-pointer group" 
-            onClick={() => navigate('/verify')}
-          >
-            {/* Decoração de fundo */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-green-300/10 to-teal-300/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-150 transition-transform duration-500" />
-            
-            <CardHeader className="relative z-10 pb-2">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-green-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <CheckCircle2 className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-bold text-green-900 group-hover:text-green-700 transition-colors">
-                    Verificar Conteúdo
-                  </CardTitle>
-                  <CardDescription className="text-green-600/80 font-medium">
-                    Confirme a autenticidade
-                  </CardDescription>
-                </div>
-              </div>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/verify')}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                Verificar Conteúdo
+              </CardTitle>
+              <CardDescription>
+                Verifique a autenticidade de um conteúdo assinado
+              </CardDescription>
             </CardHeader>
-            <CardContent className="relative z-10 pt-0">
-              <p className="text-sm text-gray-600 mb-4">
-                Verifique se um conteúdo é autêntico usando o código de verificação ou QR Code do certificado.
-              </p>
+            <CardContent>
               <Button 
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 h-12 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                variant="outline" 
+                className="w-full border-2 border-gray-300 hover:scale-105 hover:shadow-lg transition-all duration-300"
               >
-                <CheckCircle2 className="mr-2 h-5 w-5" />
                 Verificar Assinatura
               </Button>
             </CardContent>
           </Card>
         </div>
-        
-
         
         {/* Signed Contents */}
         <Card>
@@ -840,11 +839,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredContents.map((content) => (
-                      <ContentCard 
-                        key={content.id} 
-                        content={content} 
-                        isCreator={true} 
-                      />
+                      <ContentCard key={content.id} content={content} />
                     ))}
                   </div>
                 )}
@@ -852,13 +847,9 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+          </main>
+        </div>
       </div>
-      
-      {/* Modal de Instruções */}
-      <InstructionsModal 
-        open={isInstructionsModalOpen} 
-        onOpenChange={setIsInstructionsModalOpen} 
-      />
     </div>
   );
 }
