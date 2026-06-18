@@ -310,20 +310,18 @@ export default function Certificate() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-4 sm:p-6 text-white relative">
-          <div className="relative flex flex-col">
-            {/* Logo no canto superior esquerdo - aumentada em 20% */}
-            <div className="mb-2">
+        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-3 sm:p-4 text-white relative">
+          <div className="relative">
+            {/* Primeira linha: Logo à esquerda e Ícone rotativo à direita do centro */}
+            <div className="flex items-start justify-between mb-2">
+              {/* Logo no canto superior esquerdo */}
               <img 
                 src="/logo-veroid.png" 
                 alt="Vero iD Logo" 
-                className="h-24 sm:h-28 md:h-32 drop-shadow-lg"
+                className="h-16 sm:h-20 md:h-24 drop-shadow-lg"
               />
-            </div>
-            
-            {/* Título e subtítulo centralizados com fontes 30% maiores */}
-            <div className="text-center flex flex-col items-center">
-              {/* Ícone rotativo acima do título */}
+              
+              {/* Ícone rotativo */}
               <motion.div
                 animate={{
                   rotate: 360,
@@ -341,13 +339,16 @@ export default function Certificate() {
                     ease: "easeInOut"
                   }
                 }}
-                className="mb-2"
+                className="absolute left-1/2 transform -translate-x-1/2 top-0"
               >
-                <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
+                <Shield className="h-10 w-10 sm:h-12 sm:w-12 text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
               </motion.div>
-              
+            </div>
+            
+            {/* Título e subtítulo centralizados */}
+            <div className="text-center mt-8 sm:mt-10">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Certificado Digital</h1>
-              <p className="text-base sm:text-lg md:text-xl opacity-90 mb-3">Sistema de Autenticação Vero iD</p>
+              <p className="text-base sm:text-lg md:text-xl opacity-90 mb-2">Sistema de Autenticação Vero iD</p>
               
               {/* Link do site oficial */}
               <a 
