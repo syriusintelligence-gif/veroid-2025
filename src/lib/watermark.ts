@@ -27,18 +27,31 @@ export function isImageMimeType(mimeType?: string): boolean {
 }
 
 /**
- * Adiciona watermark a uma imagem
+ * Adiciona watermark a uma imagem com barra abaixo (similar ao PDF)
  */
 export async function addWatermarkToImage(
   imageUrl: string,
   certificateData: SignedContent
 ): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     
-    img.onload = () => {
+    img.onload = async () => {
       try {
+        // Gerar QR code
+        const QRCode = (await import('qrcode')).default;
+        const { generateQRData } = await import('./qrcode');
+        const qrData = generateQRData(certificateData);
+        const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+          width: 200,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
+        
         // Criar canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -47,42 +60,78 @@ export async function addWatermarkToImage(
           throw new Error('Não foi possível criar contexto do canvas');
         }
         
-        // Definir tamanho do canvas
-        canvas.width = img.width;
-        canvas.height = img.height;
+        // Configurar dimensões da barra
+        const watermarkHeight = 80;
+        const padding = 15;
+        const qrSize = 60;
         
-        // Desenhar imagem original
+        // Definir tamanho do canvas (imagem + barra)
+        canvas.width = img.width;
+        canvas.height = img.height + watermarkHeight;
+        
+        // Desenhar imagem original no topo
         ctx.drawImage(img, 0, 0);
         
-        // Configurar watermark
-        const watermarkHeight = 100;
-        const padding = 20;
-        
-        // Fundo semitransparente
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, canvas.height - watermarkHeight, canvas.width, watermarkHeight);
-        
-        // Texto branco
+        // Fundo branco da barra
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Arial';
+        ctx.fillRect(0, img.height, canvas.width, watermarkHeight);
         
-        // Logo e título
-        ctx.fillText('🛡️ Verificado by Vero iD', padding, canvas.height - watermarkHeight + 30);
+        // Linha superior da barra
+        ctx.strokeStyle = '#b0b0b0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, img.height);
+        ctx.lineTo(canvas.width, img.height);
+        ctx.stroke();
         
-        // Informações do certificado
-        ctx.font = '14px Arial';
-        const date = new Date(certificateData.createdAt).toLocaleString('pt-BR');
-        ctx.fillText(`Data: ${date}`, padding, canvas.height - watermarkHeight + 55);
-        ctx.fillText(`Código: ${certificateData.verificationCode}`, padding, canvas.height - watermarkHeight + 75);
+        // Carregar QR code
+        const qrImg = new Image();
+        qrImg.onload = () => {
+          // Desenhar QR code no canto esquerdo
+          ctx.drawImage(qrImg, padding, img.height + 10, qrSize, qrSize);
+          
+          // Título
+          ctx.fillStyle = '#000000';
+          ctx.font = 'bold 14px Arial, sans-serif';
+          ctx.fillText('Verificado by Vero iD', padding + qrSize + 15, img.height + 25);
+          
+          // Informações
+          const dateTime = new Date(certificateData.createdAt);
+          const dateStr = dateTime.toLocaleDateString('pt-BR');
+          const timeStr = dateTime.toLocaleTimeString('pt-BR');
+          const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
+          
+          ctx.fillStyle = '#333333';
+          ctx.font = '11px Arial, sans-serif';
+          ctx.fillText(infoLine, padding + qrSize + 15, img.height + 45);
+          
+          // URL
+          ctx.fillStyle = '#666666';
+          ctx.font = '10px Arial, sans-serif';
+          ctx.fillText('www.veroid.com.br', padding + qrSize + 15, img.height + 62);
+          
+          // Selo "VERIFICADO" no canto direito
+          ctx.fillStyle = '#3399ff';
+          ctx.font = 'bold 16px Arial, sans-serif';
+          const verifiedText = 'VERIFICADO';
+          const textWidth = ctx.measureText(verifiedText).width;
+          ctx.fillText(verifiedText, canvas.width - textWidth - padding, img.height + 45);
+          
+          // Converter para blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Erro ao criar blob da imagem'));
+            }
+          }, 'image/png');
+        };
         
-        // Converter para blob
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Erro ao criar blob da imagem'));
-          }
-        }, 'image/png');
+        qrImg.onerror = () => {
+          reject(new Error('Erro ao carregar QR code'));
+        };
+        
+        qrImg.src = qrCodeDataUrl;
         
       } catch (error) {
         reject(error);
