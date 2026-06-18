@@ -356,9 +356,8 @@ export async function addWatermarkToPdf(
     
     // Instrução abaixo do QR Code
     const instructionText = 'Escaneie este QR Code para verificar a autenticidade do certificado';
-    const instructionWidth = fontRegular.widthOfTextAtSize(instructionText, 9);
     certPage.drawText(instructionText, {
-      x: (width - instructionWidth) / 2,
+      x: padding,
       y: currentY,
       size: 9,
       font: fontRegular,
