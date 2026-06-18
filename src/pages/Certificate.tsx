@@ -313,7 +313,7 @@ export default function Certificate() {
         <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-4 sm:p-6 text-white relative">
           <div className="relative flex flex-col">
             {/* Logo no canto superior esquerdo - aumentada em 20% */}
-            <div className="mb-4">
+            <div className="mb-2">
               <img 
                 src="/logo-veroid.png" 
                 alt="Vero iD Logo" 
@@ -331,17 +331,17 @@ export default function Certificate() {
                 }}
                 transition={{
                   rotate: {
-                    duration: 2,
+                    duration: 4,
                     repeat: Infinity,
                     ease: "linear"
                   },
                   scale: {
-                    duration: 1,
+                    duration: 2,
                     repeat: Infinity,
                     ease: "easeInOut"
                   }
                 }}
-                className="mb-3"
+                className="mb-2"
               >
                 <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
               </motion.div>
