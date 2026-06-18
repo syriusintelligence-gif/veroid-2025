@@ -92,7 +92,7 @@ export async function addWatermarkToImage(
           
           // Título
           ctx.fillStyle = '#000000';
-          ctx.font = 'bold 14px Arial, sans-serif';
+          ctx.font = 'bold 16px Arial, sans-serif';
           ctx.fillText('Verificado by Vero iD', padding + qrSize + 15, img.height + 25);
           
           // Informações
@@ -102,17 +102,17 @@ export async function addWatermarkToImage(
           const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
           
           ctx.fillStyle = '#333333';
-          ctx.font = '11px Arial, sans-serif';
+          ctx.font = '13px Arial, sans-serif';
           ctx.fillText(infoLine, padding + qrSize + 15, img.height + 45);
           
           // URL
           ctx.fillStyle = '#666666';
-          ctx.font = '10px Arial, sans-serif';
+          ctx.font = '12px Arial, sans-serif';
           ctx.fillText('www.veroid.com.br', padding + qrSize + 15, img.height + 62);
           
           // Selo "VERIFICADO" no canto direito
           ctx.fillStyle = '#3399ff';
-          ctx.font = 'bold 16px Arial, sans-serif';
+          ctx.font = 'bold 18px Arial, sans-serif';
           const verifiedText = 'VERIFICADO';
           const textWidth = ctx.measureText(verifiedText).width;
           ctx.fillText(verifiedText, canvas.width - textWidth - padding, img.height + 45);
