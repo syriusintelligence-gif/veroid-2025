@@ -62,7 +62,7 @@ export function LoadingSpinner() {
 
 export function PageLoadingSpinner() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex flex-col items-center justify-center relative">
       <div className="flex flex-col items-center gap-6">
         <motion.div
           animate={{
@@ -123,6 +123,26 @@ export function PageLoadingSpinner() {
           ))}
         </motion.div>
       </div>
+      
+      {/* Mensagem promocional na parte inferior */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.5 }}
+        className="absolute bottom-8 text-center px-4"
+      >
+        <p className="text-gray-300 text-sm sm:text-base">
+          Proteja você também o seu conteúdo, acesse:{' '}
+          <a 
+            href="https://www.veroid.com.br" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 font-semibold underline transition-colors"
+          >
+            www.veroid.com.br
+          </a>
+        </p>
+      </motion.div>
     </div>
   );
 }

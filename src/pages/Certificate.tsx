@@ -36,6 +36,9 @@ export default function Certificate() {
   }, [searchParams]);
 
   const checkUserAndLoadCertificate = async () => {
+    // Marca o tempo de início do carregamento
+    const startTime = Date.now();
+    
     // Verifica se o usuário está logado
     const user = await getCurrentUser();
     setIsLoggedIn(!!user);
@@ -93,9 +96,27 @@ export default function Certificate() {
         console.error('❌ [QRCODE] Falha ao decodificar conteúdo da URL');
       }
       
+      // Garante delay mínimo de 4 segundos para exibir propaganda
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 4000 - elapsedTime);
+      
+      if (remainingTime > 0) {
+        console.log(`⏳ [LOADING] Aguardando ${remainingTime}ms para exibir propaganda...`);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
       setLoading(false);
     } else {
       console.log('⚠️ [QRCODE] Nenhum parâmetro encontrado na URL');
+      
+      // Garante delay mínimo de 4 segundos mesmo sem parâmetro
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 4000 - elapsedTime);
+      
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
       setLoading(false);
     }
   };
