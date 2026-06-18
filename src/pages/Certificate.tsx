@@ -310,37 +310,17 @@ export default function Certificate() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-4xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-2 sm:p-3 text-white relative">
-          <div className="relative">
-            {/* Primeira linha: Logo à esquerda e Ícone pulsante no centro */}
-            <div className="flex items-start justify-between mb-1">
-              {/* Logo no canto superior esquerdo - aumentada em 30% */}
-              <img 
-                src="/logo-veroid.png" 
-                alt="Vero iD Logo" 
-                className="h-20 sm:h-26 md:h-32 drop-shadow-lg"
-              />
-              
-              {/* Ícone pulsante (sem rotação) */}
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                }}
-                transition={{
-                  scale: {
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }
-                }}
-                className="absolute left-1/2 transform -translate-x-1/2 top-0"
-              >
-                <Shield className="h-10 w-10 sm:h-12 sm:w-12 text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
-              </motion.div>
-            </div>
+        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-3 sm:p-4 text-white relative">
+          <div className="flex items-center justify-between">
+            {/* Logo no canto superior esquerdo */}
+            <img 
+              src="/logo-veroid.png" 
+              alt="Vero iD Logo" 
+              className="h-20 sm:h-26 md:h-32 drop-shadow-lg"
+            />
             
-            {/* Título e subtítulo centralizados - bem próximos do ícone */}
-            <div className="text-center mt-2 sm:mt-3">
+            {/* Título e subtítulo centralizados no banner */}
+            <div className="flex-1 text-center">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">Certificado Digital</h1>
               <p className="text-base sm:text-lg md:text-xl opacity-90 mb-1">Sistema de Autenticação Vero iD</p>
               
