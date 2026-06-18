@@ -96,9 +96,9 @@ export default function Certificate() {
         console.error('❌ [QRCODE] Falha ao decodificar conteúdo da URL');
       }
       
-      // Garante delay mínimo de 4 segundos para exibir propaganda
+      // Garante delay mínimo de 5 segundos para exibir propaganda
       const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 4000 - elapsedTime);
+      const remainingTime = Math.max(0, 5000 - elapsedTime);
       
       if (remainingTime > 0) {
         console.log(`⏳ [LOADING] Aguardando ${remainingTime}ms para exibir propaganda...`);
@@ -109,9 +109,9 @@ export default function Certificate() {
     } else {
       console.log('⚠️ [QRCODE] Nenhum parâmetro encontrado na URL');
       
-      // Garante delay mínimo de 4 segundos mesmo sem parâmetro
+      // Garante delay mínimo de 5 segundos mesmo sem parâmetro
       const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 4000 - elapsedTime);
+      const remainingTime = Math.max(0, 5000 - elapsedTime);
       
       if (remainingTime > 0) {
         await new Promise(resolve => setTimeout(resolve, remainingTime));

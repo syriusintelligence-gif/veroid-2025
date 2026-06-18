@@ -98,7 +98,7 @@ export function PageLoadingSpinner() {
           transition={{ delay: 0.3 }}
           className="text-gray-400 text-sm"
         >
-          Carregando aplicação...
+          Carregando certificado...
         </motion.div>
         <motion.div
           className="flex gap-2"
