@@ -5,10 +5,11 @@
  * Utiliza pdf-lib para manipulação client-side de PDFs.
  * 
  * @module pdf-watermark
- * @version 1.0.0
+ * @version 3.0.0
+ * @updated 2026-06-18 - Watermark em rodapé de todas as páginas + página extra ao final
  */
 
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees, PageSizes } from 'pdf-lib';
 import { SignedContent } from './supabase-crypto';
 
 /**
@@ -28,7 +29,11 @@ export function isPdfMimeType(mimeType?: string): boolean {
 }
 
 /**
- * Adiciona watermark a um PDF
+ * Adiciona watermark a um PDF:
+ * 1. Barra inferior em TODAS as páginas originais
+ * 2. Página extra de certificação completa ao final
+ * 
+ * ✅ ESTRATÉGIA: Move o conteúdo para cima para a barra não sobrepor
  */
 export async function addWatermarkToPdf(
   pdfUrl: string,
@@ -44,24 +49,30 @@ export async function addWatermarkToPdf(
     // Carregar o PDF
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     
-    // Embed font
+    // Embed fonts
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     
-    // Obter todas as páginas
+    // Obter todas as páginas originais
     const pages = pdfDoc.getPages();
     
-    console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s)...`);
+    console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s) originais...`);
     
-    // Adicionar watermark em cada página
+    // ✅ PARTE 1: Adicionar watermark compacta em todas as páginas originais
     for (const page of pages) {
       const { width, height } = page.getSize();
       
-      // Configurações do watermark
-      const watermarkHeight = 80;
-      const padding = 15;
-      const fontSize = 10;
-      const fontSizeSmall = 8;
+      // Configurações do watermark (mais compacta)
+      const watermarkHeight = 60; // Reduzido de 95 para 60
+      const padding = 10;
+      const fontSize = 8;
+      const fontSizeSmall = 7;
+      
+      // Mover todo o conteúdo da página para cima
+      page.translateContent(0, watermarkHeight);
+      
+      // Aumentar altura da página para comportar a watermark
+      page.setSize(width, height + watermarkHeight);
       
       // Fundo branco no rodapé
       page.drawRectangle({
@@ -73,62 +84,241 @@ export async function addWatermarkToPdf(
         opacity: 0.95,
       });
       
-      // Título do watermark (sem emoji para compatibilidade WinAnsi)
+      // Borda superior da barra
+      page.drawLine({
+        start: { x: 0, y: watermarkHeight },
+        end: { x: width, y: watermarkHeight },
+        thickness: 1,
+        color: rgb(0.7, 0.7, 0.7),
+      });
+      
+      // Título compacto
       page.drawText('Verificado by Vero iD', {
         x: padding,
-        y: watermarkHeight - 20,
-        size: fontSize + 2,
+        y: watermarkHeight - 15,
+        size: fontSize,
         font: font,
         color: rgb(0, 0, 0),
       });
       
-      // Data de assinatura
-      const date = new Date(certificateData.createdAt).toLocaleString('pt-BR');
-      page.drawText(`Data: ${date}`, {
+      // Informações em uma linha
+      const infoLine = `${new Date(certificateData.createdAt).toLocaleDateString('pt-BR')} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
+      page.drawText(infoLine, {
         x: padding,
-        y: watermarkHeight - 38,
+        y: watermarkHeight - 30,
         size: fontSizeSmall,
         font: fontRegular,
         color: rgb(0.2, 0.2, 0.2),
       });
       
-      // Código de verificação
-      page.drawText(`Código: ${certificateData.verificationCode}`, {
-        x: padding,
-        y: watermarkHeight - 52,
-        size: fontSizeSmall,
-        font: fontRegular,
-        color: rgb(0.2, 0.2, 0.2),
-      });
+      // Links sociais (se disponíveis) - linha compacta
+      if (certificateData.creatorSocialLinks && Object.keys(certificateData.creatorSocialLinks).length > 0) {
+        const socialLinks = certificateData.creatorSocialLinks;
+        const linkTexts: string[] = [];
+        
+        if (socialLinks.instagram) linkTexts.push(`IG: ${socialLinks.instagram}`);
+        if (socialLinks.linkedin) linkTexts.push(`LI: ${socialLinks.linkedin}`);
+        if (socialLinks.twitter) linkTexts.push(`X: ${socialLinks.twitter}`);
+        
+        if (linkTexts.length > 0) {
+          const displayText = linkTexts.slice(0, 2).join(' | ');
+          page.drawText(displayText, {
+            x: padding,
+            y: watermarkHeight - 45,
+            size: fontSizeSmall - 1,
+            font: fontRegular,
+            color: rgb(0.3, 0.3, 0.7),
+          });
+        }
+      }
       
-      // Criador
-      page.drawText(`Criador: ${certificateData.creatorName}`, {
-        x: padding,
-        y: watermarkHeight - 66,
-        size: fontSizeSmall,
-        font: fontRegular,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      
-      // Watermark diagonal (opcional - marca d'água no centro)
-      const centerX = width / 2;
-      const centerY = height / 2;
-      
+      // Selo "VERIFICADO" no canto direito
       page.drawText('VERIFICADO', {
-        x: centerX - 100,
-        y: centerY,
-        size: 48,
+        x: width - 100,
+        y: watermarkHeight - 35,
+        size: fontSize + 2,
         font: font,
         color: rgb(0.2, 0.6, 0.9),
-        opacity: 0.1,
-        rotate: degrees(-45),
       });
     }
+    
+    console.log('📄 [PDF Watermark] Adicionando página de certificação completa ao final...');
+    
+    // ✅ PARTE 2: Adicionar página extra de certificação ao final
+    const certPage = pdfDoc.addPage(PageSizes.A4);
+    const { width, height } = certPage.getSize();
+    
+    const padding = 40;
+    const lineHeight = 20;
+    let currentY = height - padding - 40;
+    
+    // Fundo branco
+    certPage.drawRectangle({
+      x: 0,
+      y: 0,
+      width: width,
+      height: height,
+      color: rgb(1, 1, 1),
+    });
+    
+    // Título principal
+    certPage.drawText('CERTIFICADO DE AUTENTICIDADE', {
+      x: padding,
+      y: currentY,
+      size: 18,
+      font: font,
+      color: rgb(0.1, 0.3, 0.7),
+    });
+    
+    currentY -= lineHeight * 2;
+    
+    // Subtítulo
+    certPage.drawText('Verificado by Vero iD', {
+      x: padding,
+      y: currentY,
+      size: 14,
+      font: font,
+      color: rgb(0, 0, 0),
+    });
+    
+    currentY -= lineHeight * 2;
+    
+    // Descrição
+    certPage.drawText('Este documento foi assinado digitalmente e verificado pelo sistema Vero iD.', {
+      x: padding,
+      y: currentY,
+      size: 10,
+      font: fontRegular,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    
+    currentY -= lineHeight * 2.5;
+    
+    // Separador
+    certPage.drawLine({
+      start: { x: padding, y: currentY },
+      end: { x: width - padding, y: currentY },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    
+    currentY -= lineHeight * 1.5;
+    
+    // Informações do certificado
+    const infoItems = [
+      { label: 'Data de Assinatura:', value: new Date(certificateData.createdAt).toLocaleString('pt-BR') },
+      { label: 'Código de Verificação:', value: certificateData.verificationCode },
+      { label: 'Criador do Conteúdo:', value: certificateData.creatorName },
+      { label: 'ID do Certificado:', value: certificateData.id },
+    ];
+    
+    for (const item of infoItems) {
+      // Label
+      certPage.drawText(item.label, {
+        x: padding,
+        y: currentY,
+        size: 10,
+        font: font,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      
+      currentY -= lineHeight * 0.8;
+      
+      // Value
+      certPage.drawText(item.value, {
+        x: padding + 10,
+        y: currentY,
+        size: 9,
+        font: fontRegular,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      
+      currentY -= lineHeight * 1.5;
+    }
+    
+    // Links sociais do criador (se disponíveis)
+    if (certificateData.creatorSocialLinks && Object.keys(certificateData.creatorSocialLinks).length > 0) {
+      currentY -= lineHeight * 0.5;
+      
+      // Separador
+      certPage.drawLine({
+        start: { x: padding, y: currentY },
+        end: { x: width - padding, y: currentY },
+        thickness: 1,
+        color: rgb(0.8, 0.8, 0.8),
+      });
+      
+      currentY -= lineHeight * 1.5;
+      
+      certPage.drawText('Perfis Oficiais do Criador:', {
+        x: padding,
+        y: currentY,
+        size: 10,
+        font: font,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      
+      currentY -= lineHeight * 1.2;
+      
+      const socialLinks = certificateData.creatorSocialLinks;
+      const linkTexts: string[] = [];
+      
+      if (socialLinks.instagram) linkTexts.push(`Instagram: ${socialLinks.instagram}`);
+      if (socialLinks.facebook) linkTexts.push(`Facebook: ${socialLinks.facebook}`);
+      if (socialLinks.linkedin) linkTexts.push(`LinkedIn: ${socialLinks.linkedin}`);
+      if (socialLinks.twitter) linkTexts.push(`X/Twitter: ${socialLinks.twitter}`);
+      if (socialLinks.youtube) linkTexts.push(`YouTube: ${socialLinks.youtube}`);
+      if (socialLinks.tiktok) linkTexts.push(`TikTok: ${socialLinks.tiktok}`);
+      if (socialLinks.website) linkTexts.push(`Website: ${socialLinks.website}`);
+      
+      for (const linkText of linkTexts) {
+        certPage.drawText(linkText, {
+          x: padding + 10,
+          y: currentY,
+          size: 8,
+          font: fontRegular,
+          color: rgb(0.2, 0.4, 0.7),
+        });
+        currentY -= lineHeight * 0.9;
+      }
+    }
+    
+    // Watermark diagonal no centro
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    certPage.drawText('VERIFICADO', {
+      x: centerX - 100,
+      y: centerY,
+      size: 60,
+      font: font,
+      color: rgb(0.2, 0.6, 0.9),
+      opacity: 0.08,
+      rotate: degrees(-45),
+    });
+    
+    // Rodapé
+    const footerY = padding - 10;
+    certPage.drawText('www.veroid.com.br', {
+      x: padding,
+      y: footerY,
+      size: 8,
+      font: fontRegular,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    
+    certPage.drawText(`Certificado gerado em ${new Date().toLocaleString('pt-BR')}`, {
+      x: width - 200,
+      y: footerY,
+      size: 8,
+      font: fontRegular,
+      color: rgb(0.5, 0.5, 0.5),
+    });
     
     // Salvar PDF modificado
     const pdfBytes = await pdfDoc.save();
     
-    console.log('✅ [PDF Watermark] Watermark adicionado com sucesso');
+    console.log('✅ [PDF Watermark] Watermark aplicada com sucesso (rodapé em todas as páginas + página extra)');
     
     // Retornar como Blob
     return new Blob([pdfBytes], { type: 'application/pdf' });
