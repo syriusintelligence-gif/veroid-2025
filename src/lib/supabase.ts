@@ -65,12 +65,6 @@ export interface Database {
           is_admin: boolean;
           blocked: boolean;
           social_links: SocialLinks | null;
-          last_login_at: string | null;
-          trial_starts_at: string | null;
-          trial_ends_at: string | null;
-          subscription_tier: string | null;
-          stripe_customer_id: string | null;
-          stripe_subscription_id: string | null;
         };
         Insert: {
           id?: string;
@@ -86,12 +80,6 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
-          last_login_at?: string | null;
-          trial_starts_at?: string | null;
-          trial_ends_at?: string | null;
-          subscription_tier?: string | null;
-          stripe_customer_id?: string | null;
-          stripe_subscription_id?: string | null;
         };
         Update: {
           id?: string;
@@ -107,12 +95,6 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
-          last_login_at?: string | null;
-          trial_starts_at?: string | null;
-          trial_ends_at?: string | null;
-          subscription_tier?: string | null;
-          stripe_customer_id?: string | null;
-          stripe_subscription_id?: string | null;
         };
       };
       signed_contents: {
@@ -123,21 +105,19 @@ export interface Database {
           content_hash: string;
           signature: string;
           public_key: string;
-          created_at: string;
+          timestamp: string;
           creator_name: string;
           verification_code: string;
           thumbnail: string | null;
           platforms: string[] | null;
           verification_count: number;
-          creator_social_links: SocialLinks | null;
+          creator_social_links: Record<string, string> | null;
           file_path: string | null;
           file_name: string | null;
           file_size: number | null;
           mime_type: string | null;
           storage_bucket: string | null;
-          allow_file_download: boolean;
-          carousel_metadata: Record<string, unknown> | null;
-          total_images: number;
+          created_at: string | null;
         };
         Insert: {
           id?: string;
@@ -146,21 +126,19 @@ export interface Database {
           content_hash: string;
           signature: string;
           public_key: string;
-          created_at?: string;
+          timestamp?: string;
           creator_name: string;
           verification_code: string;
           thumbnail?: string | null;
           platforms?: string[] | null;
           verification_count?: number;
-          creator_social_links?: SocialLinks | null;
+          creator_social_links?: Record<string, string> | null;
           file_path?: string | null;
           file_name?: string | null;
           file_size?: number | null;
           mime_type?: string | null;
           storage_bucket?: string | null;
-          allow_file_download?: boolean;
-          carousel_metadata?: Record<string, unknown> | null;
-          total_images?: number;
+          created_at?: string | null;
         };
         Update: {
           id?: string;
@@ -169,21 +147,19 @@ export interface Database {
           content_hash?: string;
           signature?: string;
           public_key?: string;
-          created_at?: string;
+          timestamp?: string;
           creator_name?: string;
           verification_code?: string;
           thumbnail?: string | null;
           platforms?: string[] | null;
           verification_count?: number;
-          creator_social_links?: SocialLinks | null;
+          creator_social_links?: Record<string, string> | null;
           file_path?: string | null;
           file_name?: string | null;
           file_size?: number | null;
           mime_type?: string | null;
           storage_bucket?: string | null;
-          allow_file_download?: boolean;
-          carousel_metadata?: Record<string, unknown> | null;
-          total_images?: number;
+          created_at?: string | null;
         };
       };
       key_pairs: {

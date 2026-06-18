@@ -58,7 +58,7 @@ export async function addWatermarkToPdf(
       const { width, height } = page.getSize();
       
       // Configurações do watermark
-      const watermarkHeight = 80;
+      const watermarkHeight = 95;
       const padding = 15;
       const fontSize = 10;
       const fontSizeSmall = 8;
@@ -109,6 +109,31 @@ export async function addWatermarkToPdf(
         font: fontRegular,
         color: rgb(0.2, 0.2, 0.2),
       });
+      
+      // Links sociais do criador (se disponíveis)
+      if (certificateData.creatorSocialLinks && Object.keys(certificateData.creatorSocialLinks).length > 0) {
+        const socialLinks = certificateData.creatorSocialLinks;
+        const linkTexts: string[] = [];
+        
+        // Coletar links relevantes
+        if (socialLinks.instagram) linkTexts.push(`IG: ${socialLinks.instagram}`);
+        if (socialLinks.linkedin) linkTexts.push(`LinkedIn: ${socialLinks.linkedin}`);
+        if (socialLinks.twitter) linkTexts.push(`X: ${socialLinks.twitter}`);
+        if (socialLinks.youtube) linkTexts.push(`YT: ${socialLinks.youtube}`);
+        if (socialLinks.tiktok) linkTexts.push(`TikTok: ${socialLinks.tiktok}`);
+        
+        // Exibir até 2 links (para caber no espaço)
+        if (linkTexts.length > 0) {
+          const displayText = linkTexts.slice(0, 2).join(' | ');
+          page.drawText(displayText, {
+            x: padding,
+            y: watermarkHeight - 80,
+            size: fontSizeSmall - 1,
+            font: fontRegular,
+            color: rgb(0.3, 0.3, 0.7),
+          });
+        }
+      }
       
       // Watermark diagonal (opcional - marca d'água no centro)
       const centerX = width / 2;

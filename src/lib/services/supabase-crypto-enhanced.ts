@@ -125,8 +125,27 @@ export async function signContentEnhanced(
       contentLength: content.length,
       hasThumbnail: !!thumbnail,
       platforms: platforms?.join(', '),
-      hasFile: !!fileMetadata, // 🆕 Log de arquivo
+      hasFile: !!fileMetadata,
     });
+  }
+
+  let creatorSocialLinks = undefined;
+  try {
+    console.log('🔍 [Enhanced] Buscando links sociais do criador...');
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('social_links')
+      .eq('id', userId)
+      .single();
+
+    if (!userError && userData && userData.social_links) {
+      creatorSocialLinks = userData.social_links;
+      console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
+    } else {
+      console.log('⚠️ [Enhanced] Nenhum link social encontrado para o usuário');
+    }
+  } catch (error) {
+    console.warn('⚠️ [Enhanced] Erro ao buscar links sociais (não crítico):', error);
   }
 
   // 🆕 Validar metadados de arquivo se fornecidos
@@ -291,6 +310,7 @@ export async function signContentEnhanced(
       thumbnail: thumbnail || null,
       platforms: platforms || null,
       verification_count: 0,
+      creator_social_links: creatorSocialLinks || null,
       // 🆕 FASE 3: Adicionar metadados de arquivo
       file_path: fileMetadata?.file_path || null,
       file_name: fileMetadata?.file_name || null,
