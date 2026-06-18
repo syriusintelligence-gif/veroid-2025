@@ -329,7 +329,7 @@ export async function addWatermarkToPdf(
     
     // QR Code na página de certificação (reduzido 70%)
     const qrSizeLarge = 45; // 150 * 0.3 = 45
-    const qrX = (width - qrSizeLarge) / 2; // Centralizado
+    const qrX = padding; // Alinhado à esquerda com o título
     
     currentY -= lineHeight * 2;
     
