@@ -26,6 +26,16 @@ export interface SignedContent {
   folderId?: string | null; // 🆕 ID da pasta (null = sem pasta)
   createdAt: string;
   verificationCount?: number;
+  // 🆕 Campos adicionais para UI e certificados
+  thumbnail?: string;
+  creatorName?: string;
+  creatorSocialLinks?: Record<string, string>;
+  // 🆕 Metadados de arquivo do Storage
+  filePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  storageBucket?: string;
 }
 
 // 🆕 Chave de criptografia (em produção, use variável de ambiente)
@@ -240,7 +250,8 @@ export async function saveKeyPairToSupabase(keyPair: KeyPair): Promise<{ success
 }
 
 /**
- * 🆕 Obtém o par de chaves do usuário COM DESCRIPTOGRAFIA
+ * 🆕 Obtém o par de chaves do usuário COM DESCRIPTOGRAFIA E FALLBACK
+ * 🔧 CORRIGIDO: Suporta chaves antigas (não criptografadas) e novas (criptografadas)
  */
 export async function getKeyPair(userId: string): Promise<KeyPair | null> {
   try {
@@ -253,16 +264,22 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
       .single();
     
     if (error || !data) {
+      console.log('❌ Nenhuma chave encontrada no Supabase');
       return null;
     }
     
-    // 🆕 Verifica se tem chave criptografada
+    // ====================================================
+    // 🔧 CORREÇÃO: FALLBACK PARA CHAVES ANTIGAS
+    // ====================================================
+    
+    // Caso 1: Chave CRIPTOGRAFADA (novo formato AES-256-GCM)
     if (data.encrypted_private_key) {
-      console.log('🔓 Descriptografando chave privada...');
+      console.log('🔓 Tentando descriptografar chave privada (novo formato)...');
       
       try {
         const decryptedPrivateKey = await decryptPrivateKey(data.encrypted_private_key);
         
+        console.log('✅ Chave descriptografada com sucesso (novo formato)');
         return {
           id: data.id || crypto.randomUUID(),
           userId: data.user_id,
@@ -272,18 +289,66 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
         };
       } catch (decryptError) {
         console.error('❌ Erro ao descriptografar chave privada:', decryptError);
+        console.warn('⚠️ Tentando fallback para formato antigo...');
+        
+        // Fallback: tenta ler private_key diretamente (formato antigo)
+        if (data.private_key) {
+          console.log('✅ Usando chave antiga (não criptografada) como fallback');
+          return {
+            id: data.id || crypto.randomUUID(),
+            userId: data.user_id,
+            publicKey: data.public_key,
+            privateKey: data.private_key,
+            createdAt: data.created_at,
+          };
+        }
+        
+        console.error('❌ Não foi possível recuperar chave privada (nem criptografada nem antiga)');
         return null;
       }
     }
     
-    // Fallback para chaves antigas não criptografadas (se houver)
-    return {
-      id: data.id || crypto.randomUUID(),
-      userId: data.user_id,
-      publicKey: data.public_key,
-      privateKey: data.private_key || '',
-      createdAt: data.created_at,
-    };
+    // Caso 2: Chave NÃO CRIPTOGRAFADA (formato antigo)
+    if (data.private_key) {
+      console.log('✅ Chave antiga encontrada (não criptografada), usando diretamente');
+      
+      // 🔧 OPCIONAL: Re-criptografa automaticamente chave antiga
+      try {
+        console.log('🔄 Tentando re-criptografar chave antiga para segurança...');
+        const encryptedPrivateKey = await encryptPrivateKey(data.private_key);
+        
+        // Atualiza no banco com chave criptografada
+        const { error: updateError } = await supabase
+          .from('key_pairs')
+          .update({
+            encrypted_private_key: encryptedPrivateKey,
+            encryption_algorithm: 'AES-256-GCM',
+            key_version: 1,
+          })
+          .eq('id', data.id);
+        
+        if (!updateError) {
+          console.log('✅ Chave antiga re-criptografada com sucesso no Supabase');
+        } else {
+          console.warn('⚠️ Não foi possível re-criptografar chave antiga (não crítico):', updateError);
+        }
+      } catch (reencryptError) {
+        console.warn('⚠️ Erro ao re-criptografar chave antiga (não crítico):', reencryptError);
+      }
+      
+      return {
+        id: data.id || crypto.randomUUID(),
+        userId: data.user_id,
+        publicKey: data.public_key,
+        privateKey: data.private_key,
+        createdAt: data.created_at,
+      };
+    }
+    
+    // Caso 3: Nenhuma chave disponível
+    console.error('❌ Nenhuma chave privada encontrada (nem encrypted_private_key nem private_key)');
+    return null;
+    
   } catch (error) {
     console.error('❌ Erro ao buscar chaves do Supabase:', error);
     return null;
