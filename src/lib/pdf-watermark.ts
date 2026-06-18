@@ -63,14 +63,14 @@ export async function addWatermarkToPdf(
       const fontSize = 10;
       const fontSizeSmall = 8;
       
-      // Fundo semitransparente no rodapé
+      // Fundo branco no rodapé
       page.drawRectangle({
         x: 0,
         y: 0,
         width: width,
         height: watermarkHeight,
-        color: rgb(0, 0, 0),
-        opacity: 0.85,
+        color: rgb(1, 1, 1),
+        opacity: 0.95,
       });
       
       // Título do watermark (sem emoji para compatibilidade WinAnsi)
@@ -79,7 +79,7 @@ export async function addWatermarkToPdf(
         y: watermarkHeight - 20,
         size: fontSize + 2,
         font: font,
-        color: rgb(1, 1, 1),
+        color: rgb(0, 0, 0),
       });
       
       // Data de assinatura
@@ -89,7 +89,7 @@ export async function addWatermarkToPdf(
         y: watermarkHeight - 38,
         size: fontSizeSmall,
         font: fontRegular,
-        color: rgb(0.9, 0.9, 0.9),
+        color: rgb(0.2, 0.2, 0.2),
       });
       
       // Código de verificação
@@ -98,7 +98,7 @@ export async function addWatermarkToPdf(
         y: watermarkHeight - 52,
         size: fontSizeSmall,
         font: fontRegular,
-        color: rgb(0.9, 0.9, 0.9),
+        color: rgb(0.2, 0.2, 0.2),
       });
       
       // Criador
@@ -107,7 +107,7 @@ export async function addWatermarkToPdf(
         y: watermarkHeight - 66,
         size: fontSizeSmall,
         font: fontRegular,
-        color: rgb(0.9, 0.9, 0.9),
+        color: rgb(0.2, 0.2, 0.2),
       });
       
       // Watermark diagonal (opcional - marca d'água no centro)
