@@ -40,8 +40,9 @@ export async function generateKeyPair(userId: string): Promise<KeyPair> {
   const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
   // Serializar chaves para string com prefixos corretos
-  const publicKeyString = `VID-PUB-${btoa(JSON.stringify(publicKeyJwk)).substring(0, 16)}`;
-  const privateKeyString = `VID-PRIV-${btoa(JSON.stringify(privateKeyJwk)).substring(0, 16)}`;
+  // 🔧 CORRIGIDO: Remover truncamento - salvar chave completa
+  const publicKeyString = `VID-PUB-${btoa(JSON.stringify(publicKeyJwk))}`;
+  const privateKeyString = `VID-PRIV-${btoa(JSON.stringify(privateKeyJwk))}`;
 
   // Criar objeto de resultado
   const result: KeyPair = {
