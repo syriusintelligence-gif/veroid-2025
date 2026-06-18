@@ -452,6 +452,9 @@ export default function Certificate() {
             </div>
           )}
 
+          {/* Perfis Oficiais do Criador */}
+          {renderSocialLinks()}
+
           {/* Verification Code */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 sm:p-8 rounded-xl sm:rounded-2xl text-white text-center mb-6 sm:mb-8">
             <div className="text-xs sm:text-sm opacity-90 mb-2 sm:mb-3">Código de Verificação</div>
