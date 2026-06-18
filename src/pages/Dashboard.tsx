@@ -481,23 +481,8 @@ export default function Dashboard() {
       </header>
       
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* 🆕 Layout com Sidebar */}
-        <div className="flex gap-6">
-          {/* Sidebar - FolderManager */}
-          <aside className="w-80 flex-shrink-0">
-            <div className="sticky top-24 space-y-6">
-              <Card className="overflow-hidden">
-                <FolderManager
-                  userId={currentUser?.id || ''}
-                  onFolderSelect={setSelectedFolderId}
-                  selectedFolderId={selectedFolderId}
-                />
-              </Card>
-            </div>
-          </aside>
-          
-          {/* Conteúdo Principal */}
-          <main className="flex-1 min-w-0">
+        {/* Conteúdo Principal */}
+        <main className="w-full">
             {/* Welcome Section */}
             <div className="mb-8">
               <h1 className="text-4xl font-bold mb-2">
@@ -718,7 +703,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                {/* Filtros */}
+                {/* Filtros e Pastas */}
                 <Card className="mb-6 bg-muted/50">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -727,6 +712,13 @@ export default function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <div className="mb-6">
+                      <FolderManager
+                        userId={currentUser?.id || ''}
+                        onFolderSelect={setSelectedFolderId}
+                        selectedFolderId={selectedFolderId}
+                      />
+                    </div>
                     <div className="grid md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="search-title" className="text-sm font-medium">
@@ -847,8 +839,7 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-          </main>
-        </div>
+        </main>
       </div>
     </div>
   );
