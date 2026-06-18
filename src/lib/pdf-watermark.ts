@@ -73,8 +73,8 @@ export async function addWatermarkToPdf(
         opacity: 0.85,
       });
       
-      // Título do watermark
-      page.drawText('🛡️ Verificado by Vero iD', {
+      // Título do watermark (sem emoji para compatibilidade WinAnsi)
+      page.drawText('Verificado by Vero iD', {
         x: padding,
         y: watermarkHeight - 20,
         size: fontSize + 2,
