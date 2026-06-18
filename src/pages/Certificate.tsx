@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { SignedContent, incrementVerificationCount, getSignedContentById } from '@/lib/supabase-crypto';
 import { getCurrentUser } from '@/lib/supabase-auth';
 import { Button } from '@/components/ui/button';
-import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy } from 'lucide-react';
+import { Shield, Calendar, ArrowLeft, Download, Key, Link as LinkIcon, Check, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe, Copy, Info, CheckCircle2 } from 'lucide-react';
 import { generateCertificate, decodeContentFromUrl } from '@/lib/qrcode';
 import { DownloadButton } from '@/components/DownloadButton';
+import { PageLoadingSpinner } from '@/components/LoadingSpinner';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -198,14 +199,7 @@ export default function Certificate() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando certificado...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingSpinner />;
   }
 
   if (!content) {
@@ -348,6 +342,20 @@ export default function Certificate() {
             </div>
           )}
 
+          {/* Conteúdo do Certificado */}
+          {content.content && (
+            <div className="mb-6 sm:mb-8">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Conteúdo
+              </div>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
+                <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">
+                  {content.content}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Download Original File */}
           {content.filePath && content.fileName && (
             <div className="mb-6 sm:mb-8">
@@ -364,10 +372,52 @@ export default function Certificate() {
                   variant="default"
                   size="default"
                   showFileInfo={true}
+                  certificateData={content}
+                  addWatermark={true}
                 />
               </div>
             </div>
           )}
+
+          {/* Instruções de Verificação */}
+          <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-purple-50 p-4 sm:p-6 rounded-xl border-2 border-blue-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-5 w-5 text-blue-600" />
+              <h3 className="text-base sm:text-lg font-bold text-blue-900">
+                Como Verificar Este Certificado
+              </h3>
+            </div>
+            <div className="space-y-3 text-sm sm:text-base text-gray-700">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">1. Escaneie o QR Code</p>
+                  <p className="text-gray-600">Use a câmera do seu celular para escanear o QR Code e acessar este certificado</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">2. Verifique o Código</p>
+                  <p className="text-gray-600">Compare o código de verificação exibido com o código fornecido pelo criador</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">3. Confira os Dados</p>
+                  <p className="text-gray-600">Verifique o nome do criador, data de assinatura e hash do conteúdo</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">4. Valide a Autenticidade</p>
+                  <p className="text-gray-600">Este certificado garante que o conteúdo não foi alterado desde sua criação</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Creator */}
           <div className="mb-6 sm:mb-8">

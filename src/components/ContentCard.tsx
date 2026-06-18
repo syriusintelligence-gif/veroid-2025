@@ -5,19 +5,16 @@ import { SignedContent } from '@/lib/supabase-crypto';
 import { Shield, Calendar, Download, ExternalLink, Copy, Check, Eye, FileText, Image as ImageIcon, Video, Music, File, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateQRData, generateCertificate } from '@/lib/qrcode';
-import { generateCertificateWithEmbeddedFile } from '@/lib/services/certificate-generator'; // 🆕 Para certificados com arquivo embutido
 import { useState, useRef, useEffect } from 'react';
 import ShareButtons from '@/components/ShareButtons';
-import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4 - Para criadores autenticados
-import { PublicDownloadButton } from '@/components/PublicDownloadButton'; // 🆕 Para verificadores públicos
+import { DownloadButton } from '@/components/DownloadButton'; // 🆕 FASE 4
 
 interface ContentCardProps {
   content: SignedContent;
   onVerify?: (id: string) => void;
-  isCreator?: boolean; // 🆕 Indica se o usuário atual é o criador do certificado
 }
 
-export default function ContentCard({ content: initialContent, onVerify, isCreator = false }: ContentCardProps) {
+export default function ContentCard({ content: initialContent, onVerify }: ContentCardProps) {
   // 🆕 Estado local para conteúdo com links sociais
   const [content, setContent] = useState<SignedContent>(initialContent);
   const [isLoadingSocialLinks, setIsLoadingSocialLinks] = useState(false);
@@ -57,28 +54,18 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
     });
   }
   
-  const handleDownloadCertificate = async () => {
-    try {
-      console.log('📥 [ContentCard] Gerando certificado com arquivo embutido...');
-      
-      // 🆕 SOLUÇÃO: Gera certificado com arquivo embutido como base64
-      // Isso resolve o problema de CORS quando o HTML é aberto localmente (file://)
-      const certificate = await generateCertificateWithEmbeddedFile(content);
-      
-      const blob = new Blob([certificate], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `veroId-certificate-${content.verificationCode}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log('✅ [ContentCard] Certificado baixado com sucesso');
-    } catch (error) {
-      console.error('❌ [ContentCard] Erro ao gerar certificado:', error);
-    }
+  const handleDownloadCertificate = () => {
+    console.log('📥 [ContentCard] Gerando certificado com links sociais:', !!content.creatorSocialLinks);
+    const certificate = generateCertificate(content);
+    const blob = new Blob([certificate], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `veroId-certificate-${content.verificationCode}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
   
   const handleDownloadQR = async () => {
@@ -276,67 +263,26 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
           </div>
         )}
         
-        {/* 🆕 FASE 4: Seção de Download de Documento Original (COM CONTROLE DO CRIADOR) */}
+        {/* 🆕 FASE 4: Seção de Download de Documento Original */}
         {content.filePath && content.fileName && (
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
             <p className="text-sm font-semibold text-green-900 mb-3 flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Documento Original Anexado
             </p>
-            
-            {/* 🔒 LÓGICA DE DOWNLOAD:
-                1. Se é o CRIADOR (isCreator === true): sempre pode baixar (DownloadButton com auth)
-                2. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=true: pode baixar (PublicDownloadButton sem auth)
-                3. Se NÃO é o criador (isCreator === false ou null) E allowFileDownload=false: mostra mensagem de restrição
-            */}
-            {isCreator === true ? (
-              <>
-                {/* Criador: sempre pode baixar com autenticação */}
-                <DownloadButton
-                  filePath={content.filePath}
-                  fileName={content.fileName}
-                  mimeType={content.mimeType}
-                  fileSize={content.fileSize}
-                  bucket={content.storageBucket || 'signed-documents'}
-                  variant="default"
-                  size="default"
-                  showFileInfo={true}
-                />
-                <p className="text-xs text-green-700 mt-3">
-                  ✅ Você é o criador - pode baixar o arquivo original a qualquer momento
-                </p>
-              </>
-            ) : (
-              <>
-                {/* Verificador: download depende de allowFileDownload */}
-                {content.allowFileDownload ? (
-                  <>
-                    <PublicDownloadButton
-                      filePath={content.filePath}
-                      fileName={content.fileName}
-                      mimeType={content.mimeType}
-                      fileSize={content.fileSize}
-                      bucket={content.storageBucket || 'signed-documents'}
-                      variant="default"
-                      size="default"
-                      showFileInfo={true}
-                    />
-                    <p className="text-xs text-green-700 mt-3">
-                      ✅ Este documento foi verificado e o criador permite download público
-                    </p>
-                  </>
-                ) : (
-                  <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-                    <p className="text-sm text-yellow-800 font-medium mb-2">
-                      🔒 Download Restrito
-                    </p>
-                    <p className="text-xs text-yellow-700">
-                      O criador optou por não permitir o download do arquivo original. Apenas o preview está disponível para verificação.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
+            <DownloadButton
+              filePath={content.filePath}
+              fileName={content.fileName}
+              mimeType={content.mimeType}
+              fileSize={content.fileSize}
+              bucket={content.storageBucket || 'signed-documents'}
+              variant="default"
+              size="default"
+              showFileInfo={true}
+            />
+            <p className="text-xs text-green-700 mt-3">
+              ✅ Este documento foi verificado e armazenado de forma segura
+            </p>
           </div>
         )}
         
@@ -371,76 +317,14 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
         {/* Hidden canvas for QR download */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         
-        {/* 📢 Frase Pronta para Compartilhamento */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-5 rounded-lg border-2 border-blue-300">
-          <div className="space-y-4">
-            {/* Título da seção */}
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📢</span>
-              <h3 className="text-base font-bold text-blue-900">Frase Pronta para Compartilhamento</h3>
-            </div>
-            
-            {/* Texto explicativo */}
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
-              <p className="text-sm text-green-800 leading-relaxed">
-                ✅ Você é o criador deste conteúdo. Use a frase abaixo para compartilhar nas suas redes sociais e permitir que seus seguidores verifiquem a autenticidade:
-              </p>
-            </div>
-            
-            {/* Frase pronta em destaque */}
-            <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
-              <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                Verifique a autenticidade desse conteúdo em www.veroid.com.br - código {content.verificationCode}
-              </p>
-            </div>
-            
-            {/* Botão de copiar frase */}
-            <Button
-              variant="default"
-              size="lg"
-              onClick={async () => {
-                const shareText = `Verifique a autenticidade desse conteúdo em www.veroid.com.br - código ${content.verificationCode}`;
-                try {
-                  await navigator.clipboard.writeText(shareText);
-                  // Feedback visual temporário
-                  const btn = document.getElementById('copy-share-phrase-btn');
-                  if (btn) {
-                    const originalText = btn.textContent;
-                    btn.textContent = '✅ Copiado!';
-                    setTimeout(() => {
-                      btn.textContent = originalText || 'Copiar Frase Pronta';
-                    }, 2000);
-                  }
-                } catch (err) {
-                  console.error('Erro ao copiar:', err);
-                }
-              }}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
-              id="copy-share-phrase-btn"
-            >
-              <Copy className="h-5 w-5 mr-2" />
-              Copiar Frase Pronta
-            </Button>
-            
-            {/* Dica adicional */}
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 flex items-start gap-2">
-              <span className="text-xl flex-shrink-0">💡</span>
-              <p className="text-xs text-blue-800 leading-relaxed">
-                Cole esta mensagem junto com seu conteúdo nas redes sociais
-              </p>
-            </div>
-            
-            {/* Botões de redes sociais */}
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-gray-600 mb-3">Ou compartilhe diretamente:</p>
-              <ShareButtons 
-                certificateUrl={certificateUrl}
-                title={shareTitle}
-                description={shareDescription}
-                compact={true}
-              />
-            </div>
-          </div>
+        {/* Share Buttons - Compact Version */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+          <ShareButtons 
+            certificateUrl={certificateUrl}
+            title={shareTitle}
+            description={shareDescription}
+            compact={true}
+          />
         </div>
         
         {/* Informações Técnicas */}
@@ -455,24 +339,22 @@ export default function ContentCard({ content: initialContent, onVerify, isCreat
           </div>
         </div>
         
-        {/* Botões de Ação - Download QR Code APENAS para o criador */}
+        {/* Botões de Ação */}
         <div className="grid grid-cols-2 gap-3">
-          {isCreator && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadQR}
-              className="w-full"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              QR Code
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadQR}
+            className="w-full"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            QR Code
+          </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownloadCertificate}
-            className={isCreator ? "w-full" : "col-span-2 w-full"}
+            className="w-full"
           >
             <Download className="h-4 w-4 mr-2" />
             Certificado
