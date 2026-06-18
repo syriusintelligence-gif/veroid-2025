@@ -129,7 +129,7 @@ export async function signContentEnhanced(
     });
   }
 
-  let creatorSocialLinks = undefined;
+  let creatorSocialLinks: SocialLinks | undefined = undefined;
   try {
     console.log('🔍 [Enhanced] Buscando links sociais do criador...');
     const { data: userData, error: userError } = await supabase
@@ -358,10 +358,10 @@ export async function signContentEnhanced(
     }
 
     // Extrai links sociais do criador
-    let creatorSocialLinks: SocialLinks | undefined = undefined;
+    let fetchedSocialLinks: SocialLinks | undefined = undefined;
     if (fullContentData.users && typeof fullContentData.users === 'object' && 'social_links' in fullContentData.users) {
-      creatorSocialLinks = fullContentData.users.social_links as SocialLinks;
-      console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
+      fetchedSocialLinks = fullContentData.users.social_links as SocialLinks;
+      console.log('✅ [Enhanced] Links sociais encontrados:', fetchedSocialLinks);
     } else {
       console.log('⚠️ [Enhanced] Nenhum link social encontrado');
     }
@@ -370,7 +370,7 @@ export async function signContentEnhanced(
 
     return {
       success: true,
-      signedContent: dbSignedContentToAppSignedContent(fullContentData, creatorSocialLinks),
+      signedContent: dbSignedContentToAppSignedContent(fullContentData, fetchedSocialLinks),
       method: 'client_side',
     };
 
