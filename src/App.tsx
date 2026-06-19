@@ -24,6 +24,7 @@ import CertificateDebug from './pages/CertificateDebug';
 import CarouselTest from './pages/CarouselTest';
 import ChangePassword from './pages/ChangePassword';
 import ShortUrlRedirect from './pages/ShortUrlRedirect';
+import Pricing from './pages/Pricing';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
@@ -356,6 +357,7 @@ function AppContent() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify" element={<Verify />} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route path="/certificate" element={<Certificate />} />
         <Route path="/c/:shortCode" element={<ShortUrlRedirect />} />
         <Route path="/certificate-debug" element={<CertificateDebug />} />

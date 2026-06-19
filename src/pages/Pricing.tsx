@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
-import { getCurrentUser } from '@/lib/supabase-auth-v2';
-import type { User } from '@/lib/supabase-auth-v2';
+import { getCurrentUser } from '@/lib/supabase-auth';
+import type { User } from '@/lib/supabase-auth';
 import { useNavigate } from 'react-router-dom';
-import { UpgradeConfirmDialog } from '@/components/UpgradeConfirmDialog.tsx';
+import { UpgradeConfirmDialog } from '@/components/UpgradeConfirmDialog';
 
 interface Plan {
   id: string;
@@ -247,7 +247,7 @@ export default function Pricing() {
     // Verificar se o usuário está logado
     if (!user) {
       console.log('⚠️ Usuário não autenticado, redirecionando para login...');
-      navigate('/login-v2', { state: { from: '/pricing', plan: plan.id } });
+      navigate('/login', { state: { from: '/pricing', plan: plan.id } });
       return;
     }
 
@@ -427,7 +427,7 @@ export default function Pricing() {
       // Se for erro de autenticação, redirecionar para login
       if (errorMessage.includes('autenticação') || errorMessage.includes('token')) {
         setTimeout(() => {
-          navigate('/login-v2', { state: { from: '/pricing', plan: plan.id } });
+          navigate('/login', { state: { from: '/pricing', plan: plan.id } });
         }, 2000);
       }
     } finally {
@@ -476,7 +476,7 @@ export default function Pricing() {
               </Button>
             ) : (
               <>
-                <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => navigate('/login-v2')}>
+                <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => navigate('/login')}>
                   Entrar
                 </Button>
                 <Button className="bg-cyan-500 hover:bg-cyan-600 text-white" onClick={() => navigate('/cadastro')}>
