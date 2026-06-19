@@ -8,6 +8,7 @@ import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import SignContent from './pages/SignContent';
+import SignCarousel from './pages/SignCarousel';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AuthCallback from './pages/AuthCallback';
@@ -22,6 +23,7 @@ import Certificate from './pages/Certificate';
 import CertificateDebug from './pages/CertificateDebug';
 import CarouselTest from './pages/CarouselTest';
 import ChangePassword from './pages/ChangePassword';
+import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
@@ -355,6 +357,7 @@ function AppContent() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify" element={<Verify />} />
         <Route path="/certificate" element={<Certificate />} />
+        <Route path="/c/:shortCode" element={<ShortUrlRedirect />} />
         <Route path="/certificate-debug" element={<CertificateDebug />} />
         <Route path="/carousel-test" element={<CarouselTest />} />
         <Route
@@ -376,6 +379,10 @@ function AppContent() {
         <Route
           path="/sign-content"
           element={session ? <SignContent /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/sign-carousel"
+          element={session ? <SignCarousel /> : <Navigate to="/login" />}
         />
         <Route
           path="/settings"
