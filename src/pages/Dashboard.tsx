@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -21,6 +21,13 @@ import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
 import type { SignedContent } from '@/lib/supabase-crypto';
 import ContentCard from '@/components/ContentCard';
 import FolderManager from '@/components/FolderManager';
+import { SubscriptionCard } from '@/components/SubscriptionCard';
+import TwoFactorAlert from '@/components/TwoFactorAlert';
+import SocialLinksAlert from '@/components/SocialLinksAlert';
+import { TrialBanner } from '@/components/TrialBanner';
+import { TrialModal } from '@/components/TrialModal';
+import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
+import { InstructionsModal } from '@/components/InstructionsModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +38,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { SubscriptionCard } from '@/components/SubscriptionCard';
+import TwoFactorAlert from '@/components/TwoFactorAlert';
+import SocialLinksAlert from '@/components/SocialLinksAlert';
+import { TrialBanner } from '@/components/TrialBanner';
+import { TrialModal } from '@/components/TrialModal';
+import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
+import { InstructionsModal } from '@/components/InstructionsModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -55,9 +69,13 @@ export default function Dashboard() {
   // 🆕 Sistema de Pastas
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   
+  // Estado para modal de instruções
+  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
+  
   useEffect(() => {
     loadUserData();
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const loadUserData = async () => {
     try {
@@ -365,6 +383,8 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {currentUser && <TrialModal userId={currentUser.id} />}
+      
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -375,7 +395,72 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <DropdownMenu>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/admin/dashboard')} 
+                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Admin Dashboard</span>
+                <span className="sm:hidden">Admin</span>
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/pricing')} 
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <CreditCard className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Planos</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsInstructionsModalOpen(true)} 
+              className="border-purple-600 text-purple-600 hover:bg-purple-50"
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Instruções</span>
+            </Button>
+            <DropdownMenu></old_string>
+</Editor.edit_file_by_replace>
+
+<Editor.edit_file_by_replace>
+<path>/workspace/github-deploy/src/pages/Dashboard.tsx</path>
+<old_string>            </div>
+        
+        {/* Key Status Card */}</old_string>
+<new_string>            </div>
+        
+        <PaymentFailureAlert className="mb-6" />
+        <TrialBanner className="mb-6" />
+        {currentUser && <TwoFactorAlert userId={currentUser.id} className="mb-6" />}
+        {currentUser && <SocialLinksAlert userId={currentUser.id} className="mb-6" />}
+        
+        <div className="mb-8">
+          <SubscriptionCard />
+        </div>
+        
+        {/* Key Status Card */}</old_string>
+</Editor.edit_file_by_replace>
+
+<Editor.edit_file_by_replace>
+<path>/workspace/github-deploy/src/pages/Dashboard.tsx</path>
+<old_string>        </main>
+      </div>
+    </div>
+  );
+}</old_string>
+<new_string>        </main>
+      </div>
+      
+      <InstructionsModal 
+        open={isInstructionsModalOpen} 
+        onOpenChange={setIsInstructionsModalOpen} 
+      />
+    </div>
+  );
+}
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10 border-2 border-blue-600">
@@ -640,7 +725,7 @@ export default function Dashboard() {
         </Card>
         
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -657,6 +742,31 @@ export default function Dashboard() {
                 disabled={!keyPair}
               >
                 {keyPair ? 'Criar Nova Assinatura' : 'Gere suas chaves primeiro'}
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign-carousel')}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Carrossel de Imagens
+              </CardTitle>
+              <CardDescription>
+                Crie certificados com múltiplas imagens
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:scale-105 hover:shadow-lg transition-all duration-300" 
+                disabled={!keyPair}
+              >
+                {keyPair ? 'Criar Carrossel' : 'Gere suas chaves primeiro'}
               </Button>
             </CardContent>
           </Card>
