@@ -392,25 +392,41 @@ export default function Certificate() {
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
                 {(() => {
+                  console.log('🔍 [CAROUSEL DEBUG] ========== INÍCIO DEBUG ==========');
+                  console.log('🔍 [CAROUSEL DEBUG] content completo:', JSON.stringify(content, null, 2));
                   console.log('🔍 [CAROUSEL DEBUG] totalImages:', content.totalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] totalImages type:', typeof content.totalImages);
                   console.log('🔍 [CAROUSEL DEBUG] carouselMetadata:', content.carouselMetadata);
-                  console.log('🔍 [CAROUSEL DEBUG] Condição para exibir carrossel:', content.totalImages && content.totalImages > 1 && content.carouselMetadata);
+                  console.log('🔍 [CAROUSEL DEBUG] carouselMetadata type:', typeof content.carouselMetadata);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição 1 (totalImages exists):', !!content.totalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição 2 (totalImages > 1):', content.totalImages && content.totalImages > 1);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição 3 (carouselMetadata exists):', !!content.carouselMetadata);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição COMPLETA:', content.totalImages && content.totalImages > 1 && content.carouselMetadata);
                   
                   if (content.totalImages && content.totalImages > 1 && content.carouselMetadata) {
                     const metadata = content.carouselMetadata as CarouselMetadata;
-                    console.log('🔍 [CAROUSEL DEBUG] images array:', metadata.carousel_images);
+                    console.log('🔍 [CAROUSEL DEBUG] metadata parseado:', metadata);
+                    console.log('🔍 [CAROUSEL DEBUG] metadata.carousel_images:', metadata.carousel_images);
                     console.log('🔍 [CAROUSEL DEBUG] Número de imagens no array:', metadata.carousel_images?.length);
+                    console.log('🔍 [CAROUSEL DEBUG] storage_bucket:', metadata.storage_bucket);
+                    console.log('🔍 [CAROUSEL DEBUG] ========== FIM DEBUG ==========');
                     
                     return (
                       <Carousel className="w-full max-w-4xl mx-auto">
                         <CarouselContent>
                           {metadata.carousel_images.map((image, index) => {
-                            console.log(`🔍 [CAROUSEL DEBUG] Renderizando imagem ${index + 1}:`, supabase.storage.from(metadata.storage_bucket).getPublicUrl(image.path).data.publicUrl);
+                            const publicUrl = supabase.storage.from(metadata.storage_bucket).getPublicUrl(image.path).data.publicUrl;
+                            console.log(`🔍 [CAROUSEL] Imagem ${index + 1}:`, {
+                              path: image.path,
+                              publicUrl,
+                              name: image.name,
+                              size: image.size
+                            });
                             return (
                               <CarouselItem key={`${image.path}-${index}`}>
                                 <div className="relative">
                                   <img 
-                                    src={supabase.storage.from(metadata.storage_bucket).getPublicUrl(image.path).data.publicUrl} 
+                                    src={publicUrl} 
                                     alt={`Imagem ${index + 1} do conteúdo`}
                                     className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
                                     onLoad={() => console.log(`✅ [CAROUSEL] Imagem ${index + 1} carregada com sucesso`)}
@@ -430,6 +446,7 @@ export default function Certificate() {
                     );
                   } else {
                     console.log('🔍 [CAROUSEL DEBUG] Exibindo imagem única (thumbnail)');
+                    console.log('🔍 [CAROUSEL DEBUG] ========== FIM DEBUG ==========');
                     return (
                       <img 
                         src={content.thumbnail} 
