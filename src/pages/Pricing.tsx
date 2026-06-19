@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, Shield, AlertCircle, Gift, Building2, ArrowRight, Loader2 } from 'lucide-react';
+import { Check, Shield, AlertCircle, Gift, Building2, ArrowRight, CreditCard, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -111,6 +111,10 @@ export default function Pricing() {
   const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null);
   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  // 🆕 Tipo de processamento para customizar o overlay de loading
+  const [processingType, setProcessingType] = useState<'checkout' | 'upgrade' | null>(null);
+  const [processingPlanName, setProcessingPlanName] = useState<string>('');
+  const [processingStep, setProcessingStep] = useState<number>(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -183,6 +187,9 @@ export default function Pricing() {
     try {
       setLoading(pendingPlan.id);
       setIsProcessing(true);
+      setProcessingType('upgrade');
+      setProcessingPlanName(pendingPlan.name);
+      setProcessingStep(1);
       setShowUpgradeDialog(false);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -190,6 +197,7 @@ export default function Pricing() {
         throw new Error('Token de acesso não encontrado');
       }
 
+      setProcessingStep(2);
       console.log('🔐 [Pricing] Confirmando mudança de plano...');
 
       const { data, error } = await supabase.functions.invoke('update-subscription', {
@@ -224,6 +232,10 @@ export default function Pricing() {
         }
       }
 
+      setProcessingStep(3);
+      // Pequena pausa para o usuário ver a etapa final concluída antes do alert
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       alert(`✅ ${successMessage}`);
 
       await checkUser();
@@ -235,6 +247,9 @@ export default function Pricing() {
     } finally {
       setLoading(null);
       setIsProcessing(false);
+      setProcessingType(null);
+      setProcessingPlanName('');
+      setProcessingStep(0);
       setPendingPlan(null);
       setPreviewData(null);
     }
@@ -404,9 +419,17 @@ export default function Pricing() {
       console.log('➡️ [Pricing] Criando nova checkout session (primeira assinatura ou pacote avulso)');
       console.log('📋 [Pricing] Motivo:', !isSubscriptionPlan ? 'É pacote avulso' : 'Não tem assinatura ativa');
 
+      // 🆕 Ativar overlay visual de checkout
+      setIsProcessing(true);
+      setProcessingType('checkout');
+      setProcessingPlanName(plan.name);
+      setProcessingStep(1);
+
       // Se não tem assinatura ativa OU é pacote avulso = CRIAR NOVA CHECKOUT SESSION
       console.log('🔐 Token obtido, chamando Edge Function...');
       console.log('📊 Session access_token (primeiros 20 chars):', session.access_token.substring(0, 20));
+
+      setProcessingStep(2);
 
       // Chamar a Edge Function com o token de autenticação
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
@@ -428,6 +451,9 @@ export default function Pricing() {
 
       if (data?.url) {
         console.log('✅ Redirecionando para checkout:', data.url);
+        setProcessingStep(3);
+        // Pequena pausa para o usuário ver a etapa final concluída antes do redirect
+        await new Promise((resolve) => setTimeout(resolve, 800));
         window.location.href = data.url;
       } else {
         throw new Error('URL de checkout não retornada');
@@ -436,6 +462,12 @@ export default function Pricing() {
       console.error('❌ Erro ao processar assinatura:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao processar assinatura. Tente novamente.';
       setError(errorMessage);
+      
+      // 🆕 Resetar overlay em caso de erro
+      setIsProcessing(false);
+      setProcessingType(null);
+      setProcessingPlanName('');
+      setProcessingStep(0);
       
       // Se for erro de autenticação, redirecionar para login
       if (errorMessage.includes('autenticação') || errorMessage.includes('token')) {
@@ -453,21 +485,149 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative">
-      {/* 🆕 Loading Overlay */}
+      {/* 🆕 Loading Overlay - Visual moderno com etapas */}
       {isProcessing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center">
-          <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-cyan-500/30 max-w-md w-full mx-4">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-16 w-16 text-cyan-400 animate-spin" />
-              <h3 className="text-xl font-bold text-white text-center">
-                Processando sua solicitação
-              </h3>
-              <p className="text-gray-300 text-center text-sm">
-                Estamos atualizando seu plano. Isso pode levar alguns instantes...
-              </p>
-              <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full animate-pulse" style={{ width: '70%' }}></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-in fade-in duration-300">
+          {/* Fundo com gradiente e blur */}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/95 to-slate-900/95 backdrop-blur-md" />
+
+          {/* Partículas decorativas animadas */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+          </div>
+
+          {/* Card principal */}
+          <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-3xl p-8 md:p-10 shadow-2xl border border-cyan-500/30 max-w-md w-full mx-4 animate-in zoom-in-95 duration-500">
+            {/* Borda gradiente animada */}
+            <div className="absolute -inset-[1px] bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 rounded-3xl opacity-50 blur-sm animate-pulse" />
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 md:p-10">
+
+              {/* Ícone central animado com Shield (Vero iD) */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  {/* Anéis pulsantes ao redor do ícone */}
+                  <div className="absolute inset-0 rounded-full bg-cyan-500/30 animate-ping" />
+                  <div className="absolute inset-0 rounded-full bg-cyan-500/20 animate-pulse" />
+
+                  {/* Container do ícone */}
+                  <div className="relative w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/50">
+                    {processingType === 'checkout' ? (
+                      <CreditCard className="h-10 w-10 text-white" strokeWidth={2.5} />
+                    ) : (
+                      <Sparkles className="h-10 w-10 text-white" strokeWidth={2.5} />
+                    )}
+                  </div>
+
+                  {/* Pequeno escudo Vero iD no canto */}
+                  <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-slate-900 rounded-full flex items-center justify-center border-2 border-cyan-400">
+                    <Shield className="h-4 w-4 text-cyan-400" />
+                  </div>
+                </div>
               </div>
+
+              {/* Título contextual */}
+              <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-2 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                {processingType === 'checkout' ? 'Preparando seu Checkout' : 'Atualizando seu Plano'}
+              </h3>
+
+              {/* Nome do plano */}
+              {processingPlanName && (
+                <p className="text-cyan-300 text-center text-sm font-medium mb-1">
+                  {processingPlanName}
+                </p>
+              )}
+
+              {/* Descrição contextual */}
+              <p className="text-gray-400 text-center text-sm mb-8">
+                {processingType === 'checkout'
+                  ? 'Estamos preparando o ambiente seguro de pagamento. Aguarde só um instante...'
+                  : 'Estamos confirmando a alteração do seu plano. Aguarde um momento...'}
+              </p>
+
+              {/* Etapas do processo */}
+              <div className="space-y-3 mb-6">
+                {/* Etapa 1 */}
+                <div className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${
+                  processingStep >= 1 ? 'bg-cyan-500/10 border border-cyan-500/30' : 'bg-slate-700/30 border border-slate-700/50'
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    processingStep > 1 ? 'bg-green-500' : processingStep === 1 ? 'bg-cyan-500' : 'bg-slate-700'
+                  }`}>
+                    {processingStep > 1 ? (
+                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    ) : processingStep === 1 ? (
+                      <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-slate-400" />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${processingStep >= 1 ? 'text-white' : 'text-slate-500'}`}>
+                    Validando autenticação
+                  </span>
+                </div>
+
+                {/* Etapa 2 */}
+                <div className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${
+                  processingStep >= 2 ? 'bg-cyan-500/10 border border-cyan-500/30' : 'bg-slate-700/30 border border-slate-700/50'
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    processingStep > 2 ? 'bg-green-500' : processingStep === 2 ? 'bg-cyan-500' : 'bg-slate-700'
+                  }`}>
+                    {processingStep > 2 ? (
+                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    ) : processingStep === 2 ? (
+                      <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 text-slate-400" />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${processingStep >= 2 ? 'text-white' : 'text-slate-500'}`}>
+                    {processingType === 'checkout' ? 'Criando sessão de pagamento' : 'Processando alteração'}
+                  </span>
+                </div>
+
+                {/* Etapa 3 */}
+                <div className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${
+                  processingStep >= 3 ? 'bg-cyan-500/10 border border-cyan-500/30' : 'bg-slate-700/30 border border-slate-700/50'
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    processingStep >= 3 ? 'bg-green-500' : 'bg-slate-700'
+                  }`}>
+                    {processingStep >= 3 ? (
+                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${processingStep >= 3 ? 'text-white' : 'text-slate-500'}`}>
+                    {processingType === 'checkout' ? 'Redirecionando ao Stripe' : 'Concluindo'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Barra de progresso animada */}
+              <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden mb-4">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 h-full transition-all duration-700 ease-out relative overflow-hidden"
+                  style={{ width: `${Math.min((processingStep / 3) * 100, 100)}%` }}
+                >
+                  {/* Efeito shimmer */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                </div>
+              </div>
+
+              {/* Aviso de segurança */}
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+                <Lock className="h-3 w-3" />
+                <span>Conexão segura e criptografada</span>
+              </div>
+
+              {/* Aviso para não fechar */}
+              <p className="text-center text-xs text-slate-500 mt-4 italic">
+                Por favor, não feche esta janela
+              </p>
             </div>
           </div>
         </div>
