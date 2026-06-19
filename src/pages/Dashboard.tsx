@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -11,23 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
-import type { User as UserType } from '@/lib/supabase-auth';
-import { generateKeyPair, saveKeyPair, getKeyPair, clearAllKeys } from '@/lib/crypto';
-import type { KeyPair } from '@/lib/supabase-crypto';
-import { getSignedContentsByUserId } from '@/lib/supabase-crypto';
-import type { SignedContent } from '@/lib/supabase-crypto';
-import ContentCard from '@/components/ContentCard';
-import FolderManager from '@/components/FolderManager';
-import { SubscriptionCard } from '@/components/SubscriptionCard';
-import TwoFactorAlert from '@/components/TwoFactorAlert';
-import SocialLinksAlert from '@/components/SocialLinksAlert';
-import { TrialBanner } from '@/components/TrialBanner';
-import { TrialModal } from '@/components/TrialModal';
-import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
-import { InstructionsModal } from '@/components/InstructionsModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,28 +20,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Shield, Key, FileText, TrendingUp, ArrowLeft, User, LogOut, Settings, Home, Search, Calendar, Eye, ArrowUpDown, Trophy, Users, BarChart3, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
+import type { User as UserType } from '@/lib/supabase-auth';
+import { generateKeyPair, saveKeyPair, getKeyPair, getSignedContentsByUserId } from '@/lib/supabase-crypto';
+import type { KeyPair, SignedContent } from '@/lib/supabase-crypto';
+import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
-import { SubscriptionCard } from '@/components/SubscriptionCard';
-import TwoFactorAlert from '@/components/TwoFactorAlert';
-import SocialLinksAlert from '@/components/SocialLinksAlert';
-import { TrialBanner } from '@/components/TrialBanner';
-import { TrialModal } from '@/components/TrialModal';
-import { PaymentFailureAlert } from '@/components/PaymentFailureAlert';
-import { InstructionsModal } from '@/components/InstructionsModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [signedContents, setSignedContents] = useState<SignedContent[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  
-  // Estados para copiar chaves
-  const [copiedPublicKey, setCopiedPublicKey] = useState(false);
-  const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
-  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Filtros
   const [searchTitle, setSearchTitle] = useState('');
@@ -66,54 +44,40 @@ export default function Dashboard() {
   const [filterDate, setFilterDate] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
   
-  // 🆕 Sistema de Pastas
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  
-  // Estado para modal de instruções
-  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
-  
   useEffect(() => {
     loadUserData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate]);
   
   const loadUserData = async () => {
     try {
-      console.log('🔄 Iniciando carregamento de dados do usuário...');
       setIsLoading(true);
       
+      // Verifica se usuário está logado
       const user = await getCurrentUser();
       if (!user) {
-        console.log('❌ Usuário não autenticado, redirecionando...');
         navigate('/login');
         return;
       }
       
-      console.log('✅ Usuário autenticado:', user.email, 'ID:', user.id);
-      console.log('👤 Status admin:', user.isAdmin);
       setCurrentUser(user);
       
       // Verifica se é admin
       const adminStatus = await isCurrentUserAdmin();
       setIsAdmin(adminStatus);
       
-      // 🆕 Tenta carregar chaves (localStorage ou Supabase - descriptografa automaticamente)
-      console.log('🔍 Tentando carregar chaves para userId:', user.id);
+      // Carrega chaves do usuário
       const userKeyPair = await getKeyPair(user.id);
-      console.log('🔑 Resultado da busca de chaves:', userKeyPair ? 'ENCONTRADAS' : 'NÃO ENCONTRADAS');
-      
       setKeyPair(userKeyPair);
       
-      console.log('✅ Dados do usuário carregados:', {
-        email: user.email,
-        hasKeys: !!userKeyPair,
-        keySource: userKeyPair ? 'localStorage ou Supabase (descriptografadas)' : 'nenhuma',
-      });
+      // Carrega conteúdos assinados do usuário
+      const userContents = await getSignedContentsByUserId(user.id);
+      setSignedContents(userContents);
       
-      // Carrega conteúdos assinados
-      const contents = await getSignedContentsByUserId(user.id);
-      setSignedContents(contents);
-      console.log('📄 Conteúdos assinados carregados:', contents.length);
+      console.log('✅ Dados do usuário carregados:', {
+        user: user.email,
+        hasKeys: !!userKeyPair,
+        contentsCount: userContents.length,
+      });
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);
     } finally {
@@ -122,167 +86,37 @@ export default function Dashboard() {
   };
   
   const handleGenerateKeys = async () => {
-    console.log('🚀 === INICIANDO GERAÇÃO DE CHAVES ===');
-    console.log('👤 Usuário atual (currentUser):', currentUser);
-    console.log('👤 currentUser?.id:', currentUser?.id);
-    console.log('👤 Tipo de currentUser?.id:', typeof currentUser?.id);
-    
-    // 🆕 VALIDAÇÃO CRÍTICA 1: Verifica se currentUser existe
     if (!currentUser) {
-      console.error('❌ ERRO CRÍTICO: currentUser é null ou undefined');
-      alert('Erro: Nenhum usuário autenticado. Por favor, faça login novamente.');
+      alert('Erro: usuário não identificado');
       return;
     }
     
-    // 🆕 VALIDAÇÃO CRÍTICA 2: Verifica se currentUser.id existe
-    if (!currentUser.id) {
-      console.error('❌ ERRO CRÍTICO: currentUser.id é null ou undefined');
-      console.error('📊 currentUser completo:', JSON.stringify(currentUser, null, 2));
-      alert('Erro: ID do usuário não encontrado. Por favor, faça login novamente.');
-      return;
-    }
-    
-    console.log('✅ Validação de currentUser passou');
-    console.log('📊 currentUser.id:', currentUser.id);
-    console.log('📊 Tipo de currentUser.id:', typeof currentUser.id);
-    
-    setIsGeneratingKeys(true);
-    
+    setIsGenerating(true);
     try {
-      console.log('🔑 Chamando generateKeyPair com userId:', currentUser.id);
-      
-      // 🆕 CRÍTICO: Passar currentUser.id explicitamente
-      const keyPair = await generateKeyPair(currentUser.id);
-      
-      console.log('✅ KeyPair gerado');
-      console.log('📊 keyPair completo:', JSON.stringify(keyPair, null, 2));
-      console.log('📊 keyPair.userId:', keyPair?.userId);
-      console.log('📊 Tipo de keyPair.userId:', typeof keyPair?.userId);
-      
-      // 🆕 VALIDAÇÃO CRÍTICA 3: Verifica se keyPair foi gerado corretamente
-      if (!keyPair) {
-        console.error('❌ ERRO: generateKeyPair retornou null ou undefined');
-        console.error('❌ keyPair recebido:', keyPair);
-        alert('Erro: Falha ao gerar chaves (retorno nulo)');
-        return;
-      }
-      
-      // 🆕 VALIDAÇÃO CRÍTICA 4: Verifica se userId está presente no keyPair
-      if (!keyPair.userId) {
-        console.error('❌ ERRO: KeyPair gerado sem userId!');
-        console.error('📊 KeyPair gerado:', JSON.stringify(keyPair, null, 2));
-        alert('Erro: KeyPair gerado sem userId. Por favor, tente novamente.');
-        return;
-      }
-      
-      console.log('✅ Validação de KeyPair passou');
-      console.log('💾 Chamando saveKeyPair...');
-      
-      const result = await saveKeyPair(keyPair);
-      
-      console.log('📊 Resultado do saveKeyPair:', JSON.stringify(result, null, 2));
-      console.log('📊 Tipo do resultado:', typeof result);
-      console.log('📊 result?.success:', result?.success);
-      
-      // 🆕 VALIDAÇÃO CRÍTICA 5: Verifica se result é válido
-      if (!result) {
-        console.error('❌ ERRO: saveKeyPair retornou null ou undefined');
-        console.error('❌ result recebido:', result);
-        alert('Erro: Falha ao salvar chaves (retorno nulo). Por favor, tente novamente.');
-        return;
-      }
-      
-      if (typeof result !== 'object') {
-        console.error('❌ ERRO: saveKeyPair retornou tipo inválido:', typeof result);
-        console.error('❌ result recebido:', result);
-        alert('Erro: Falha ao salvar chaves (tipo de retorno inválido). Por favor, tente novamente.');
-        return;
-      }
-      
-      if (typeof result.success === 'undefined') {
-        console.error('❌ ERRO: saveKeyPair retornou objeto sem propriedade success');
-        console.error('📊 Objeto retornado:', JSON.stringify(result, null, 2));
-        alert('Erro: Resposta inválida ao salvar chaves. Por favor, tente novamente.');
-        return;
-      }
+      const newKeyPair = await generateKeyPair(currentUser.id);
+      const result = await saveKeyPair(newKeyPair);
       
       if (result.success) {
-        console.log('✅ Chaves salvas com sucesso!');
-        setKeyPair(keyPair);
-        
-        // Verifica se as chaves foram realmente salvas
-        console.log('🔍 Verificando se as chaves foram realmente salvas...');
-        const verifyKeyPair = await getKeyPair(currentUser.id);
-        
-        if (verifyKeyPair) {
-          console.log('✅✅✅ VERIFICAÇÃO CONFIRMADA! Chaves estão salvas e criptografadas!');
-          alert('✅ Chaves criptográficas geradas e salvas com sucesso!');
-          
-          // Recarrega a página para atualizar todos os dados
-          console.log('🔄 Recarregando página para atualizar dados...');
-          window.location.reload();
-        } else {
-          console.error('❌❌❌ ERRO! Chaves não foram encontradas após salvar!');
-          alert('⚠️ Chaves geradas mas não foram encontradas após salvar. Por favor, tente gerar novamente.');
-        }
+        setKeyPair(newKeyPair);
+        console.log('✅ Chaves geradas e salvas com sucesso!');
       } else {
-        console.error('❌ Falha ao salvar chaves:', result.error);
-        alert(`Erro ao salvar chaves: ${result.error || 'Erro desconhecido'}. Por favor, tente novamente.`);
+        alert(result.error || 'Erro ao salvar chaves. Tente novamente.');
       }
     } catch (error) {
-      console.error('❌ ERRO INESPERADO na geração de chaves:', error);
-      console.error('📊 Tipo do erro:', typeof error);
-      console.error('📊 Stack trace:', error instanceof Error ? error.stack : 'N/A');
-      console.error('📊 error.message:', error instanceof Error ? error.message : String(error));
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`Erro ao gerar chaves: ${errorMessage}. Por favor, tente novamente.`);
+      console.error('Erro ao gerar chaves:', error);
+      alert('Erro ao gerar chaves. Tente novamente.');
     } finally {
-      setIsGeneratingKeys(false);
-      console.log('🏁 === FIM DO PROCESSO DE GERAÇÃO ===');
+      setIsGenerating(false);
     }
   };
   
-  const handleCopyPublicKey = async () => {
-    if (!keyPair) return;
-    try {
-      await navigator.clipboard.writeText(keyPair.publicKey);
-      setCopiedPublicKey(true);
-      setTimeout(() => setCopiedPublicKey(false), 2000);
-    } catch (err) {
-      console.error('Erro ao copiar chave pública:', err);
-    }
-  };
-  
-  const handleCopyPrivateKey = async () => {
-    if (!keyPair) return;
-    try {
-      await navigator.clipboard.writeText(keyPair.privateKey);
-      setCopiedPrivateKey(true);
-      setTimeout(() => setCopiedPrivateKey(false), 2000);
-    } catch (err) {
-      console.error('Erro ao copiar chave privada:', err);
-    }
+  const handleVerify = (id: string) => {
+    navigate(`/verify?id=${id}`);
   };
   
   const handleLogout = async () => {
-    try {
-      console.log('🚪 Fazendo logout...');
-      
-      // 🆕 Limpa chaves locais ANTES do logout
-      if (currentUser) {
-        console.log('🗑️ Limpando chaves locais...');
-        clearAllKeys(currentUser.id);
-        console.log('✅ Chaves locais limpas com sucesso!');
-      }
-      
-      console.log('ℹ️ As chaves permanecem no Supabase (criptografadas) e serão restauradas no próximo login!');
-      
-      await logout();
-      navigate('/');
-    } catch (error) {
-      console.error('❌ Erro ao fazer logout:', error);
-    }
+    await logout();
+    navigate('/');
   };
   
   const getInitials = (name: string) => {
@@ -298,21 +132,16 @@ export default function Dashboard() {
   const getFilteredAndSortedContents = () => {
     let filtered = [...signedContents];
     
-    // 🆕 Filtro por pasta
-    if (selectedFolderId !== null) {
-      filtered = filtered.filter(content => content.folderId === selectedFolderId);
-    }
-    
     // Filtro por título
     if (searchTitle.trim()) {
-      filtered = filtered.filter(content =>
+      filtered = filtered.filter(content => 
         content.content.toLowerCase().includes(searchTitle.toLowerCase())
       );
     }
     
     // Filtro por plataforma
     if (filterPlatform !== 'all') {
-      filtered = filtered.filter(content =>
+      filtered = filtered.filter(content => 
         content.platforms?.includes(filterPlatform)
       );
     }
@@ -341,14 +170,14 @@ export default function Dashboard() {
     
     // Ordenação
     switch (sortBy) {
-      case 'oldest':
-        filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      case 'most-verified':
+        filtered.sort((a, b) => (b.verificationCount || 0) - (a.verificationCount || 0));
+        break;
+      case 'least-verified':
+        filtered.sort((a, b) => (a.verificationCount || 0) - (b.verificationCount || 0));
         break;
       case 'alphabetical':
         filtered.sort((a, b) => a.content.localeCompare(b.content));
-        break;
-      case 'most-verified':
-        filtered.sort((a, b) => (b.verificationCount || 0) - (a.verificationCount || 0));
         break;
       case 'recent':
       default:
@@ -368,566 +197,441 @@ export default function Dashboard() {
     return Array.from(platforms).sort();
   };
   
+  // Calcular total de verificações
+  const getTotalVerifications = () => {
+    return signedContents.reduce((total, content) => total + (content.verificationCount || 0), 0);
+  };
+  
+  // Obter ranking (top 3)
+  const getTopContents = () => {
+    return [...signedContents]
+      .sort((a, b) => (b.verificationCount || 0) - (a.verificationCount || 0))
+      .slice(0, 3);
+  };
+  
   const filteredContents = getFilteredAndSortedContents();
+  const topContents = getTopContents();
   
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground">Carregando dashboard...</p>
         </div>
       </div>
     );
   }
   
+  if (!currentUser) {
+    return null;
+  }
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {currentUser && <TrialModal userId={currentUser.id} />}
-      
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Vero iD
-            </span>
-          </div>
           <div className="flex items-center gap-4">
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/admin/dashboard')} 
-                className="border-blue-600 text-blue-600 hover:bg-blue-50"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
-                <span className="sm:hidden">Admin</span>
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/pricing')} 
-              className="border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Planos</span>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/')} title="Voltar para Home">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsInstructionsModalOpen(true)} 
-              className="border-purple-600 text-purple-600 hover:bg-purple-50"
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Ir para Dashboard"
             >
-              <BookOpen className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Instruções</span>
+              <Shield className="h-8 w-8 text-blue-600" />
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Vero iD
+              </span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate('/verify')}>
+              Verificar
             </Button>
-            <DropdownMenu></old_string>
-</Editor.edit_file_by_replace>
-
-<Editor.edit_file_by_replace>
-<path>/workspace/github-deploy/src/pages/Dashboard.tsx</path>
-<old_string>            </div>
-        
-        {/* Key Status Card */}</old_string>
-<new_string>            </div>
-        
-        <PaymentFailureAlert className="mb-6" />
-        <TrialBanner className="mb-6" />
-        {currentUser && <TwoFactorAlert userId={currentUser.id} className="mb-6" />}
-        {currentUser && <SocialLinksAlert userId={currentUser.id} className="mb-6" />}
-        
-        <div className="mb-8">
-          <SubscriptionCard />
-        </div>
-        
-        {/* Key Status Card */}</old_string>
-</Editor.edit_file_by_replace>
-
-<Editor.edit_file_by_replace>
-<path>/workspace/github-deploy/src/pages/Dashboard.tsx</path>
-<old_string>        </main>
-      </div>
-    </div>
-  );
-}</old_string>
-<new_string>        </main>
-      </div>
-      
-      <InstructionsModal 
-        open={isInstructionsModalOpen} 
-        onOpenChange={setIsInstructionsModalOpen} 
-      />
-    </div>
-  );
-}
+            <Button onClick={() => navigate('/sign')}>
+              Assinar Conteúdo
+            </Button>
+            
+            {/* User Profile Dropdown */}
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10 border-2 border-blue-600">
-                    <AvatarImage src={currentUser?.selfieUrl} alt={currentUser?.nomeCompleto} />
+                    <AvatarImage src={currentUser.selfieUrl} alt={currentUser.nomeCompleto} />
                     <AvatarFallback className="bg-blue-600 text-white">
-                      {currentUser ? getInitials(currentUser.nomeCompleto) : 'U'}
+                      {getInitials(currentUser.nomeCompleto)}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-80 bg-white" align="end">
-                {currentUser && (
-                  <>
-                    <div className="px-4 py-3">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Avatar className="h-12 w-12 border-2 border-blue-600">
-                          <AvatarImage src={currentUser.selfieUrl} alt={currentUser.nomeCompleto} />
-                          <AvatarFallback className="bg-blue-600 text-white text-lg">
-                            {getInitials(currentUser.nomeCompleto)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">
-                            {isAdmin ? 'Administrador Sistema' : currentUser.nomeCompleto}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">@{currentUser.nomePublico || 'User'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
-                          {isAdmin && (
-                            <Badge className="bg-red-100 text-red-800 text-xs mt-1">Admin</Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="border-t pt-3 space-y-1 text-sm">
-                        <div className="font-semibold mb-2">Informações do Perfil</div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">CPF/CNPJ:</span>
-                          <span className="font-medium">{currentUser.cpfCnpj || '000000000000'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Telefone:</span>
-                          <span className="font-medium">{currentUser.telefone || '(00) 00000-0000'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Status:</span>
-                          <span className="font-medium text-green-600">Verificado</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Membro desde:</span>
-                          <span className="font-medium">{new Date(currentUser.createdAt).toLocaleDateString('pt-BR')}</span>
-                        </div>
-                      </div>
+              <DropdownMenuContent className="w-80" align="end">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex items-start gap-3 py-2">
+                    <Avatar className="h-16 w-16 border-2 border-blue-600">
+                      <AvatarImage src={currentUser.selfieUrl} alt={currentUser.nomeCompleto} />
+                      <AvatarFallback className="bg-blue-600 text-white text-xl">
+                        {getInitials(currentUser.nomeCompleto)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col space-y-1 flex-1">
+                      <p className="text-sm font-medium leading-none">{currentUser.nomeCompleto}</p>
+                      {currentUser.nomePublico && currentUser.nomePublico !== currentUser.nomeCompleto && (
+                        <p className="text-xs text-muted-foreground">@{currentUser.nomePublico}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                      {isAdmin && (
+                        <Badge className="bg-red-100 text-red-800 w-fit text-xs">Admin</Badge>
+                      )}
                     </div>
-                    
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                <div className="px-2 py-2">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">Informações do Perfil</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">CPF/CNPJ:</span>
+                      <span className="font-medium">{currentUser.cpfCnpj}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Telefone:</span>
+                      <span className="font-medium">{currentUser.telefone}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium text-green-600">
+                        {currentUser.verified ? 'Verificado' : 'Pendente'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Membro desde:</span>
+                      <span className="font-medium">
+                        {new Date(currentUser.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
+                  <Home className="mr-2 h-4 w-4" />
+                  <span>Dashboard</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Meu Perfil</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Configurações</span>
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
                     <DropdownMenuSeparator />
-                    
-                    <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
-                      <Home className="mr-2 h-4 w-4" />
-                      <span>Dashboard</span>
+                    <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer text-red-600">
+                      <Users className="mr-2 h-4 w-4" />
+                      <span>Gerenciar Usuários</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Meu Perfil</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Configurações</span>
-                    </DropdownMenuItem>
-                    
-                    {isAdmin && (
-                      <>
-                        <DropdownMenuSeparator />
-                        
-                        <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer text-red-600">
-                          <Users className="mr-2 h-4 w-4" />
-                          <span>Gerenciar Usuários</span>
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer text-red-600">
-                          <BarChart3 className="mr-2 h-4 w-4" />
-                          <span>Dashboard Admin</span>
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem onClick={() => navigate('/admin/audit-logs')} className="cursor-pointer text-red-600">
-                          <FileText className="mr-2 h-4 w-4" />
-                          <span>Logs de Auditoria</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    
-                    <DropdownMenuSeparator />
-                    
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sair</span>
+                    <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer text-red-600">
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      <span>Dashboard Admin</span>
                     </DropdownMenuItem>
                   </>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </header>
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Conteúdo Principal */}
-        <main className="w-full">
-            {/* Welcome Section */}
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold mb-2">
-                Olá, {currentUser?.nomePublico || currentUser?.nomeCompleto}! 👋
-              </h1>
-              <p className="text-muted-foreground">
-                Gerencie suas assinaturas digitais e proteja seu conteúdo
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">Gerencie suas chaves e conteúdos assinados</p>
+        </div>
+        
+        {/* Estatísticas */}
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Conteúdos Assinados</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{signedContents.length}</div>
+              <p className="text-xs text-muted-foreground">Total de assinaturas</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Verificações</CardTitle>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{getTotalVerifications()}</div>
+              <p className="text-xs text-muted-foreground">Verificações realizadas</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Status das Chaves</CardTitle>
+              <Key className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{keyPair ? 'Ativas' : 'Não Geradas'}</div>
+              <p className="text-xs text-muted-foreground">
+                {keyPair ? 'Chaves configuradas' : 'Configure suas chaves'}
               </p>
-            </div>
-        
-        {/* Key Status Card */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Status das Chaves Criptográficas
-            </CardTitle>
-            <CardDescription>
-              🔐 Suas chaves privadas são criptografadas com AES-256-GCM antes de serem salvas no Supabase
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {keyPair ? (
-              <div className="space-y-4">
-                {/* Status Badge */}
-                <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="font-semibold text-green-900">Chaves Ativas e Criptografadas</p>
-                    <p className="text-sm text-green-700">Sincronizadas com Supabase e prontas para uso</p>
-                  </div>
-                </div>
-                
-                {/* Chave Pública */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Key className="h-4 w-4 text-blue-600" />
-                      Chave Pública
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopyPublicKey}
-                      className="h-8"
-                    >
-                      {copiedPublicKey ? (
-                        <>
-                          <Check className="h-4 w-4 mr-1 text-green-600" />
-                          <span className="text-green-600">Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4 mr-1" />
-                          Copiar
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg border">
-                    <code className="text-xs font-mono break-all block">
-                      {keyPair.publicKey}
-                    </code>
-                  </div>
-                </div>
-                
-                {/* Chave Privada */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Key className="h-4 w-4 text-red-600" />
-                      Chave Privada
-                      <Badge variant="destructive" className="text-xs">Confidencial</Badge>
-                    </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowPrivateKey(!showPrivateKey)}
-                        className="h-8"
-                      >
-                        {showPrivateKey ? (
-                          <>
-                            <EyeOff className="h-4 w-4 mr-1" />
-                            Ocultar
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="h-4 w-4 mr-1" />
-                            Mostrar
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCopyPrivateKey}
-                        className="h-8"
-                        disabled={!showPrivateKey}
-                      >
-                        {copiedPrivateKey ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1 text-green-600" />
-                            <span className="text-green-600">Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-1" />
-                            Copiar
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg border">
-                    <code className="text-xs font-mono break-all block">
-                      {showPrivateKey ? keyPair.privateKey : '•'.repeat(keyPair.privateKey.length)}
-                    </code>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    ⚠️ Nunca compartilhe sua chave privada. Ela é usada para assinar seu conteúdo digitalmente.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Alert>
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    Você ainda não possui chaves criptográficas. Gere suas chaves para começar a assinar conteúdo digitalmente.
-                    As chaves serão criptografadas com AES-256-GCM e salvas no Supabase para backup automático.
-                  </AlertDescription>
-                </Alert>
-                <Button 
-                  onClick={handleGenerateKeys} 
-                  disabled={isGeneratingKeys}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isGeneratingKeys ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Gerando e criptografando...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="mr-2 h-5 w-5" />
-                      Gerar Chaves Criptográficas
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-5 w-5 text-blue-600" />
-                Assinar Conteúdo
-              </CardTitle>
-              <CardDescription>
-                Adicione uma assinatura digital ao seu conteúdo
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full border-2 border-blue-600 hover:scale-105 hover:shadow-lg transition-all duration-300" 
-                disabled={!keyPair}
-              >
-                {keyPair ? 'Criar Nova Assinatura' : 'Gere suas chaves primeiro'}
-              </Button>
             </CardContent>
           </Card>
           
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/sign-carousel')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"/>
-                  <rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-                Carrossel de Imagens
-              </CardTitle>
-              <CardDescription>
-                Crie certificados com múltiplas imagens
-              </CardDescription>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Credibilidade</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <Button 
-                className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:scale-105 hover:shadow-lg transition-all duration-300" 
-                disabled={!keyPair}
-              >
-                {keyPair ? 'Criar Carrossel' : 'Gere suas chaves primeiro'}
-              </Button>
-            </CardContent>
-          </Card>
-          
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/verify')}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                Verificar Conteúdo
-              </CardTitle>
-              <CardDescription>
-                Verifique a autenticidade de um conteúdo assinado
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                variant="outline" 
-                className="w-full border-2 border-gray-300 hover:scale-105 hover:shadow-lg transition-all duration-300"
-              >
-                Verificar Assinatura
-              </Button>
+              <div className="text-2xl font-bold text-green-600">Alta</div>
+              <p className="text-xs text-muted-foreground">Baseado em assinaturas</p>
             </CardContent>
           </Card>
         </div>
         
-        {/* Signed Contents */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Meus Conteúdos Assinados</CardTitle>
-            <CardDescription>
-              {signedContents.length} {signedContents.length === 1 ? 'conteúdo assinado' : 'conteúdos assinados'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {signedContents.length === 0 ? (
-              <div className="text-center py-12">
-                <FileSignature className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  Você ainda não assinou nenhum conteúdo
-                </p>
-                <Button onClick={() => navigate('/sign')} disabled={!keyPair}>
-                  {keyPair ? 'Assinar Primeiro Conteúdo' : 'Gere suas chaves primeiro'}
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Filtros e Pastas */}
-                <Card className="mb-6 bg-muted/50">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Search className="h-5 w-5" />
-                      Filtros e Ordenação
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-6">
-                      <FolderManager
-                        userId={currentUser?.id || ''}
-                        onFolderSelect={setSelectedFolderId}
-                        selectedFolderId={selectedFolderId}
-                      />
-                    </div>
-                    <div className="grid md:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="search-title" className="text-sm font-medium">
-                          Buscar por Título
-                        </Label>
-                        <Input
-                          id="search-title"
-                          placeholder="Digite o título..."
-                          value={searchTitle}
-                          onChange={(e) => setSearchTitle(e.target.value)}
-                        />
+        {/* Top 3 Ranking */}
+        {signedContents.length > 0 && topContents.some(c => (c.verificationCount || 0) > 0) && (
+          <Card className="mb-8 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-600" />
+                🏆 Top 3 Conteúdos Mais Verificados
+              </CardTitle>
+              <CardDescription>Seus conteúdos com maior engajamento</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {topContents.map((content, index) => {
+                  const verifications = content.verificationCount || 0;
+                  if (verifications === 0) return null;
+                  
+                  const medals = ['🥇', '🥈', '🥉'];
+                  const colors = ['text-yellow-600', 'text-gray-400', 'text-orange-600'];
+                  
+                  return (
+                    <div key={content.id} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                      <div className={`text-3xl ${colors[index]}`}>
+                        {medals[index]}
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="filter-platform" className="text-sm font-medium">
-                          Plataforma
-                        </Label>
-                        <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-                          <SelectTrigger id="filter-platform">
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="all">Todas as plataformas</SelectItem>
-                            {getAllPlatforms().map(platform => (
-                              <SelectItem key={platform} value={platform}>
-                                {platform}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="filter-date" className="text-sm font-medium">
-                          Data
-                        </Label>
-                        <Select value={filterDate} onValueChange={setFilterDate}>
-                          <SelectTrigger id="filter-date">
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="all">Todas as datas</SelectItem>
-                            <SelectItem value="today">Hoje</SelectItem>
-                            <SelectItem value="week">Última semana</SelectItem>
-                            <SelectItem value="month">Último mês</SelectItem>
-                            <SelectItem value="year">Último ano</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="sort-by" className="text-sm font-medium">
-                          Ordenar por
-                        </Label>
-                        <Select value={sortBy} onValueChange={setSortBy}>
-                          <SelectTrigger id="sort-by">
-                            <SelectValue placeholder="Ordenar" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="recent">Mais Recentes</SelectItem>
-                            <SelectItem value="oldest">Mais Antigos</SelectItem>
-                            <SelectItem value="alphabetical">Alfabética (A-Z)</SelectItem>
-                            <SelectItem value="most-verified">Mais Verificados</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    {(searchTitle || filterPlatform !== 'all' || filterDate !== 'all' || sortBy !== 'recent') && (
-                      <div className="mt-4 flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                          Mostrando {filteredContents.length} de {signedContents.length} conteúdos
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{content.content}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {content.creatorName} • {new Date(content.createdAt).toLocaleDateString('pt-BR')}
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSearchTitle('');
-                            setFilterPlatform('all');
-                            setFilterDate('all');
-                            setSortBy('recent');
-                          }}
-                        >
-                          Limpar Filtros
-                        </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-bold">
+                        <Eye className="h-3 w-3 mr-1" />
+                        {verifications}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Geração de Chaves */}
+        {!keyPair ? (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Gerar Par de Chaves Criptográficas
+              </CardTitle>
+              <CardDescription>
+                Crie suas chaves pública e privada para começar a assinar conteúdo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Suas chaves serão armazenadas de forma segura no Supabase. Em produção, recomendamos o uso de HSM (Hardware Security Module) ou TPM (Trusted Platform Module).
+                </AlertDescription>
+              </Alert>
+              
+              <Button
+                onClick={handleGenerateKeys}
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  'Gerar Chaves'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5 text-green-600" />
+                Suas Chaves Criptográficas
+              </CardTitle>
+              <CardDescription>
+                Criador: <span className="font-medium">{currentUser.nomePublico || currentUser.nomeCompleto}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Chave Pública (compartilhável)</Label>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-mono break-all">{keyPair.publicKey}</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Chave Privada (mantenha em segredo)</Label>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-mono break-all blur-sm hover:blur-none transition-all">
+                    {keyPair.privateKey}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Passe o mouse para revelar. Nunca compartilhe sua chave privada!
+                </p>
+              </div>
+              
+              <div className="text-xs text-muted-foreground">
+                <p>Gerado em: {new Date(keyPair.createdAt).toLocaleString('pt-BR')}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Lista de Conteúdos Assinados com Filtros e Ordenação */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold">Meus Conteúdos Assinados</h2>
+            <div className="text-sm text-muted-foreground">
+              {filteredContents.length} de {signedContents.length} conteúdos
+            </div>
+          </div>
+          
+          {signedContents.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Filtros e Ordenação
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-4 gap-4">
+                  {/* Filtro por Título */}
+                  <div className="space-y-2">
+                    <Label htmlFor="search-title">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Buscar por Título
+                      </div>
+                    </Label>
+                    <Input
+                      id="search-title"
+                      placeholder="Digite o título..."
+                      value={searchTitle}
+                      onChange={(e) => setSearchTitle(e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* Filtro por Plataforma */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filter-platform">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Plataforma
+                      </div>
+                    </Label>
+                    <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+                      <SelectTrigger id="filter-platform">
+                        <SelectValue placeholder="Todas as plataformas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as plataformas</SelectItem>
+                        {getAllPlatforms().map(platform => (
+                          <SelectItem key={platform} value={platform}>
+                            {platform}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Filtro por Data */}
+                  <div className="space-y-2">
+                    <Label htmlFor="filter-date">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Data de Publicação
+                      </div>
+                    </Label>
+                    <Select value={filterDate} onValueChange={setFilterDate}>
+                      <SelectTrigger id="filter-date">
+                        <SelectValue placeholder="Todas as datas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as datas</SelectItem>
+                        <SelectItem value="today">Hoje</SelectItem>
+                        <SelectItem value="week">Última semana</SelectItem>
+                        <SelectItem value="month">Último mês</SelectItem>
+                        <SelectItem value="year">Último ano</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Ordenação */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sort-by">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4" />
+                        Ordenar por
+                      </div>
+                    </Label>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger id="sort-by">
+                        <SelectValue placeholder="Ordenar por" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recent">Mais Recentes</SelectItem>
+                        <SelectItem value="most-verified">Mais Verificados</SelectItem>
+                        <SelectItem value="least-verified">Menos Verificados</SelectItem>
+                        <SelectItem value="alphabetical">Ordem Alfabética</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 
-                {/* Lista de Conteúdos */}
-                {filteredContents.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-4">
-                      Nenhum conteúdo encontrado com os filtros aplicados
-                    </p>
+                {/* Botão para limpar filtros */}
+                {(searchTitle || filterPlatform !== 'all' || filterDate !== 'all' || sortBy !== 'recent') && (
+                  <div className="mt-4">
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={() => {
                         setSearchTitle('');
                         setFilterPlatform('all');
@@ -935,21 +639,70 @@ export default function Dashboard() {
                         setSortBy('recent');
                       }}
                     >
-                      Limpar Filtros
+                      Limpar Filtros e Ordenação
                     </Button>
                   </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredContents.map((content) => (
-                      <ContentCard key={content.id} content={content} />
-                    ))}
-                  </div>
                 )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-        </main>
+              </CardContent>
+            </Card>
+          )}
+          
+          {signedContents.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">
+                  Você ainda não assinou nenhum conteúdo
+                </p>
+                <Button onClick={() => navigate('/sign')}>
+                  Assinar Primeiro Conteúdo
+                </Button>
+              </CardContent>
+            </Card>
+          ) : filteredContents.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">
+                  Nenhum conteúdo encontrado com os filtros aplicados
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTitle('');
+                    setFilterPlatform('all');
+                    setFilterDate('all');
+                    setSortBy('recent');
+                  }}
+                >
+                  Limpar Filtros
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredContents.map((content, index) => (
+                <div key={content.id} className="relative">
+                  {/* Badge de Ranking para Top 3 quando ordenado por verificações */}
+                  {sortBy === 'most-verified' && index < 3 && (content.verificationCount || 0) > 0 && (
+                    <div className="absolute -top-2 -right-2 z-10">
+                      <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white border-2 border-white shadow-lg">
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'} #{index + 1}
+                      </Badge>
+                    </div>
+                  )}
+                  <ContentCard
+                    content={{
+                      ...content,
+                      timestamp: content.createdAt,
+                    }}
+                    onVerify={handleVerify}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
