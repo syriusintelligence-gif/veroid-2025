@@ -380,8 +380,21 @@ export default function Pricing() {
 
         console.log('✅ [Pricing] Preview recebido:', preview);
 
+        // Transformar dados do preview para o formato esperado pelo dialog
+        const formattedPreview = {
+          isUpgrade: preview.isUpgrade,
+          isDowngrade: preview.isDowngrade,
+          currentPlan: preview.currentPlan,
+          newPlan: preview.newPlan,
+          prorationAmount: preview.prorationAmount || 0,
+          daysRemaining: preview.daysRemaining || 0,
+          message: preview.message || ''
+        };
+
+        console.log('✅ [Pricing] Preview formatado:', formattedPreview);
+
         // Salvar dados e mostrar dialog de confirmação
-        setPreviewData(preview);
+        setPreviewData(formattedPreview);
         setPendingPlan(plan);
         setShowUpgradeDialog(true);
         setLoading(null);
@@ -535,9 +548,22 @@ export default function Pricing() {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {displaySubscriptionPlans.map((plan) => {
-              // Verificar se este é o plano atual do usuário
-              const isCurrentPlan = currentSubscription?.stripe_price_id === plan.priceId;
-              
+              // Mapeamento de Price IDs antigos -> novos (para detectar plano atual mesmo com ID legado)
+              const LEGACY_PRICE_ID_MAP: Record<string, string> = {
+                'price_1T4gcAJc1p4mhrHNwOvzI8D8': 'price_1T9AunJc1p4mhrHNQ3rfZhLa', // Creator antigo -> novo
+                'price_1T4gijJc1p4mhrHNW3h3Ajzl': 'price_1T9AvvJc1p4mhrHNJkTRLWcU', // Creator Pro antigo -> novo
+                'price_1T4gmTJc1p4mhrHNuHS9xGN2': 'price_1T9Ax3Jc1p4mhrHNriVXetzj', // Creator Elite antigo -> novo
+              };
+
+              // Resolve o price_id atual considerando o mapeamento legado
+              const currentPriceId = currentSubscription?.stripe_price_id || '';
+              const normalizedCurrentPriceId = LEGACY_PRICE_ID_MAP[currentPriceId] || currentPriceId;
+
+              // Verificar se este é o plano atual do usuário (ID exato OU equivalente legado)
+              const isCurrentPlan =
+                currentPriceId === plan.priceId ||
+                normalizedCurrentPriceId === plan.priceId;
+
               return (
               <Card
                 key={plan.id}
