@@ -223,7 +223,7 @@ export class VirusTotalClient {
   }
 
   private extractThreatName(
-    results: Record<string, any>
+    results: Record<string, unknown>
   ): string | undefined {
     // Find the most common threat name
     const threatNames: Record<string, number> = {};
@@ -276,7 +276,7 @@ export class VirusTotalClient {
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
 
       if (error.name === 'AbortError') {
@@ -301,7 +301,7 @@ export class VirusTotalClient {
   ): Promise<T> {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (retries === 0) throw error;
 
       const isRetryable =
@@ -400,8 +400,9 @@ export class VirusTotalClient {
         const report = await this.getFileReport(sha256);
         console.log('✅ [VIRUSTOTAL] Found existing scan result');
         return this.parseFileReport(report);
-      } catch (error: any) {
-        if (error.statusCode === 404) {
+      } catch (error: unknown) {
+        const vtError = error as VirusTotalError;
+        if (vtError.statusCode === 404) {
           console.log('ℹ️ [VIRUSTOTAL] No existing scan found, uploading file...');
         } else {
           throw error;
@@ -414,7 +415,7 @@ export class VirusTotalClient {
 
       // Poll for results
       return await this.pollAnalysisResult(analysisId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [VIRUSTOTAL] Scan failed:', error);
       throw error;
     }
@@ -562,8 +563,9 @@ export async function checkFileHash(sha256: string): Promise<ScanResult | null> 
     const client = getVirusTotalClient();
     const report = await client.getFileReport(sha256);
     return client['parseFileReport'](report);
-  } catch (error: any) {
-    if (error.statusCode === 404) {
+  } catch (error: unknown) {
+    const vtError = error as VirusTotalError;
+    if (vtError.statusCode === 404) {
       return null; // File not found in VirusTotal database
     }
     throw error;

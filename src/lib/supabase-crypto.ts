@@ -11,6 +11,7 @@ export interface KeyPair {
   userId: string;
   publicKey: string;
   privateKey: string;
+  publicKeyHash?: string; // 🎨 Hash SHA-256 para exibição no UI (16 caracteres)
   createdAt: string;
 }
 
@@ -36,6 +37,9 @@ export interface SignedContent {
   fileSize?: number;
   mimeType?: string;
   storageBucket?: string;
+  // 🎠 Campos de carrossel (retrocompatível)
+  carouselMetadata?: Record<string, unknown>; // JSONB com estrutura CarouselMetadata
+  totalImages?: number; // Número total de imagens (1 = thumbnail única, >1 = carrossel)
 }
 
 // 🆕 Chave de criptografia (em produção, use variável de ambiente)
@@ -401,27 +405,42 @@ export async function getSignedContentsByUserId(userId: string): Promise<SignedC
       return [];
     }
     
-    return (data || []).map(item => ({
-      id: item.id,
-      userId: item.user_id,
-      content: item.content,
-      contentHash: item.content_hash,
-      signature: item.signature,
-      verificationCode: item.verification_code,
-      publicKey: item.public_key,
-      platforms: item.platforms || [],
-      folderId: item.folder_id || null, // 🆕 Suporte a pastas
-      createdAt: item.created_at,
-      verificationCount: item.verification_count || 0,
-      thumbnail: item.thumbnail,
-      creatorName: item.creator_name,
-      creatorSocialLinks: item.creator_social_links,
-      filePath: item.file_path,
-      fileName: item.file_name,
-      mimeType: item.mime_type,
-      fileSize: item.file_size,
-      storageBucket: item.storage_bucket,
-    }));
+    return (data || []).map(item => {
+      // 🎠 Parse carousel_metadata se for string JSON
+      let parsedCarouselMetadata = item.carousel_metadata;
+      if (item.carousel_metadata && typeof item.carousel_metadata === 'string') {
+        try {
+          parsedCarouselMetadata = JSON.parse(item.carousel_metadata);
+        } catch (parseError) {
+          console.error('❌ [getSignedContentsByUserId] Erro ao parsear carousel_metadata:', parseError);
+        }
+      }
+      
+      return {
+        id: item.id,
+        userId: item.user_id,
+        content: item.content,
+        contentHash: item.content_hash,
+        signature: item.signature,
+        verificationCode: item.verification_code,
+        publicKey: item.public_key,
+        platforms: item.platforms || [],
+        folderId: item.folder_id || null, // 🆕 Suporte a pastas
+        createdAt: item.created_at,
+        verificationCount: item.verification_count || 0,
+        thumbnail: item.thumbnail,
+        creatorName: item.creator_name,
+        creatorSocialLinks: item.creator_social_links,
+        filePath: item.file_path,
+        fileName: item.file_name,
+        mimeType: item.mime_type,
+        fileSize: item.file_size,
+        storageBucket: item.storage_bucket,
+        // 🎠 Campos de carrossel com parsing
+        carouselMetadata: parsedCarouselMetadata,
+        totalImages: item.total_images,
+      };
+    });
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdos assinados:', error);
     return [];
@@ -441,6 +460,17 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
     
     if (error || !data) {
       return null;
+    }
+    
+    // 🎠 Parse carousel_metadata se for string JSON
+    let parsedCarouselMetadata = data.carousel_metadata;
+    if (data.carousel_metadata && typeof data.carousel_metadata === 'string') {
+      try {
+        parsedCarouselMetadata = JSON.parse(data.carousel_metadata);
+        console.log('✅ [getSignedContentByVerificationCode] carousel_metadata parseado com sucesso');
+      } catch (parseError) {
+        console.error('❌ [getSignedContentByVerificationCode] Erro ao parsear carousel_metadata:', parseError);
+      }
     }
     
     return {
@@ -463,6 +493,9 @@ export async function getSignedContentByVerificationCode(code: string): Promise<
       mimeType: data.mime_type,
       fileSize: data.file_size,
       storageBucket: data.storage_bucket,
+      // 🎠 Campos de carrossel com parsing
+      carouselMetadata: parsedCarouselMetadata,
+      totalImages: data.total_images,
     };
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdo por código:', error);
@@ -505,27 +538,42 @@ export async function getAllSignedContents(): Promise<SignedContent[]> {
       return [];
     }
     
-    return (data || []).map(item => ({
-      id: item.id,
-      userId: item.user_id,
-      content: item.content,
-      contentHash: item.content_hash,
-      signature: item.signature,
-      verificationCode: item.verification_code,
-      publicKey: item.public_key,
-      platforms: item.platforms || [],
-      folderId: item.folder_id || null, // 🆕 Suporte a pastas
-      createdAt: item.created_at,
-      verificationCount: item.verification_count || 0,
-      thumbnail: item.thumbnail,
-      creatorName: item.creator_name,
-      creatorSocialLinks: item.creator_social_links,
-      filePath: item.file_path,
-      fileName: item.file_name,
-      mimeType: item.mime_type,
-      fileSize: item.file_size,
-      storageBucket: item.storage_bucket,
-    }));
+    return (data || []).map(item => {
+      // 🎠 Parse carousel_metadata se for string JSON
+      let parsedCarouselMetadata = item.carousel_metadata;
+      if (item.carousel_metadata && typeof item.carousel_metadata === 'string') {
+        try {
+          parsedCarouselMetadata = JSON.parse(item.carousel_metadata);
+        } catch (parseError) {
+          console.error('❌ [getAllSignedContents] Erro ao parsear carousel_metadata:', parseError);
+        }
+      }
+      
+      return {
+        id: item.id,
+        userId: item.user_id,
+        content: item.content,
+        contentHash: item.content_hash,
+        signature: item.signature,
+        verificationCode: item.verification_code,
+        publicKey: item.public_key,
+        platforms: item.platforms || [],
+        folderId: item.folder_id || null, // 🆕 Suporte a pastas
+        createdAt: item.created_at,
+        verificationCount: item.verification_count || 0,
+        thumbnail: item.thumbnail,
+        creatorName: item.creator_name,
+        creatorSocialLinks: item.creator_social_links,
+        filePath: item.file_path,
+        fileName: item.file_name,
+        mimeType: item.mime_type,
+        fileSize: item.file_size,
+        storageBucket: item.storage_bucket,
+        // 🎠 Campos de carrossel com parsing
+        carouselMetadata: parsedCarouselMetadata,
+        totalImages: item.total_images,
+      };
+    });
   } catch (error) {
     console.error('❌ Erro ao buscar todos os conteúdos:', error);
     return [];
@@ -545,6 +593,17 @@ export async function getSignedContentById(contentId: string): Promise<SignedCon
     
     if (error || !data) {
       return null;
+    }
+    
+    // 🎠 Parse carousel_metadata se for string JSON
+    let parsedCarouselMetadata = data.carousel_metadata;
+    if (data.carousel_metadata && typeof data.carousel_metadata === 'string') {
+      try {
+        parsedCarouselMetadata = JSON.parse(data.carousel_metadata);
+        console.log('✅ [getSignedContentById] carousel_metadata parseado com sucesso');
+      } catch (parseError) {
+        console.error('❌ [getSignedContentById] Erro ao parsear carousel_metadata:', parseError);
+      }
     }
     
     return {
@@ -567,6 +626,9 @@ export async function getSignedContentById(contentId: string): Promise<SignedCon
       mimeType: data.mime_type,
       fileSize: data.file_size,
       storageBucket: data.storage_bucket,
+      // 🎠 Campos de carrossel com parsing
+      carouselMetadata: parsedCarouselMetadata,
+      totalImages: data.total_images,
     };
   } catch (error) {
     console.error('❌ Erro ao buscar conteúdo por ID:', error);

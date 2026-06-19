@@ -15,6 +15,7 @@ import { generateHash, generateVerificationCode } from '../crypto';
 import { signContentViaEdgeFunction } from './edge-function-service';
 import { isFeatureEnabled, FeatureFlag } from './feature-flags';
 import type { SignedContent } from '../supabase-crypto';
+import type { CarouselMetadata } from '../types/carousel';
 
 // Re-exporta tipos originais para compatibilidade
 export type {
@@ -101,6 +102,7 @@ interface SignContentResult {
  * @param thumbnail - Thumbnail opcional
  * @param platforms - Plataformas sociais
  * @param fileMetadata - 🆕 Metadados do arquivo anexado (opcional)
+ * @param carouselMetadata - 🎠 Metadados do carrossel (opcional)
  * @returns Resultado da assinatura
  */
 export async function signContentEnhanced(
@@ -111,7 +113,8 @@ export async function signContentEnhanced(
   userId: string,
   thumbnail?: string,
   platforms?: string[],
-  fileMetadata?: FileMetadata // 🆕 Novo parâmetro opcional
+  fileMetadata?: FileMetadata, // 🆕 Novo parâmetro opcional
+  carouselMetadata?: CarouselMetadata // 🎠 Metadados de carrossel opcional
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
   const enableFallback = isFeatureEnabled(FeatureFlag.ENABLE_FALLBACK);
@@ -126,6 +129,15 @@ export async function signContentEnhanced(
       hasThumbnail: !!thumbnail,
       platforms: platforms?.join(', '),
       hasFile: !!fileMetadata,
+      hasCarousel: !!carouselMetadata,
+    });
+  }
+
+  // 🎠 Log metadados de carrossel se fornecidos
+  if (carouselMetadata) {
+    console.log('🎠 [CAROUSEL] Metadados de carrossel:', {
+      totalImages: carouselMetadata.total_images,
+      imageCount: carouselMetadata.carousel_images?.length || 0,
     });
   }
 
@@ -298,7 +310,7 @@ export async function signContentEnhanced(
     // Gera código de verificação
     const verificationCode = generateVerificationCode(signature, contentHash);
 
-    // 🆕 Preparar objeto de inserção com metadados de arquivo
+    // 🆕 Preparar objeto de inserção com metadados de arquivo e carrossel
     const signedContent: SignedContentInsert = {
       user_id: userId,
       content,
@@ -317,6 +329,9 @@ export async function signContentEnhanced(
       file_size: fileMetadata?.file_size || null,
       mime_type: fileMetadata?.mime_type || null,
       storage_bucket: fileMetadata?.storage_bucket || null,
+      // 🎠 Adicionar metadados de carrossel
+      total_images: carouselMetadata?.total_images || null,
+      carousel_metadata: carouselMetadata ? JSON.stringify(carouselMetadata) : null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
@@ -392,6 +407,21 @@ function dbSignedContentToAppSignedContent(
   dbContent: SignedContentRow,
   creatorSocialLinks?: SocialLinks
 ): SignedContent {
+  // 🎠 Parse carousel_metadata se existir
+  let parsedCarouselMetadata: CarouselMetadata | undefined = undefined;
+  if (dbContent.carousel_metadata) {
+    try {
+      if (typeof dbContent.carousel_metadata === 'string') {
+        parsedCarouselMetadata = JSON.parse(dbContent.carousel_metadata);
+      } else {
+        parsedCarouselMetadata = dbContent.carousel_metadata as CarouselMetadata;
+      }
+      console.log('✅ [Enhanced] carousel_metadata parseado:', parsedCarouselMetadata);
+    } catch (error) {
+      console.error('❌ [Enhanced] Erro ao parsear carousel_metadata:', error);
+    }
+  }
+
   return {
     id: dbContent.id,
     userId: dbContent.user_id,
@@ -412,6 +442,9 @@ function dbSignedContentToAppSignedContent(
     fileSize: dbContent.file_size || undefined,
     mimeType: dbContent.mime_type || undefined,
     storageBucket: dbContent.storage_bucket || undefined,
+    // 🎠 Adicionar metadados de carrossel
+    totalImages: dbContent.total_images || undefined,
+    carouselMetadata: parsedCarouselMetadata,
   };
 }
 
