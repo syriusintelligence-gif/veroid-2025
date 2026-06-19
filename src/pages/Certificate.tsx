@@ -398,19 +398,19 @@ export default function Certificate() {
                   
                   if (content.totalImages && content.totalImages > 1 && content.carouselMetadata) {
                     const metadata = content.carouselMetadata as CarouselMetadata;
-                    console.log('🔍 [CAROUSEL DEBUG] images array:', metadata.images);
-                    console.log('🔍 [CAROUSEL DEBUG] Número de imagens no array:', metadata.images?.length);
+                    console.log('🔍 [CAROUSEL DEBUG] images array:', metadata.carousel_images);
+                    console.log('🔍 [CAROUSEL DEBUG] Número de imagens no array:', metadata.carousel_images?.length);
                     
                     return (
                       <Carousel className="w-full max-w-4xl mx-auto">
                         <CarouselContent>
-                          {metadata.images.map((image, index) => {
-                            console.log(`🔍 [CAROUSEL DEBUG] Renderizando imagem ${index + 1}:`, image.url);
+                          {metadata.carousel_images.map((image, index) => {
+                            console.log(`🔍 [CAROUSEL DEBUG] Renderizando imagem ${index + 1}:`, supabase.storage.from(metadata.storage_bucket).getPublicUrl(image.path).data.publicUrl);
                             return (
-                              <CarouselItem key={image.id}>
+                              <CarouselItem key={`${image.path}-${index}`}>
                                 <div className="relative">
                                   <img 
-                                    src={image.url} 
+                                    src={supabase.storage.from(metadata.storage_bucket).getPublicUrl(image.path).data.publicUrl} 
                                     alt={`Imagem ${index + 1} do conteúdo`}
                                     className="w-full max-h-64 sm:max-h-80 md:max-h-96 object-contain rounded-lg"
                                     onLoad={() => console.log(`✅ [CAROUSEL] Imagem ${index + 1} carregada com sucesso`)}
