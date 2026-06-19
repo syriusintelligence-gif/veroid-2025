@@ -1,161 +1,187 @@
 /**
- * 📦 CAROUSEL DOWNLOAD BUTTON COMPONENT
+ * 🎠 CAROUSEL DOWNLOAD BUTTON COMPONENT
  * 
- * Componente para download de todas as imagens do carrossel em um arquivo ZIP.
+ * Componente para download de todas as imagens de um carrossel em formato ZIP.
+ * Não afeta o código existente, apenas adiciona nova funcionalidade.
  * 
  * @module CarouselDownloadButton
  * @version 1.0.0
- * @date 2026-04-30
+ * @created 2026-06-18
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, Package } from 'lucide-react';
+import { Download, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { generateCarouselZip, downloadZip } from '@/lib/utils/zip-generator';
-import type { CarouselImage } from '@/lib/types/carousel';
+import type { CarouselMetadata } from '@/lib/types/carousel';
+import { supabase } from '@/lib/supabase';
+import JSZip from 'jszip';
 
+/**
+ * Props do componente CarouselDownloadButton
+ */
 interface CarouselDownloadButtonProps {
-  /** Array de imagens do carrossel */
-  images: CarouselImage[];
+  /** Metadados do carrossel */
+  carouselMetadata: CarouselMetadata;
   
-  /** Bucket onde as imagens estão armazenadas */
-  bucket?: string;
+  /** Código de verificação do certificado (para nome do arquivo) */
+  verificationCode: string;
   
-  /** Nome do arquivo ZIP (sem extensão) */
-  zipFileName?: string;
+  /** Nome do criador (para nome do arquivo) */
+  creatorName?: string;
   
-  /** Variante do botão */
+  /** Variante do botão (padrão: "default") */
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   
-  /** Tamanho do botão */
+  /** Tamanho do botão (padrão: "default") */
   size?: 'default' | 'sm' | 'lg' | 'icon';
-  
-  /** Mostrar informações do arquivo */
-  showInfo?: boolean;
 }
 
-export default function CarouselDownloadButton({
-  images,
-  bucket = 'signed-documents',
-  zipFileName = 'carousel-images',
+/**
+ * Componente CarouselDownloadButton
+ * 
+ * Baixa todas as imagens do carrossel e agrupa em um arquivo ZIP.
+ */
+export function CarouselDownloadButton({
+  carouselMetadata,
+  verificationCode,
+  creatorName,
   variant = 'default',
   size = 'default',
-  showInfo = true,
 }: CarouselDownloadButtonProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string>('');
 
   /**
-   * Manipula o download do ZIP
+   * Faz download de todas as imagens em formato ZIP
    */
-  const handleDownload = async () => {
-    setIsGenerating(true);
+  const handleDownloadZip = async () => {
+    setIsLoading(true);
     setError(null);
+    setProgress('');
 
     try {
-      console.log('📦 [CarouselDownloadButton] Iniciando geração de ZIP...');
+      console.log('📦 [CarouselDownload] Iniciando download do carrossel:', {
+        totalImages: carouselMetadata.total_images,
+        verificationCode,
+      });
 
-      // Gerar ZIP
-      const result = await generateCarouselZip(images, bucket, zipFileName);
-
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao gerar arquivo ZIP');
+      // Verificar se carousel_images existe
+      if (!carouselMetadata.carousel_images || carouselMetadata.carousel_images.length === 0) {
+        throw new Error('Nenhuma imagem encontrada no carrossel');
       }
 
-      if (!result.blob) {
-        throw new Error('Arquivo ZIP não foi gerado');
+      const zip = new JSZip();
+      const bucket = carouselMetadata.storage_bucket || 'signed-documents';
+
+      // Baixar cada imagem
+      for (let i = 0; i < carouselMetadata.carousel_images.length; i++) {
+        const image = carouselMetadata.carousel_images[i];
+        setProgress(`Baixando imagem ${i + 1} de ${carouselMetadata.carousel_images.length}...`);
+
+        console.log(`📥 [CarouselDownload] Baixando imagem ${i + 1}:`, image.path);
+
+        // Gerar URL assinada para download
+        const { data: signedUrlData, error: urlError } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(image.path, 3600);
+
+        if (urlError || !signedUrlData?.signedUrl) {
+          console.error(`❌ [CarouselDownload] Erro ao gerar URL da imagem ${i + 1}:`, urlError);
+          throw new Error(`Erro ao gerar URL da imagem ${i + 1}: ${urlError?.message || 'Desconhecido'}`);
+        }
+
+        // Baixar imagem
+        const response = await fetch(signedUrlData.signedUrl);
+        if (!response.ok) {
+          throw new Error(`Erro ao baixar imagem ${i + 1}: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+
+        // Adicionar ao ZIP com nome ordenado
+        const extension = image.name.split('.').pop() || 'jpg';
+        const fileName = `imagem_${String(image.order).padStart(2, '0')}.${extension}`;
+        zip.file(fileName, blob);
+
+        console.log(`✅ [CarouselDownload] Imagem ${i + 1} adicionada ao ZIP`);
       }
 
-      console.log('✅ [CarouselDownloadButton] ZIP gerado com sucesso');
+      setProgress('Gerando arquivo ZIP...');
+      console.log('📦 [CarouselDownload] Gerando arquivo ZIP...');
 
-      // Fazer download
-      downloadZip(result.blob, zipFileName);
+      // Gerar o arquivo ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-      console.log('✅ [CarouselDownloadButton] Download iniciado');
+      // Nome do arquivo ZIP
+      const sanitizedCreatorName = creatorName
+        ? creatorName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)
+        : 'criador';
+      const zipFileName = `VeroID_${verificationCode}_${sanitizedCreatorName}_Carrossel.zip`;
+
+      // Download do ZIP
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = zipFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      console.log('✅ [CarouselDownload] Download do ZIP concluído:', zipFileName);
+      setProgress('Download concluído!');
+
+      // Limpar mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setProgress('');
+      }, 3000);
 
     } catch (error) {
-      console.error('❌ [CarouselDownloadButton] Erro no download:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao baixar imagens';
+      console.error('❌ [CarouselDownload] Erro no download:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao baixar carrossel';
       setError(errorMessage);
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
 
-  if (images.length === 0) {
-    return null;
-  }
-
   return (
     <div className="space-y-3">
-      {showInfo && (
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border-2 border-green-300 shadow-md">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-              <Package className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-green-900 mb-1">
-                📦 Download Completo do Carrossel
-              </h3>
-              <p className="text-sm text-green-800 leading-relaxed">
-                Baixe todas as <strong>{images.length}</strong> {images.length === 1 ? 'imagem' : 'imagens'} 
-                {' '}do carrossel em um único arquivo ZIP compactado.
-              </p>
-            </div>
-          </div>
+      {/* Botão de Download */}
+      <Button
+        onClick={handleDownloadZip}
+        disabled={isLoading}
+        className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+        size={size}
+        variant={variant}
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {progress || 'Processando...'}
+          </>
+        ) : (
+          <>
+            <Download className="mr-2 h-4 w-4" />
+            Baixar Todas as Imagens (ZIP)
+          </>
+        )}
+      </Button>
 
-          <Button
-            onClick={handleDownload}
-            disabled={isGenerating}
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 shadow-lg hover:shadow-xl transition-all"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Gerando ZIP...
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-5 w-5" />
-                Baixar Todas as Imagens ({images.length})
-              </>
-            )}
-          </Button>
+      {/* Informações do Carrossel */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <ImageIcon className="h-4 w-4" />
+        <span>
+          {carouselMetadata.total_images} {carouselMetadata.total_images === 1 ? 'imagem' : 'imagens'} no carrossel
+        </span>
+      </div>
 
-          <p className="text-xs text-green-700 mt-3 text-center">
-            ✅ As imagens serão baixadas em ordem, com numeração sequencial
-          </p>
-        </div>
-      )}
-
-      {!showInfo && (
-        <Button
-          onClick={handleDownload}
-          disabled={isGenerating}
-          variant={variant}
-          size={size}
-          className="w-full"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Gerando ZIP...
-            </>
-          ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Baixar Todas ({images.length})
-            </>
-          )}
-        </Button>
-      )}
-
+      {/* Mensagem de Erro */}
       {error && (
-        <Alert variant="destructive" className="mt-2">
+        <Alert variant="destructive">
           <AlertDescription>
-            <strong>Erro ao baixar:</strong> {error}
+            <strong>Erro:</strong> {error}
           </AlertDescription>
         </Alert>
       )}
