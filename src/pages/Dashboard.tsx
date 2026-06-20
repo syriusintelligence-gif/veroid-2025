@@ -588,15 +588,27 @@ export default function Dashboard() {
             <CardContent className="relative z-10 pt-2 space-y-3">
               {keyPair ? (
                 <>
-                  {/* Resumo compacto */}
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-green-900">Criptografadas com AES-256-GCM</p>
+                  {/* Status compacto - mesma altura do bloco Total Disponivel do SubscriptionCard */}
+                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-900">Status de Seguranca</p>
+                      <p className="text-xs text-gray-500">Chaves criptografadas</p>
+                    </div>
+                    <Shield className="h-8 w-8 text-amber-600" />
+                  </div>
+                  
+                  {/* Indicador de algoritmo - mesma altura do progress bar do SubscriptionCard */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Algoritmo: AES-256-GCM</span>
+                      <span className="text-green-600 font-medium">Ativas</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="h-2 rounded-full bg-green-500 w-full" />
                     </div>
                   </div>
                   
-                  {/* Botão Ver Detalhes */}
+                  {/* Botao Ver Detalhes */}
                   <Button
                     variant="ghost"
                     size="sm"
