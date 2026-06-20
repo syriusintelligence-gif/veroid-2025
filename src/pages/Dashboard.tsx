@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen } from 'lucide-react';
+import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
@@ -50,6 +50,7 @@ export default function Dashboard() {
   // Estados para copiar chaves
   const [copiedPublicKey, setCopiedPublicKey] = useState(false);
   const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
+  const [showKeyDetails, setShowKeyDetails] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   
   // Estado para o modal de instruções
@@ -549,152 +550,202 @@ export default function Dashboard() {
           <SocialLinksAlert userId={currentUser.id} className="mb-6" />
         )}
         
-        {/* Subscription Card - NEW */}
-        <div className="mb-8">
+        {/* Subscription Card + Key Status Card - Grid 2 colunas (visual moderno) */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Subscription Card - Modernizado */}
           <SubscriptionCard />
-        </div>
-        
-        {/* Key Status Card */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Status das Chaves Criptográficas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {keyPair ? (
-              <div className="space-y-4">
-                {/* Status Badge */}
-                <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+          
+          {/* Key Status Card - Modernizado e Compacto */}
+          <Card className="relative overflow-hidden border-2 border-amber-500 bg-gradient-to-br from-amber-50 via-white to-yellow-100 hover:shadow-2xl hover:shadow-amber-200 hover:border-amber-600 transition-all duration-300 group">
+            {/* Decoração de fundo */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-amber-300/10 to-yellow-300/10 rounded-full translate-y-12 -translate-x-12 group-hover:scale-150 transition-transform duration-500" />
+            
+            <CardHeader className="relative z-10 pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Key className="h-6 w-6 text-white" />
+                  </div>
                   <div>
-                    <p className="font-semibold text-green-900">Chaves Ativas e Criptografadas</p>
+                    <CardTitle className="text-xl font-bold text-amber-900">
+                      Chaves Criptográficas
+                    </CardTitle>
+                    <p className="text-sm text-amber-600/80 font-medium">
+                      {keyPair ? 'Chaves ativas e seguras' : 'Sem chaves geradas'}
+                    </p>
                   </div>
                 </div>
-                
-                {/* Chave Pública */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Key className="h-4 w-4 text-blue-600" />
-                      Chave Pública
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopyPublicKey}
-                      className="h-8"
-                    >
-                      {copiedPublicKey ? (
-                        <>
-                          <Check className="h-4 w-4 mr-1 text-green-600" />
-                          <span className="text-green-600">Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4 mr-1" />
-                          Copiar
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg border">
-                    <code className="text-xs font-mono break-all block">
-                      {keyPair.publicKey}
-                    </code>
-                  </div>
-                </div>
-                
-                {/* Chave Privada */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Key className="h-4 w-4 text-red-600" />
-                      Chave Privada
-                      <Badge variant="destructive" className="text-xs">Confidencial</Badge>
-                    </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowPrivateKey(!showPrivateKey)}
-                        className="h-8"
-                      >
-                        {showPrivateKey ? (
-                          <>
-                            <EyeOff className="h-4 w-4 mr-1" />
-                            Ocultar
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="h-4 w-4 mr-1" />
-                            Mostrar
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCopyPrivateKey}
-                        className="h-8"
-                        disabled={!showPrivateKey}
-                      >
-                        {copiedPrivateKey ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1 text-green-600" />
-                            <span className="text-green-600">Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-1" />
-                            Copiar
-                          </>
-                        )}
-                      </Button>
+                {keyPair && (
+                  <Badge className="bg-green-100 text-green-800 flex-shrink-0">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Ativas
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            
+            <CardContent className="relative z-10 pt-2 space-y-3">
+              {keyPair ? (
+                <>
+                  {/* Resumo compacto */}
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-green-900">Criptografadas com AES-256-GCM</p>
+                      <p className="text-xs text-green-700 truncate">Backup automático no Supabase</p>
                     </div>
                   </div>
-                  <div className="bg-muted p-3 rounded-lg border">
-                    <code className="text-xs font-mono break-all block">
-                      {showPrivateKey ? keyPair.privateKey : '•'.repeat(keyPair.privateKey.length)}
-                    </code>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    ⚠️ Nunca compartilhe sua chave privada. Ela é usada para assinar seu conteúdo digitalmente.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Alert>
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    Você ainda não possui chaves criptográficas. Gere suas chaves para começar a assinar conteúdo digitalmente.
-                    As chaves serão criptografadas com AES-256-GCM e salvas no Supabase para backup automático.
-                  </AlertDescription>
-                </Alert>
-                <Button 
-                  onClick={handleGenerateKeys} 
-                  disabled={isGeneratingKeys}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isGeneratingKeys ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Gerando e criptografando...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="mr-2 h-5 w-5" />
-                      Gerar Chaves Criptográficas
-                    </>
+                  
+                  {/* Botão Ver Detalhes */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowKeyDetails(!showKeyDetails)}
+                    className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    aria-expanded={showKeyDetails}
+                    aria-label={showKeyDetails ? 'Recolher detalhes' : 'Ver detalhes'}
+                  >
+                    {showKeyDetails ? (
+                      <>
+                        <ChevronUp className="h-4 w-4 mr-2" />
+                        Recolher detalhes
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Ver detalhes
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Conteúdo expandido */}
+                  {showKeyDetails && (
+                    <div className="space-y-4 border-t pt-3">
+                      {/* Chave Pública */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold flex items-center gap-2">
+                            <Key className="h-4 w-4 text-blue-600" />
+                            Chave Pública
+                          </Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyPublicKey}
+                            className="h-8"
+                          >
+                            {copiedPublicKey ? (
+                              <>
+                                <Check className="h-4 w-4 mr-1 text-green-600" />
+                                <span className="text-green-600">Copiado!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-1" />
+                                Copiar
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="bg-muted p-3 rounded-lg border">
+                          <code className="text-xs font-mono break-all block">
+                            {keyPair.publicKey}
+                          </code>
+                        </div>
+                      </div>
+                      
+                      {/* Chave Privada */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <Label className="text-sm font-semibold flex items-center gap-2">
+                            <Key className="h-4 w-4 text-red-600" />
+                            Chave Privada
+                            <Badge variant="destructive" className="text-xs">Confidencial</Badge>
+                          </Label>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowPrivateKey(!showPrivateKey)}
+                              className="h-8"
+                            >
+                              {showPrivateKey ? (
+                                <>
+                                  <EyeOff className="h-4 w-4 mr-1" />
+                                  Ocultar
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Mostrar
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCopyPrivateKey}
+                              className="h-8"
+                              disabled={!showPrivateKey}
+                            >
+                              {copiedPrivateKey ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-1 text-green-600" />
+                                  <span className="text-green-600">Copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Copiar
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="bg-muted p-3 rounded-lg border">
+                          <code className="text-xs font-mono break-all block">
+                            {showPrivateKey ? keyPair.privateKey : '•'.repeat(keyPair.privateKey.length)}
+                          </code>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          ⚠️ Nunca compartilhe sua chave privada. Ela é usada para assinar seu conteúdo digitalmente.
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </>
+              ) : (
+                <>
+                  <Alert>
+                    <Shield className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Gere suas chaves para começar a assinar conteúdo digitalmente. Criptografadas com AES-256-GCM e salvas no Supabase.
+                    </AlertDescription>
+                  </Alert>
+                  <Button 
+                    onClick={handleGenerateKeys} 
+                    disabled={isGeneratingKeys}
+                    className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-semibold shadow-lg"
+                    size="lg"
+                  >
+                    {isGeneratingKeys ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Gerando e criptografando...
+                      </>
+                    ) : (
+                      <>
+                        <Key className="mr-2 h-5 w-5" />
+                        Gerar Chaves Criptográficas
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
         
         
 
