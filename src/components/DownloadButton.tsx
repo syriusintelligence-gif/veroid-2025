@@ -19,6 +19,59 @@ import { downloadImageWithWatermark, isImageMimeType } from '@/lib/watermark';
 import { downloadPdfWithWatermark, isPdfMimeType } from '@/lib/pdf-watermark';
 
 /**
+ * Verifica se o MIME type indica um arquivo de audio
+ */
+function isAudioMimeType(mimeType?: string): boolean {
+  if (!mimeType) return false;
+  return mimeType.toLowerCase().startsWith('audio/');
+}
+
+/**
+ * Faz download de audio via fetch + blob para contornar limitacoes de
+ * cross-origin no atributo download em navegadores mobile (iOS Safari,
+ * Android Chrome e WhatsApp WebView).
+ *
+ * Em mobile, o atributo download e ignorado quando o link aponta para
+ * outro dominio. Baixando como blob e criando um object URL mesmo-origem,
+ * o atributo download passa a funcionar.
+ */
+async function downloadAudioAsBlob(signedUrl: string, fileName: string): Promise<void> {
+  // Adiciona ?download=fileName a URL assinada do Supabase para forcar
+  // Content-Disposition: attachment (ajuda mesmo no fallback)
+  let urlWithDownload = signedUrl;
+  try {
+    const urlObj = new URL(signedUrl);
+    urlObj.searchParams.set('download', fileName);
+    urlWithDownload = urlObj.toString();
+  } catch {
+    // Se falhar parse, segue com URL original
+    urlWithDownload = signedUrl;
+  }
+
+  const response = await fetch(urlWithDownload);
+  if (!response.ok) {
+    throw new Error(`Falha ao baixar audio (HTTP ${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    // Sem target="_blank" para evitar bloqueio em WebView do WhatsApp
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    // Aguarda o navegador iniciar o download antes de revogar
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  }
+}
+
+/**
  * Props do componente DownloadButton
  */
 interface DownloadButtonProps {
@@ -131,9 +184,15 @@ export function DownloadButton({
         console.log('📄 [DownloadButton] Adicionando watermark ao PDF...');
         await downloadPdfWithWatermark(result.signedUrl, certificateData, fileName);
         console.log('✅ [DownloadButton] Download de PDF com watermark concluído');
-      } 
+      }
+      // 🆕 Se for áudio (música), faz download via blob para funcionar em mobile/WhatsApp
+      else if (isAudioMimeType(mimeType)) {
+        console.log('🎵 [DownloadButton] Baixando áudio via blob (compatível com mobile)...');
+        await downloadAudioAsBlob(result.signedUrl, fileName);
+        console.log('✅ [DownloadButton] Download de áudio concluído');
+      }
       else {
-        // Download direto
+        // Download direto (fluxo padrão para outros tipos - mantido como estava)
         const link = document.createElement('a');
         link.href = result.signedUrl;
         link.download = fileName;
