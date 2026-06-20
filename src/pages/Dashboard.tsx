@@ -593,7 +593,6 @@ export default function Dashboard() {
                     <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-green-900">Criptografadas com AES-256-GCM</p>
-                      <p className="text-xs text-green-700 truncate">Backup automático no Supabase</p>
                     </div>
                   </div>
                   
