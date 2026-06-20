@@ -27,6 +27,7 @@ import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import Pricing from './pages/Pricing';
 import EmailConfirmation from './pages/EmailConfirmation';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
+import { Toaster } from '@/components/ui/toaster';
 
 // 🔒 CSRF Protection imports
 import { initializeCSRF } from './lib/csrf-protection';
@@ -417,6 +418,7 @@ function App() {
   return (
     <Router>
       <AppContent />
+      <Toaster />
     </Router>
   );
 }
