@@ -25,6 +25,7 @@ import CarouselTest from './pages/CarouselTest';
 import ChangePassword from './pages/ChangePassword';
 import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import Pricing from './pages/Pricing';
+import EmailConfirmation from './pages/EmailConfirmation';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // 🔒 CSRF Protection imports
@@ -354,6 +355,7 @@ function AppContent() {
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/email-confirmation" element={<EmailConfirmation />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify" element={<Verify />} />
