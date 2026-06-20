@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Calendar, TrendingUp, Settings, Package, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { CreditCard, Calendar, TrendingUp, Settings, Package, Clock, ChevronDown, ChevronUp, ArrowDownCircle } from 'lucide-react';
 import {
   useSubscription,
   getPlanName,
@@ -13,6 +13,7 @@ import {
   formatDateShort,
   getValidPackages,
   getDaysUntilRenewal,
+  getScheduledDowngradeInfo,
 } from '@/hooks/useSubscription';
 
 export const SubscriptionCard = () => {
@@ -93,6 +94,9 @@ export const SubscriptionCard = () => {
   // ✅ Detecta se a assinatura foi cancelada
   const isCanceled = subscription.cancel_at_period_end === true;
 
+  // 🆕 Detecta se há um downgrade agendado (e ainda não executado)
+  const scheduledDowngrade = getScheduledDowngradeInfo(subscription);
+
   return (
     <Card className="relative overflow-hidden border-2 border-purple-500 bg-gradient-to-br from-purple-50 via-white to-purple-100 hover:shadow-2xl hover:shadow-purple-200 hover:border-purple-600 transition-all duration-300 group">
       {/* Decoração de fundo */}
@@ -121,6 +125,26 @@ export const SubscriptionCard = () => {
       </CardHeader>
       
       <CardContent className="relative z-10 pt-2 space-y-3">
+        {/* 🆕 Aviso de downgrade agendado */}
+        {scheduledDowngrade && (
+          <div
+            className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg"
+            role="status"
+            aria-live="polite"
+          >
+            <ArrowDownCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-amber-800 leading-snug">
+              <p className="font-semibold">Downgrade agendado</p>
+              <p>
+                Seu plano atual continuará ativo até{' '}
+                <span className="font-medium">{formatDate(scheduledDowngrade.scheduledFor)}</span>.
+                Depois disso, será alterado automaticamente para{' '}
+                <span className="font-medium">{scheduledDowngrade.toPlanName}</span>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Total Disponível - DESTAQUE COMPACTO */}
         <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
           <div>

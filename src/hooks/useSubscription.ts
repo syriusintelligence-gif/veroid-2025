@@ -40,6 +40,19 @@ export interface Subscription {
       previous_signatures_used: number;
       expired_overage_credits: number;
     };
+    /**
+     * 🆕 Informações sobre downgrade agendado (Subscription Schedule no Stripe).
+     * Gravado pela edge function `update-subscription` quando o usuário pede
+     * downgrade. O plano atual continua valendo até `scheduled_for`, quando
+     * o Stripe troca automaticamente para o plano `to_price_id`.
+     */
+    scheduled_downgrade?: {
+      schedule_id: string;
+      from_price_id: string | null;
+      to_price_id: string;
+      scheduled_for: string;
+      scheduled_at: string;
+    };
     [key: string]: unknown;
   };
 }
@@ -384,4 +397,48 @@ export function getNextExpirationDate(packages: PackagePurchase[] | undefined): 
   const validPackages = getValidPackages(packages);
   if (validPackages.length === 0) return null;
   return validPackages[0].expiration_date;
+}
+
+/**
+ * 🆕 Mapa de Price IDs para nome amigável de plano (frontend).
+ * Mantém ambos os Price IDs (antigos e novos) para compatibilidade.
+ */
+const PRICE_ID_TO_PLAN_TYPE: Record<string, string> = {
+  // Price IDs antigos
+  price_1T4gcAJc1p4mhrHNwOvzI8D8: 'creator',
+  price_1T4gijJc1p4mhrHNW3h3Ajzl: 'creator_pro',
+  price_1T4gmTJc1p4mhrHNuHS9xGN2: 'creator_elite',
+  // Price IDs novos
+  price_1T9AunJc1p4mhrHNQ3rfZhLa: 'creator',
+  price_1T9AvvJc1p4mhrHNJkTRLWcU: 'creator_pro',
+  price_1T9Ax3Jc1p4mhrHNriVXetzj: 'creator_elite',
+};
+
+/**
+ * 🆕 Resolve o nome amigável do plano de destino do downgrade agendado
+ * a partir do Price ID gravado em metadata.scheduled_downgrade.to_price_id.
+ * Retorna null se não houver downgrade ativo (sem dado, ou já expirado).
+ */
+export interface ScheduledDowngradeInfo {
+  toPlanName: string;
+  scheduledFor: string;
+}
+
+export function getScheduledDowngradeInfo(
+  subscription: Subscription | null
+): ScheduledDowngradeInfo | null {
+  const sd = subscription?.metadata?.scheduled_downgrade;
+  if (!sd || !sd.scheduled_for || !sd.to_price_id) return null;
+
+  // Se a data agendada já passou, não exibe mais o aviso —
+  // o webhook deve ter aplicado a troca de fato.
+  const scheduledForDate = new Date(sd.scheduled_for);
+  if (Number.isNaN(scheduledForDate.getTime())) return null;
+  if (scheduledForDate.getTime() <= Date.now()) return null;
+
+  const toPlanType = PRICE_ID_TO_PLAN_TYPE[sd.to_price_id] || 'creator';
+  return {
+    toPlanName: getPlanName(toPlanType),
+    scheduledFor: sd.scheduled_for,
+  };
 }
