@@ -534,22 +534,6 @@ export default function Dashboard() {
           </Card>
         </div>
         
-        {/* 🆕 AVISO DE PROBLEMAS DE PAGAMENTO */}
-        <PaymentFailureAlert className="mb-6" />
-        
-        {/* 🆕 FASE 2: Banner de Trial (aparece no topo do dashboard) */}
-        <TrialBanner className="mb-6" />
-        
-        {/* 🔐 2FA Security Alert */}
-        {currentUser && (
-          <TwoFactorAlert userId={currentUser.id} className="mb-6" />
-        )}
-        
-        {/* 🔗 Social Links Alert */}
-        {currentUser && (
-          <SocialLinksAlert userId={currentUser.id} className="mb-6" />
-        )}
-        
         {/* Subscription Card + Key Status Card - Grid 2 colunas (visual moderno) */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Subscription Card - Modernizado */}
@@ -758,8 +742,21 @@ export default function Dashboard() {
           </Card>
         </div>
         
+        {/* 🆕 AVISO DE PROBLEMAS DE PAGAMENTO */}
+        <PaymentFailureAlert className="mb-6" />
         
-
+        {/* 🆕 FASE 2: Banner de Trial (aparece no topo do dashboard) */}
+        <TrialBanner className="mb-6" />
+        
+        {/* 🔐 2FA Security Alert */}
+        {currentUser && (
+          <TwoFactorAlert userId={currentUser.id} className="mb-6" />
+        )}
+        
+        {/* 🔗 Social Links Alert */}
+        {currentUser && (
+          <SocialLinksAlert userId={currentUser.id} className="mb-6" />
+        )}
         
         {/* Signed Contents */}
         <Card>
