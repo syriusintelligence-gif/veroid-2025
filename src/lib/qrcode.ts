@@ -1,5 +1,6 @@
 import { SignedContent } from '@/lib/supabase-crypto';
 import type { SocialLinks } from './supabase';
+import { generateIdenticonSVG, getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
 
 /**
  * 🆕 VERSÃO ULTRA-COMPACTA: Apenas dados essenciais para buscar no Supabase
@@ -150,52 +151,6 @@ export function decodeQRData(qrUrl: string): { id?: string; code?: string; creat
 }
 
 /**
- * 🆕 CORRIGIDO: Extrai o texto/descrição do conteúdo assinado
- * O conteúdo é salvo no formato:
- * Título: xxx
- * Tipo: xxx
- * Redes: xxx
- * Arquivo: xxx (opcional)
- * 
- * Conteúdo:
- * [texto do usuário]
- */
-function extractContentDescription(fullContent: string): { title: string; description: string } {
-  console.log('📝 [extractContentDescription] Extraindo descrição do conteúdo...');
-  console.log('📝 [extractContentDescription] Conteúdo completo recebido:', fullContent.substring(0, 200) + '...');
-  
-  // Procura pelo marcador "Conteúdo:" e extrai o texto após ele
-  const contentMarker = 'Conteúdo:';
-  const contentIndex = fullContent.indexOf(contentMarker);
-  
-  let description = '';
-  let title = '';
-  
-  // Extrai o título - busca por "Título:" no início
-  const titleMatch = fullContent.match(/Título:\s*(.+?)(?:\n|$)/);
-  if (titleMatch && titleMatch[1]) {
-    title = titleMatch[1].trim();
-    console.log('📝 [extractContentDescription] Título encontrado:', title);
-  } else {
-    console.log('⚠️ [extractContentDescription] Título NÃO encontrado no conteúdo');
-  }
-  
-  // Extrai a descrição (texto após "Conteúdo:")
-  if (contentIndex !== -1) {
-    description = fullContent.substring(contentIndex + contentMarker.length).trim();
-    console.log('📝 [extractContentDescription] Descrição encontrada:', description.substring(0, 100) + (description.length > 100 ? '...' : ''));
-  } else {
-    // Se não encontrar "Conteúdo:", usa o conteúdo completo como descrição
-    description = fullContent;
-    console.log('⚠️ [extractContentDescription] Marcador "Conteúdo:" NÃO encontrado, usando conteúdo completo');
-  }
-  
-  console.log('📝 [extractContentDescription] Resultado final:', { title, descriptionLength: description.length });
-  
-  return { title, description };
-}
-
-/**
  * 🆕 MODIFICADO: Gera HTML para TODOS os links sociais do criador
  */
 function generateSocialLinksHtml(signedContent: SignedContent): string {
@@ -241,25 +196,15 @@ function generateSocialLinksHtml(signedContent: SignedContent): string {
 
   console.log(`✅ Gerando HTML para ${relevantLinks.length} links sociais`);
 
-  // 🆕 Função auxiliar para garantir protocolo na URL
-  const ensureProtocol = (url: string): string => {
-    if (!url) return '';
-    const trimmedUrl = url.trim();
-    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
-      return trimmedUrl;
-    }
-    return `https://${trimmedUrl}`;
-  };
-
   return `
     <div class="info-section" style="background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
-      <div class="info-label" style="color: #4b5563; margin-bottom: 12px;">🔗 Perfis Oficiais do Criador</div>
+      <div class="info-label" style="color: #4b5563; margin-bottom: 12px;">Perfis do Criador nas Plataformas</div>
       <p style="font-size: 14px; color: #6b7280; margin-bottom: 16px; line-height: 1.6;">
         Visite os perfis oficiais de <strong>${signedContent.creatorName}</strong>:
       </p>
       <div style="display: flex; flex-wrap: wrap; gap: 10px;">
         ${relevantLinks.map(({ url, icon, label }) => `
-          <a href="${ensureProtocol(url)}" target="_blank" rel="noopener noreferrer" 
+          <a href="${url}" target="_blank" rel="noopener noreferrer" 
              style="display: inline-flex; align-items: center; gap: 8px; background: white; padding: 10px 16px; border-radius: 25px; border: 2px solid #667eea; text-decoration: none; color: #1f2937; font-weight: 500; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
              onmouseover="this.style.background='#667eea'; this.style.color='white'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)';"
              onmouseout="this.style.background='white'; this.style.color='#1f2937'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
@@ -302,23 +247,9 @@ function generateQRCodeSVG(qrData: string): string {
 }
 
 /**
- * 🆕 CORRIGIDO: Gera certificado digital em formato HTML moderno
- * Agora inclui:
- * - Thumbnail/Preview do conteúdo
- * - Título e Descrição do conteúdo
- * - Links sociais do criador
+ * Gera certificado digital em formato HTML moderno
  */
 export function generateCertificate(signedContent: SignedContent): string {
-  console.log('🎫 [generateCertificate] Iniciando geração do certificado...');
-  console.log('📊 [generateCertificate] Dados recebidos:', {
-    id: signedContent.id,
-    creatorName: signedContent.creatorName,
-    contentLength: signedContent.content?.length || 0,
-    hasContent: !!signedContent.content,
-    hasThumbnail: !!signedContent.thumbnail,
-    hasSocialLinks: !!signedContent.creatorSocialLinks,
-  });
-  
   // ✅ CORRIGIDO: usa createdAt em vez de timestamp
   const date = new Date(signedContent.createdAt);
   
@@ -340,49 +271,12 @@ export function generateCertificate(signedContent: SignedContent): string {
   
   console.log(`📅 Data formatada: ${formattedDate} às ${formattedTime}`);
   
-  // 🆕 CORREÇÃO: Extrai título e descrição do conteúdo
-  let title = '';
-  let description = '';
-  
-  if (signedContent.content && signedContent.content.trim() !== '') {
-    const extracted = extractContentDescription(signedContent.content);
-    title = extracted.title;
-    description = extracted.description;
-    console.log('📝 [generateCertificate] Título extraído:', title);
-    console.log('📝 [generateCertificate] Descrição extraída (primeiros 100 chars):', description.substring(0, 100));
-  } else {
-    console.log('⚠️ [generateCertificate] Conteúdo vazio ou não disponível');
-  }
-  
-  // 🆕 CORREÇÃO: Gera HTML para thumbnail se existir
+  // Gera HTML para thumbnail se existir
   const thumbnailHtml = signedContent.thumbnail ? `
     <div class="info-section">
-      <div class="info-label">📸 Preview do Conteúdo</div>
-      <div class="info-value" style="padding: 0; overflow: hidden; background: #f8fafc;">
-        <img src="${signedContent.thumbnail}" 
-             alt="Preview do conteúdo" 
-             style="width: 100%; max-height: 400px; object-fit: contain; display: block;"
-             onerror="this.parentElement.innerHTML='<div style=\\'padding: 40px; text-align: center; color: #9ca3af;\\'>⚠️ Imagem não disponível</div>';">
-      </div>
-    </div>
-  ` : '';
-  
-  // 🆕 CORREÇÃO: Gera HTML para título se existir
-  const titleHtml = title ? `
-    <div class="info-section">
-      <div class="info-label">📌 Título do Conteúdo</div>
-      <div class="info-value" style="font-size: 18px; font-weight: 600; color: #1e40af;">
-        ${title}
-      </div>
-    </div>
-  ` : '';
-  
-  // 🆕 CORREÇÃO: Gera HTML para descrição se existir
-  const descriptionHtml = description && description.trim() !== '' ? `
-    <div class="info-section">
-      <div class="info-label">📝 Descrição / Conteúdo</div>
-      <div class="info-value" style="white-space: pre-wrap; line-height: 1.6; max-height: 300px; overflow-y: auto;">
-        ${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+      <div class="info-label">Preview do Conteúdo</div>
+      <div class="info-value" style="padding: 0; overflow: hidden;">
+        <img src="${signedContent.thumbnail}" alt="Thumbnail" style="width: 100%; max-height: 400px; object-fit: contain; display: block;">
       </div>
     </div>
   ` : '';
@@ -390,7 +284,7 @@ export function generateCertificate(signedContent: SignedContent): string {
   // Gera HTML para plataformas se existirem
   const platformsHtml = signedContent.platforms && signedContent.platforms.length > 0 ? `
     <div class="info-section">
-      <div class="info-label">📱 Plataformas de Publicação</div>
+      <div class="info-label">Plataformas de Publicação</div>
       <div class="info-value">
         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
           ${signedContent.platforms.map(platform => {
@@ -428,7 +322,7 @@ export function generateCertificate(signedContent: SignedContent): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Certificado Digital - ${title || signedContent.creatorName} - Vero iD</title>
+  <title>Certificado Digital - Vero iD</title>
   <style>
     * {
       margin: 0;
@@ -508,83 +402,6 @@ export function generateCertificate(signedContent: SignedContent): string {
       font-size: 14px;
       margin-bottom: 30px;
       box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    }
-    
-    .security-warning {
-      background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 50%, #fecaca 100%);
-      border: 2px solid #fb923c;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 30px;
-      box-shadow: 0 4px 12px rgba(251, 146, 60, 0.2);
-    }
-    
-    .security-warning-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    
-    .security-warning-icon {
-      width: 40px;
-      height: 40px;
-      background: #f97316;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      flex-shrink: 0;
-    }
-    
-    .security-warning-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #7c2d12;
-      margin-bottom: 8px;
-    }
-    
-    .security-warning-text {
-      font-size: 14px;
-      color: #9a3412;
-      line-height: 1.6;
-    }
-    
-    .security-checklist {
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid #fdba74;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 16px;
-    }
-    
-    .security-checklist-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #7c2d12;
-      margin-bottom: 12px;
-    }
-    
-    .security-checklist ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    
-    .security-checklist li {
-      font-size: 13px;
-      color: #9a3412;
-      margin-bottom: 8px;
-      padding-left: 20px;
-      position: relative;
-    }
-    
-    .security-checklist li::before {
-      content: '☐';
-      position: absolute;
-      left: 0;
-      top: 0;
     }
     
     .info-section {
@@ -698,55 +515,26 @@ export function generateCertificate(signedContent: SignedContent): string {
         ✓ Conteúdo Autenticado
       </div>
       
-      <!-- 🔒 SOLUÇÃO 3: AVISO INTELIGENTE DE SEGURANÇA -->
-      <div class="security-warning">
-        <div class="security-warning-header">
-          <div class="security-warning-icon">⚠️</div>
-          <div style="flex: 1;">
-            <div class="security-warning-title">ATENÇÃO: Verificação de Autenticidade</div>
-            <div class="security-warning-text">
-              Este certificado autentica o <strong>CONTEÚDO COMPLETO</strong> original. 
-              Se você está vendo um <strong style="color: #991b1b;">RECORTE ou FRAGMENTO</strong>, 
-              ele NÃO está coberto por esta certificação.
-            </div>
-          </div>
-        </div>
-        
-        <div class="security-checklist">
-          <div class="security-checklist-title">✅ COMO VERIFICAR A AUTENTICIDADE:</div>
-          <ul>
-            <li>A imagem de preview abaixo corresponde ao conteúdo que você viu?</li>
-            <li>O conteúdo completo está íntegro (não foi editado ou recortado)?</li>
-            <li>Os links das redes sociais levam ao post/perfil original do criador?</li>
-            <li><strong>Visite os perfis oficiais do criador abaixo para comparar com a fonte original!</strong></li>
-          </ul>
-        </div>
-      </div>
-      
       ${thumbnailHtml}
       
-      ${titleHtml}
-      
       <div class="info-section">
-        <div class="info-label">👤 Criador do Conteúdo</div>
+        <div class="info-label">Criador do Conteúdo</div>
         <div class="info-value">${signedContent.creatorName}</div>
       </div>
       
-      ${socialLinksHtml}
-      
-      ${descriptionHtml}
-      
       <div class="info-section">
-        <div class="info-label">📅 Data e Hora da Assinatura</div>
+        <div class="info-label">Data e Hora da Assinatura</div>
         <div class="info-value">${formattedDate} às ${formattedTime}</div>
       </div>
       
       <div class="info-section">
-        <div class="info-label">🆔 ID do Certificado</div>
-        <div class="info-value" style="font-family: 'Courier New', monospace; font-size: 12px;">${signedContent.id}</div>
+        <div class="info-label">ID do Certificado</div>
+        <div class="info-value">${signedContent.id}</div>
       </div>
       
       ${platformsHtml}
+      
+      ${socialLinksHtml}
       
       ${qrCodeHtml}
       
@@ -757,6 +545,34 @@ export function generateCertificate(signedContent: SignedContent): string {
       
       <div class="info-section">
         <div class="info-label">🔑 Chave Pública do Assinante</div>
+
+        <!-- 🎨 Bloco de destaque visual: identicon + ID curto + últimos 20 chars -->
+        <div style="margin: 12px 0; padding: 16px; border-radius: 12px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 50%, #faf5ff 100%); border: 2px solid #93c5fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="flex-shrink: 0; border: 2px solid #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              ${generateIdenticonSVG(getKeyVisualSeed(signedContent.publicKey), { size: 72 })}
+            </div>
+            <div style="flex: 1; min-width: 180px;">
+              <div style="margin-bottom: 8px;">
+                <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #1d4ed8; font-weight: 700; margin-bottom: 4px;">
+                  ID Visual da Chave
+                </div>
+                <div style="font-family: 'Courier New', monospace; font-size: 14px; font-weight: 800; word-break: break-all; color: #4338ca;">
+                  ${getKeyVisualSeed(signedContent.publicKey)}
+                </div>
+              </div>
+              <div>
+                <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #7e22ce; font-weight: 700; margin-bottom: 4px;">
+                  Últimos 20 caracteres
+                </div>
+                <div style="font-family: 'Courier New', monospace; font-size: 14px; font-weight: 800; word-break: break-all; color: #c026d3;">
+                  …${getKeyShortSuffix(signedContent.publicKey, 20)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="info-value" style="font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all;">
           ${signedContent.publicKey}
         </div>

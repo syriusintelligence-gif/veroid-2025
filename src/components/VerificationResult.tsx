@@ -2,7 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SignedContent } from '@/lib/crypto';
-import { CheckCircle2, XCircle, Shield, User, Calendar, Hash } from 'lucide-react';
+import { CheckCircle2, XCircle, Shield, User, Calendar, Hash, Key } from 'lucide-react';
+import { KeyIdenticon } from '@/components/KeyIdenticon';
+import { getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
 
 interface VerificationResultProps {
   isValid: boolean;
@@ -83,6 +85,53 @@ export default function VerificationResult({ isValid, message, signedContent }: 
                 </p>
               </div>
               
+              {/* 🎨 Bloco de destaque visual da Chave Pública (identicon + ID curto + últimos 20 chars) */}
+              {signedContent.publicKey && (
+                <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-300 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Key className="h-4 w-4 text-blue-700" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                      Chave Pública do Assinante
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <KeyIdenticon
+                      hash={getKeyVisualSeed(signedContent.publicKey)}
+                      size={64}
+                      className="flex-shrink-0 border-2 border-white shadow-md"
+                    />
+                    <div className="flex-1 min-w-[180px] space-y-2">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-blue-700/80 font-bold block mb-1">
+                          ID Visual da Chave
+                        </span>
+                        <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 bg-clip-text text-transparent">
+                          {getKeyVisualSeed(signedContent.publicKey)}
+                        </code>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-purple-700/80 font-bold block mb-1">
+                          Últimos 20 caracteres
+                        </span>
+                        <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                          …{getKeyShortSuffix(signedContent.publicKey, 20)}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                  <details className="mt-3">
+                    <summary className="text-xs text-blue-700 cursor-pointer hover:text-blue-900 font-medium select-none">
+                      Ver chave completa
+                    </summary>
+                    <div className="mt-2 p-2 bg-white/70 rounded border border-blue-200">
+                      <code className="text-[11px] font-mono break-all text-gray-700">
+                        {signedContent.publicKey}
+                      </code>
+                    </div>
+                  </details>
+                </div>
+              )}
+
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs font-medium mb-1">Hash SHA-256:</p>
                 <p className="text-xs text-muted-foreground font-mono break-all">

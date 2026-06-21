@@ -12,6 +12,8 @@ import { motion } from 'framer-motion';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import type { CarouselMetadata } from '@/lib/types/carousel';
 import { supabase } from '@/lib/supabase';
+import { KeyIdenticon } from '@/components/KeyIdenticon';
+import { getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -624,6 +626,37 @@ export default function Certificate() {
               <Key className="h-3 w-3 sm:h-4 sm:w-4" />
               Chave Pública do Assinante
             </div>
+
+            {/* 🎨 Bloco de destaque visual: identicon + ID curto + últimos 20 chars */}
+            <div className="mb-3 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-300 shadow-sm">
+              <div className="flex items-center gap-4 flex-wrap">
+                <KeyIdenticon
+                  hash={getKeyVisualSeed(content.publicKey)}
+                  size={72}
+                  className="flex-shrink-0 border-2 border-white shadow-md"
+                />
+                <div className="flex-1 min-w-[200px] space-y-2">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-blue-700/80 font-bold block mb-1">
+                      ID Visual da Chave
+                    </span>
+                    <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 bg-clip-text text-transparent">
+                      {getKeyVisualSeed(content.publicKey)}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-purple-700/80 font-bold block mb-1">
+                      Últimos 20 caracteres
+                    </span>
+                    <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      …{getKeyShortSuffix(content.publicKey, 20)}
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chave completa (preservada) */}
             <div className="text-xs font-mono bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600 break-all leading-relaxed">
               {content.publicKey}
             </div>
