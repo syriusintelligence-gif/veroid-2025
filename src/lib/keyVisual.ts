@@ -57,6 +57,59 @@ export function getKeyShortSuffix(publicKey: string, n: number = 20): string {
   return publicKey.slice(-n);
 }
 
+/**
+ * 🆕 Versão SHA-256 da seed visual da chave pública.
+ *
+ * IMPORTANTE: esta função produz EXATAMENTE o mesmo identificador de 16
+ * caracteres hexadecimais que o Dashboard exibe (campo `publicKeyHash`
+ * gerado em `src/lib/crypto.ts` durante `generateKeyPair`).
+ *
+ * Como o Dashboard calcula o SHA-256 sobre o JSON da chave pública (JWK)
+ * antes de aplicar o prefixo `VID-PUB-` e o `btoa`, precisamos reverter
+ * essa transformação aqui:
+ *   1. remover o prefixo `VID-PUB-` (se presente)
+ *   2. aplicar `atob` para obter o JSON original
+ *   3. calcular SHA-256 do JSON
+ *   4. retornar os 16 primeiros caracteres hex
+ *
+ * Em qualquer falha (chave em formato legado/diferente), fazemos fallback
+ * para SHA-256 da string completa, garantindo que o resultado seja
+ * sempre determinístico — nunca quebra o fluxo existente.
+ *
+ * É assíncrona porque `crypto.subtle.digest` é assíncrono.
+ */
+export async function getKeyVisualSeedSHA256(publicKey: string): Promise<string> {
+  if (!publicKey) return '0'.repeat(16);
+
+  try {
+    let payload = publicKey;
+
+    // Tenta reverter o formato `VID-PUB-<base64(JWK JSON)>` para obter o JWK JSON
+    if (publicKey.startsWith('VID-PUB-')) {
+      const base64Part = publicKey.substring('VID-PUB-'.length);
+      try {
+        payload = atob(base64Part);
+      } catch {
+        // Se atob falhar, mantém a string original como payload
+        payload = publicKey;
+      }
+    }
+
+    const buffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(payload)
+    );
+    const hex = Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return hex.substring(0, 16);
+  } catch (err) {
+    console.error('[getKeyVisualSeedSHA256] Falha ao calcular SHA-256:', err);
+    // Fallback final: usa a versão FNV-1a síncrona para manter algo determinístico
+    return getKeyVisualSeed(publicKey);
+  }
+}
+
 /* ============================================================
  * GERAÇÃO DE IDENTICON SVG (para HTML estático baixável)
  * ============================================================ */

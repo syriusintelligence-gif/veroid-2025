@@ -1,10 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SignedContent } from '@/lib/crypto';
 import { CheckCircle2, XCircle, Shield, User, Calendar, Hash, Key } from 'lucide-react';
 import { KeyIdenticon } from '@/components/KeyIdenticon';
-import { getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
+import { getKeyVisualSeed, getKeyShortSuffix, getKeyVisualSeedSHA256 } from '@/lib/keyVisual';
 
 interface VerificationResultProps {
   isValid: boolean;
@@ -13,6 +14,28 @@ interface VerificationResultProps {
 }
 
 export default function VerificationResult({ isValid, message, signedContent }: VerificationResultProps) {
+  // 🆕 SHA-256 da chave pública (mesmo identificador exibido no Dashboard)
+  const [keyVisualHash, setKeyVisualHash] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const pk = signedContent?.publicKey;
+    if (!pk) {
+      setKeyVisualHash('');
+      return;
+    }
+    getKeyVisualSeedSHA256(pk)
+      .then((hash) => {
+        if (!cancelled) setKeyVisualHash(hash);
+      })
+      .catch((err) => {
+        console.error('[VerificationResult] Falha ao calcular SHA-256 da chave:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedContent?.publicKey]);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Alert className={isValid ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
@@ -96,7 +119,7 @@ export default function VerificationResult({ isValid, message, signedContent }: 
                   </div>
                   <div className="flex items-center gap-4 flex-wrap">
                     <KeyIdenticon
-                      hash={getKeyVisualSeed(signedContent.publicKey)}
+                      hash={keyVisualHash || getKeyVisualSeed(signedContent.publicKey)}
                       size={64}
                       className="flex-shrink-0 border-2 border-white shadow-md"
                     />
@@ -106,7 +129,7 @@ export default function VerificationResult({ isValid, message, signedContent }: 
                           ID Visual da Chave
                         </span>
                         <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 bg-clip-text text-transparent">
-                          {getKeyVisualSeed(signedContent.publicKey)}
+                          {keyVisualHash || getKeyVisualSeed(signedContent.publicKey)}
                         </code>
                       </div>
                       <div>

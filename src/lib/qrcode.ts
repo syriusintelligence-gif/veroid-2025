@@ -1,6 +1,6 @@
 import { SignedContent } from '@/lib/supabase-crypto';
 import type { SocialLinks } from './supabase';
-import { generateIdenticonSVG, getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
+import { generateIdenticonSVG, getKeyVisualSeed, getKeyShortSuffix, getKeyVisualSeedSHA256 } from '@/lib/keyVisual';
 
 /**
  * 🆕 VERSÃO ULTRA-COMPACTA: Apenas dados essenciais para buscar no Supabase
@@ -248,8 +248,23 @@ function generateQRCodeSVG(qrData: string): string {
 
 /**
  * Gera certificado digital em formato HTML moderno
+ *
+ * Agora e ASYNC porque pre-calcula o SHA-256 da chave publica para
+ * exibir o MESMO "ID Visual da Chave" que o Dashboard mostra (16 chars).
+ * Em caso de falha no calculo, faz fallback para a versao FNV-1a sincrona,
+ * preservando o comportamento anterior.
  */
-export function generateCertificate(signedContent: SignedContent): string {
+export async function generateCertificate(signedContent: SignedContent): Promise<string> {
+  // 🆕 Pre-calcula o SHA-256 da chave publica (mesmo ID exibido no Dashboard).
+  // Em caso de falha, faz fallback para FNV-1a sincrono (comportamento anterior).
+  let keyVisualSeed: string;
+  try {
+    keyVisualSeed = await getKeyVisualSeedSHA256(signedContent.publicKey);
+  } catch (err) {
+    console.error('[generateCertificate] Falha ao calcular SHA-256, usando fallback:', err);
+    keyVisualSeed = getKeyVisualSeed(signedContent.publicKey);
+  }
+
   // ✅ CORRIGIDO: usa createdAt em vez de timestamp
   const date = new Date(signedContent.createdAt);
   
@@ -550,7 +565,7 @@ export function generateCertificate(signedContent: SignedContent): string {
         <div style="margin: 12px 0; padding: 16px; border-radius: 12px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 50%, #faf5ff 100%); border: 2px solid #93c5fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
           <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
             <div style="flex-shrink: 0; border: 2px solid #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              ${generateIdenticonSVG(getKeyVisualSeed(signedContent.publicKey), { size: 72 })}
+              ${generateIdenticonSVG(keyVisualSeed, { size: 72 })}
             </div>
             <div style="flex: 1; min-width: 180px;">
               <div style="margin-bottom: 8px;">
@@ -558,7 +573,7 @@ export function generateCertificate(signedContent: SignedContent): string {
                   ID Visual da Chave
                 </div>
                 <div style="font-family: 'Courier New', monospace; font-size: 14px; font-weight: 800; word-break: break-all; color: #4338ca;">
-                  ${getKeyVisualSeed(signedContent.publicKey)}
+                  ${keyVisualSeed}
                 </div>
               </div>
               <div>

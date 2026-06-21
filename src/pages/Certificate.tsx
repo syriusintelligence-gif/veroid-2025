@@ -13,7 +13,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import type { CarouselMetadata } from '@/lib/types/carousel';
 import { supabase } from '@/lib/supabase';
 import { KeyIdenticon } from '@/components/KeyIdenticon';
-import { getKeyVisualSeed, getKeyShortSuffix } from '@/lib/keyVisual';
+import { getKeyVisualSeed, getKeyShortSuffix, getKeyVisualSeedSHA256 } from '@/lib/keyVisual';
 
 // Ícones das plataformas sociais
 const platformIcons: Record<string, string> = {
@@ -37,10 +37,33 @@ export default function Certificate() {
   const [copied, setCopied] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // 🆕 SHA-256 da chave pública (mesmo identificador exibido no Dashboard)
+  const [keyVisualHash, setKeyVisualHash] = useState<string>('');
 
   useEffect(() => {
     checkUserAndLoadCertificate();
   }, [searchParams]);
+
+  // 🆕 Recalcula o SHA-256 da chave pública sempre que o conteúdo carregado mudar.
+  // Esse hash de 16 caracteres é IDÊNTICO ao `publicKeyHash` exibido no Dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    const pk = content?.publicKey;
+    if (!pk) {
+      setKeyVisualHash('');
+      return;
+    }
+    getKeyVisualSeedSHA256(pk)
+      .then((hash) => {
+        if (!cancelled) setKeyVisualHash(hash);
+      })
+      .catch((err) => {
+        console.error('[Certificate] Falha ao calcular SHA-256 da chave:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [content?.publicKey]);
 
   const checkUserAndLoadCertificate = async () => {
     // Marca o tempo de início do carregamento
@@ -132,10 +155,10 @@ export default function Certificate() {
     }
   };
 
-  const handleDownloadCertificate = () => {
+  const handleDownloadCertificate = async () => {
     if (!content) return;
     
-    const certificate = generateCertificate(content);
+    const certificate = await generateCertificate(content);
     const blob = new Blob([certificate], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -631,7 +654,7 @@ export default function Certificate() {
             <div className="mb-3 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-300 shadow-sm">
               <div className="flex items-center gap-4 flex-wrap">
                 <KeyIdenticon
-                  hash={getKeyVisualSeed(content.publicKey)}
+                  hash={keyVisualHash || getKeyVisualSeed(content.publicKey)}
                   size={72}
                   className="flex-shrink-0 border-2 border-white shadow-md"
                 />
@@ -641,7 +664,7 @@ export default function Certificate() {
                       ID Visual da Chave
                     </span>
                     <code className="text-sm font-mono font-extrabold break-all bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 bg-clip-text text-transparent">
-                      {getKeyVisualSeed(content.publicKey)}
+                      {keyVisualHash || getKeyVisualSeed(content.publicKey)}
                     </code>
                   </div>
                   <div>

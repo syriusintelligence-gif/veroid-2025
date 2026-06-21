@@ -57,9 +57,9 @@ export default function ContentCard({ content: initialContent, onVerify }: Conte
     });
   }
   
-  const handleDownloadCertificate = () => {
+  const handleDownloadCertificate = async () => {
     console.log('📥 [ContentCard] Gerando certificado com links sociais:', !!content.creatorSocialLinks);
-    const certificate = generateCertificate(content);
+    const certificate = await generateCertificate(content);
     const blob = new Blob([certificate], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
