@@ -254,6 +254,49 @@ export async function saveKeyPairToSupabase(keyPair: KeyPair): Promise<{ success
 }
 
 /**
+ * 🆕 Calcula o hash visual SHA-256 (16 chars hex) a partir de uma chave pública
+ * armazenada no formato `VID-PUB-<base64(JWK JSON)>`. Replica EXATAMENTE a
+ * mesma lógica usada em `crypto.ts → generateKeyPair` para garantir que o
+ * `publicKeyHash` exibido no Dashboard seja idêntico ao calculado em runtime
+ * pelas páginas de Certificate / VerificationResult.
+ *
+ * Em caso de qualquer falha (formato legado, base64 inválido, etc.), retorna
+ * `undefined` para preservar o fluxo existente — o Dashboard já trata esse
+ * caso com fallback (`keyPair.publicKey.slice(-16)`).
+ */
+async function computePublicKeyHash(publicKey: string): Promise<string | undefined> {
+  if (!publicKey) return undefined;
+
+  try {
+    let payload = publicKey;
+
+    // Mesma transformação aplicada em crypto.ts antes de calcular o hash:
+    // remove o prefixo VID-PUB- e desfaz o btoa, recuperando o JWK JSON.
+    if (publicKey.startsWith('VID-PUB-')) {
+      const base64Part = publicKey.substring('VID-PUB-'.length);
+      try {
+        payload = atob(base64Part);
+      } catch {
+        // Se atob falhar (formato inesperado), mantém a string original.
+        payload = publicKey;
+      }
+    }
+
+    const buffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(payload)
+    );
+    const hex = Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return hex.substring(0, 16);
+  } catch (err) {
+    console.warn('⚠️ [computePublicKeyHash] Falha ao calcular hash visual (não crítico):', err);
+    return undefined;
+  }
+}
+
+/**
  * 🆕 Obtém o par de chaves do usuário COM DESCRIPTOGRAFIA E FALLBACK
  * 🔧 CORRIGIDO: Suporta chaves antigas (não criptografadas) e novas (criptografadas)
  */
@@ -271,6 +314,11 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
       console.log('❌ Nenhuma chave encontrada no Supabase');
       return null;
     }
+
+    // 🎨 Calcula o hash visual (SHA-256, 16 chars) a partir da public_key persistida.
+    // Garante que chaves antigas (sem publicKeyHash em memória) também exibam
+    // o mesmo "ID Visual da Chave" mostrado nos certificados.
+    const computedPublicKeyHash = await computePublicKeyHash(data.public_key);
     
     // ====================================================
     // 🔧 CORREÇÃO: FALLBACK PARA CHAVES ANTIGAS
@@ -289,6 +337,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
           userId: data.user_id,
           publicKey: data.public_key,
           privateKey: decryptedPrivateKey,
+          publicKeyHash: computedPublicKeyHash,
           createdAt: data.created_at,
         };
       } catch (decryptError) {
@@ -303,6 +352,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
             userId: data.user_id,
             publicKey: data.public_key,
             privateKey: data.private_key,
+            publicKeyHash: computedPublicKeyHash,
             createdAt: data.created_at,
           };
         }
@@ -345,6 +395,7 @@ export async function getKeyPair(userId: string): Promise<KeyPair | null> {
         userId: data.user_id,
         publicKey: data.public_key,
         privateKey: data.private_key,
+        publicKeyHash: computedPublicKeyHash,
         createdAt: data.created_at,
       };
     }
