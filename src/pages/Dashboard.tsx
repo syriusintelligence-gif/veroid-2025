@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { KeyIdenticon } from '@/components/KeyIdenticon';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -52,6 +53,8 @@ export default function Dashboard() {
   const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
   const [showKeyDetails, setShowKeyDetails] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
+  // 🆕 Toggle para exibir chave pública: false = visualização curta (últimos 20 chars + identicon), true = chave completa
+  const [showFullPublicKey, setShowFullPublicKey] = useState(false);
   
   // Estado para o modal de instruções
   const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
@@ -619,35 +622,95 @@ export default function Dashboard() {
                     <div className="space-y-4 border-t pt-3">
                       {/* Chave Pública */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                           <Label className="text-sm font-semibold flex items-center gap-2">
                             <Key className="h-4 w-4 text-blue-600" />
                             Chave Pública
                           </Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleCopyPublicKey}
-                            className="h-8"
-                          >
-                            {copiedPublicKey ? (
-                              <>
-                                <Check className="h-4 w-4 mr-1 text-green-600" />
-                                <span className="text-green-600">Copiado!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-4 w-4 mr-1" />
-                                Copiar
-                              </>
-                            )}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowFullPublicKey(!showFullPublicKey)}
+                              className="h-8"
+                              aria-expanded={showFullPublicKey}
+                              aria-label={showFullPublicKey ? 'Ver versão curta' : 'Ver chave completa'}
+                            >
+                              {showFullPublicKey ? (
+                                <>
+                                  <EyeOff className="h-4 w-4 mr-1" />
+                                  Ver curta
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Ver completa
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCopyPublicKey}
+                              className="h-8"
+                            >
+                              {copiedPublicKey ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-1 text-green-600" />
+                                  <span className="text-green-600">Copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Copiar
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="bg-muted p-3 rounded-lg border">
-                          <code className="text-xs font-mono break-all block">
-                            {keyPair.publicKey}
-                          </code>
-                        </div>
+
+                        {showFullPublicKey ? (
+                          // Modo COMPLETO: mostra a chave inteira (comportamento original preservado)
+                          <div className="bg-muted p-3 rounded-lg border">
+                            <code className="text-xs font-mono break-all block">
+                              {keyPair.publicKey}
+                            </code>
+                          </div>
+                        ) : (
+                          // Modo CURTO: identicon + ID curto (publicKeyHash) + últimos 20 caracteres da chave
+                          <div className="bg-muted p-3 rounded-lg border">
+                            <div className="flex items-center gap-3">
+                              <KeyIdenticon
+                                hash={keyPair.publicKeyHash || keyPair.publicKey.slice(-16)}
+                                size={56}
+                                className="flex-shrink-0 border border-gray-200"
+                              />
+                              <div className="flex-1 min-w-0 space-y-1">
+                                {keyPair.publicKeyHash && (
+                                  <div className="flex items-baseline gap-2 flex-wrap">
+                                    <span className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                                      ID da Chave
+                                    </span>
+                                    <code className="text-xs font-mono font-bold text-amber-900 break-all">
+                                      {keyPair.publicKeyHash}
+                                    </code>
+                                  </div>
+                                )}
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                  <span className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                                    Final da chave
+                                  </span>
+                                  <code className="text-xs font-mono text-gray-700 break-all">
+                                    …{keyPair.publicKey.slice(-20)}
+                                  </code>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                              Este identificador visual é único por usuário. Use o botão &ldquo;Ver completa&rdquo; para visualizar a chave inteira ou &ldquo;Copiar&rdquo; para copiar a chave completa.
+                            </p>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Chave Privada */}
