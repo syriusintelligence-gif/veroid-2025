@@ -100,7 +100,7 @@ export async function addWatermarkToPdf(
       
       // Configurações otimizadas
       const watermarkHeight = 28; // Barra compacta (reduzida — sem espaço vazio sob QR)
-      const marginTop = 35; // Distância da última linha do documento (aumentada — evita sobreposição)
+      const marginTop = 8; // Respiro mínimo entre conteúdo original e a barra (sem faixa vazia)
       const totalSpace = watermarkHeight + marginTop;
       const padding = 10;
       const fontSize = 8;
