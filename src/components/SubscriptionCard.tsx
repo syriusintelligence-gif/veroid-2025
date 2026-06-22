@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,8 +17,21 @@ import {
 } from '@/hooks/useSubscription';
 
 export const SubscriptionCard = () => {
-  const { subscription, loading } = useSubscription();
+  const { subscription, loading, refetch } = useSubscription();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // 🆕 Escuta evento global `vero:subscription-refresh` para refazer fetch
+  // sob demanda. É disparado, por exemplo, pelo Dashboard após sincronizar
+  // uma Checkout Session do Stripe (?session_id=...) — assim o card sai
+  // imediatamente do estado "trial" e passa a refletir o novo plano.
+  useEffect(() => {
+    const handler = () => {
+      console.log('🔔 [SubscriptionCard] Evento vero:subscription-refresh recebido, refazendo fetch...');
+      refetch();
+    };
+    window.addEventListener('vero:subscription-refresh', handler);
+    return () => window.removeEventListener('vero:subscription-refresh', handler);
+  }, [refetch]);
 
   if (loading) {
     return (

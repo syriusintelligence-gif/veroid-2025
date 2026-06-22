@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Shield, FileSignature, CheckCircle2, LogOut, User, Loader2, Key, RefreshCw, Home, Settings, Users, BarChart3, Search, Calendar, ArrowUpDown, Copy, Check, Eye, EyeOff, FileText, CreditCard, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { getCurrentUser, logout, isCurrentUserAdmin } from '@/lib/supabase-auth';
 import type { User as UserType } from '@/lib/supabase-auth';
 import { generateKeyPair, saveKeyPair, getKeyPair, clearAllKeys } from '@/lib/crypto';
@@ -41,12 +42,22 @@ import { KeyIdenticon } from '@/components/KeyIdenticon';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
   const [signedContents, setSignedContents] = useState<SignedContent[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // 🆕 Estado da sincronização pós-checkout do Stripe.
+  // Quando o usuário volta de /pricing -> Stripe Checkout -> Dashboard,
+  // a URL contém `?session_id=cs_xxx`. Chamamos a edge function
+  // `sync-checkout-session` (fallback síncrono ao webhook) e, em paralelo,
+  // fazemos polling curto da tabela `subscriptions` até detectar que a
+  // assinatura foi atualizada.
+  const [isSyncingCheckout, setIsSyncingCheckout] = useState(false);
+  const [checkoutSyncError, setCheckoutSyncError] = useState<string | null>(null);
   
   // Estados para copiar chaves
   const [copiedPublicKey, setCopiedPublicKey] = useState(false);
@@ -69,6 +80,148 @@ export default function Dashboard() {
     // 🆕 CORREÇÃO: Removida dependência de navigate para evitar loop de re-renderização
     // O navigate é estável e não precisa ser uma dependência
     loadUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 🆕 Sincronização pós-checkout do Stripe.
+  //
+  // Detecta `?session_id=cs_xxx` na URL (usuário voltando do Stripe Checkout)
+  // e força a sincronização síncrona da assinatura, contornando atrasos ou
+  // falhas do webhook. Estratégia:
+  //   1. Chama a edge function `sync-checkout-session` (segura, idempotente,
+  //      autenticada — valida que a session pertence ao usuário atual).
+  //   2. Em seguida dispara o evento global `vero:subscription-refresh` para
+  //      o `SubscriptionCard` refazer seu fetch.
+  //   3. Faz polling curto (até ~12s) verificando direto na tabela
+  //      `subscriptions` se a row já saiu do estado trial — útil quando o
+  //      webhook chega DEPOIS do sync e finaliza a row.
+  //   4. Sempre limpa o `session_id` da URL ao final para evitar re-execução
+  //      em refresh / navegação.
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (!sessionId) return;
+
+    let cancelled = false;
+
+    const runSync = async () => {
+      console.log('🔄 [Dashboard] Detectado session_id na URL, iniciando sincronização:', sessionId);
+      setIsSyncingCheckout(true);
+      setCheckoutSyncError(null);
+
+      try {
+        // 1) Garantir sessão Supabase válida antes de chamar a edge function
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        if (!authSession) {
+          console.error('❌ [Dashboard] Sem sessão Supabase ativa para sincronizar checkout');
+          setCheckoutSyncError('Sessão expirada. Faça login novamente para sincronizar o pagamento.');
+          return;
+        }
+
+        // 2) Chamar a edge function `sync-checkout-session` com retry leve.
+        //    A função é idempotente: se o webhook já gravou os dados, ela
+        //    retorna `alreadyPersisted: true` sem efeito colateral.
+        const maxAttempts = 3;
+        let syncOk = false;
+        let lastError: string | null = null;
+
+        for (let attempt = 1; attempt <= maxAttempts && !cancelled; attempt++) {
+          try {
+            console.log(`📡 [Dashboard] sync-checkout-session: tentativa ${attempt}/${maxAttempts}`);
+            const { data, error } = await supabase.functions.invoke('sync-checkout-session', {
+              body: { sessionId },
+            });
+
+            if (error) {
+              lastError = error.message || 'Erro ao invocar sync-checkout-session';
+              console.warn(`⚠️ [Dashboard] Falha na tentativa ${attempt}:`, lastError);
+            } else {
+              console.log('✅ [Dashboard] sync-checkout-session retornou:', data);
+              syncOk = true;
+              break;
+            }
+          } catch (invokeErr) {
+            lastError = invokeErr instanceof Error ? invokeErr.message : 'Erro desconhecido';
+            console.warn(`⚠️ [Dashboard] Exceção na tentativa ${attempt}:`, lastError);
+          }
+
+          // Backoff curto entre tentativas (1s, 2s)
+          if (attempt < maxAttempts && !cancelled) {
+            await new Promise((r) => setTimeout(r, attempt * 1000));
+          }
+        }
+
+        if (!syncOk) {
+          console.error('❌ [Dashboard] sync-checkout-session falhou após retries:', lastError);
+          // Não bloqueia o fluxo: o webhook pode ainda chegar. Apenas avisa.
+          setCheckoutSyncError(
+            'Não foi possível confirmar o pagamento agora. Se a assinatura não aparecer em alguns minutos, recarregue a página.',
+          );
+        }
+
+        // 3) Notifica o SubscriptionCard para refazer o fetch
+        if (!cancelled) {
+          window.dispatchEvent(new CustomEvent('vero:subscription-refresh'));
+        }
+
+        // 4) Polling curto na tabela subscriptions: até detectar que a
+        //    assinatura não está mais em `trial` (ou já tem stripe_subscription_id).
+        //    Importante: não falha — apenas dispara refreshes até o webhook chegar.
+        const maxPolls = 6;
+        const pollInterval = 2000;
+
+        for (let i = 0; i < maxPolls && !cancelled; i++) {
+          await new Promise((r) => setTimeout(r, pollInterval));
+          if (cancelled) return;
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) break;
+
+          const { data: subRow, error: subErr } = await supabase
+            .from('subscriptions')
+            .select('plan_type, stripe_subscription_id, status')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (subErr) {
+            console.warn('⚠️ [Dashboard] Erro no poll de subscriptions:', subErr.message);
+            continue;
+          }
+
+          console.log(`🔍 [Dashboard] Poll ${i + 1}/${maxPolls}:`, subRow);
+
+          if (
+            subRow &&
+            subRow.stripe_subscription_id &&
+            subRow.plan_type &&
+            subRow.plan_type !== 'trial'
+          ) {
+            console.log('✅ [Dashboard] Assinatura sincronizada detectada via polling.');
+            window.dispatchEvent(new CustomEvent('vero:subscription-refresh'));
+            break;
+          }
+
+          // Continua disparando refresh em cada poll para garantir UI fresca
+          window.dispatchEvent(new CustomEvent('vero:subscription-refresh'));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSyncingCheckout(false);
+          // 5) Limpa o session_id da URL — sem recarregar a página —
+          //    para evitar re-execução em refresh / navegação interna.
+          const next = new URLSearchParams(searchParams);
+          next.delete('session_id');
+          setSearchParams(next, { replace: true });
+        }
+      }
+    };
+
+    runSync();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -299,6 +452,30 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* 🆕 FASE 2: Modal de Trial (aparece ao fazer login) */}
       {currentUser && <TrialModal userId={currentUser.id} />}
+
+      {/* 🆕 Banner de sincronização pós-checkout do Stripe.
+          Aparece somente enquanto a função `sync-checkout-session` está
+          rodando (ou falhou de forma não-bloqueante) após o usuário
+          voltar do Stripe Checkout com `?session_id=...`. */}
+      {(isSyncingCheckout || checkoutSyncError) && (
+        <div className="container mx-auto px-4 pt-4">
+          {isSyncingCheckout && (
+            <Alert className="border-blue-300 bg-blue-50">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                Confirmando seu pagamento e ativando sua assinatura... Isso leva apenas alguns segundos.
+              </AlertDescription>
+            </Alert>
+          )}
+          {!isSyncingCheckout && checkoutSyncError && (
+            <Alert className="border-yellow-300 bg-yellow-50">
+              <AlertDescription className="text-yellow-800">
+                {checkoutSyncError}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
       
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
