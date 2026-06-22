@@ -13,6 +13,7 @@ import { PDFDocument, rgb, StandardFonts, degrees, PageSizes } from 'pdf-lib';
 import { SignedContent } from './supabase-crypto';
 import QRCode from 'qrcode';
 import { generateQRData } from './qrcode';
+import { getKeyShortSuffix, getKeyVisualSeedSHA256, getKeyVisualSeed } from './keyVisual';
 
 /**
  * Verifica se uma URL aponta para um PDF
@@ -75,6 +76,19 @@ export async function addWatermarkToPdf(
     // Embed QR code image
     const qrCodeImage = await pdfDoc.embedPng(qrCodeBytes);
     
+    // 🆕 Computar hash visual (SHA-256) e últimos 20 caracteres da chave pública
+    // Mesma lógica usada na página WEB do certificado (Certificate.tsx)
+    let keyVisualHash = '';
+    let keyShortSuffix = '';
+    if (certificateData.publicKey) {
+      try {
+        keyVisualHash = await getKeyVisualSeedSHA256(certificateData.publicKey);
+      } catch {
+        keyVisualHash = getKeyVisualSeed(certificateData.publicKey);
+      }
+      keyShortSuffix = getKeyShortSuffix(certificateData.publicKey, 20);
+    }
+    
     // Obter todas as páginas originais
     const pages = pdfDoc.getPages();
     
@@ -85,13 +99,13 @@ export async function addWatermarkToPdf(
       const { width, height } = page.getSize();
       
       // Configurações otimizadas
-      const watermarkHeight = 35; // Barra compacta
-      const marginTop = 20; // Distância da última linha do documento
+      const watermarkHeight = 28; // Barra compacta (reduzida — sem espaço vazio sob QR)
+      const marginTop = 35; // Distância da última linha do documento (aumentada — evita sobreposição)
       const totalSpace = watermarkHeight + marginTop;
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
-      const qrSize = 28; // QR code pequeno na barra
+      const qrSize = 26; // QR code (ligeiramente reduzido para caber na barra mantendo legibilidade)
       
       // Mover conteúdo para cima (com margem)
       page.translateContent(0, totalSpace);
@@ -117,10 +131,10 @@ export async function addWatermarkToPdf(
         color: rgb(0.7, 0.7, 0.7),
       });
       
-      // QR code pequeno no canto esquerdo
+      // QR code pequeno no canto esquerdo (centralizado verticalmente)
       page.drawImage(qrCodeImage, {
         x: padding,
-        y: 3.5,
+        y: (watermarkHeight - qrSize) / 2,
         width: qrSize,
         height: qrSize,
       });
@@ -128,7 +142,7 @@ export async function addWatermarkToPdf(
       // Título (ajustado para dar espaço ao QR code)
       page.drawText('Verificado by Vero iD', {
         x: padding + qrSize + 8,
-        y: watermarkHeight - 12,
+        y: watermarkHeight - 11,
         size: fontSize,
         font: font,
         color: rgb(0, 0, 0),
@@ -142,16 +156,16 @@ export async function addWatermarkToPdf(
       
       page.drawText(infoLine, {
         x: padding + qrSize + 8,
-        y: watermarkHeight - 25,
+        y: watermarkHeight - 22,
         size: fontSizeSmall,
         font: fontRegular,
         color: rgb(0.2, 0.2, 0.2),
       });
       
-      // Selo "VERIFICADO" no canto direito
+      // Selo "VERIFICADO" no canto direito (centralizado verticalmente)
       page.drawText('VERIFICADO', {
         x: width - 100,
-        y: watermarkHeight - 20,
+        y: (watermarkHeight - (fontSize + 2)) / 2 + 1,
         size: fontSize + 2,
         font: font,
         color: rgb(0.2, 0.6, 0.9),
@@ -264,6 +278,140 @@ export async function addWatermarkToPdf(
       });
       
       currentY -= lineHeight * 1.5;
+    }
+    
+    // IDENTIDADE VISUAL DA CHAVE (mesma exibicao da pagina WEB do certificado)
+    if (keyVisualHash || keyShortSuffix) {
+      currentY -= lineHeight * 0.3;
+      certPage.drawLine({
+        start: { x: padding, y: currentY },
+        end: { x: width - padding, y: currentY },
+        thickness: 1,
+        color: rgb(0.8, 0.8, 0.8),
+      });
+      
+      currentY -= lineHeight * 1.5;
+      
+      certPage.drawText('Identidade Visual da Chave Publica:', {
+        x: padding,
+        y: currentY,
+        size: 10,
+        font: font,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      
+      currentY -= lineHeight * 1.5;
+      
+      const identiconSize = 50;
+      const identiconX = padding + 10;
+      const identiconY = currentY - identiconSize;
+      
+      if (keyVisualHash) {
+        certPage.drawRectangle({
+          x: identiconX,
+          y: identiconY,
+          width: identiconSize,
+          height: identiconSize,
+          color: rgb(0.95, 0.96, 0.97),
+        });
+        
+        const safeHash = keyVisualHash.toLowerCase();
+        const hexPair = (idx: number): number => {
+          const p = safeHash.substring(idx, idx + 2);
+          const n = parseInt(p, 16);
+          return Number.isFinite(n) ? n : 0;
+        };
+        const hue = Math.floor((hexPair(0) / 255) * 360);
+        const saturation = (55 + Math.floor((hexPair(2) / 255) * 30)) / 100;
+        const lightness = (40 + Math.floor((hexPair(4) / 255) * 20)) / 100;
+        
+        const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+          const c = (1 - Math.abs(2 * l - 1)) * s;
+          const hh = h / 60;
+          const x = c * (1 - Math.abs((hh % 2) - 1));
+          let r1 = 0, g1 = 0, b1 = 0;
+          if (hh >= 0 && hh < 1) { r1 = c; g1 = x; b1 = 0; }
+          else if (hh < 2) { r1 = x; g1 = c; b1 = 0; }
+          else if (hh < 3) { r1 = 0; g1 = c; b1 = x; }
+          else if (hh < 4) { r1 = 0; g1 = x; b1 = c; }
+          else if (hh < 5) { r1 = x; g1 = 0; b1 = c; }
+          else { r1 = c; g1 = 0; b1 = x; }
+          const m = l - c / 2;
+          return [r1 + m, g1 + m, b1 + m];
+        };
+        const [pr, pg, pb] = hslToRgb(hue, saturation, lightness);
+        
+        const cells = 5;
+        const cellSize = identiconSize / cells;
+        const uniqueCols = 3;
+        for (let r = 0; r < cells; r++) {
+          const row: boolean[] = [false, false, false, false, false];
+          for (let c = 0; c < uniqueCols; c++) {
+            const idx = r * uniqueCols + c;
+            const charHex = safeHash.charAt(idx % safeHash.length);
+            const value = parseInt(charHex, 16);
+            const filled = Number.isFinite(value) && value % 2 === 0;
+            row[c] = filled;
+            if (c === 0) row[4] = filled;
+            if (c === 1) row[3] = filled;
+          }
+          for (let c = 0; c < cells; c++) {
+            if (row[c]) {
+              certPage.drawRectangle({
+                x: identiconX + c * cellSize,
+                y: identiconY + (cells - 1 - r) * cellSize,
+                width: cellSize,
+                height: cellSize,
+                color: rgb(pr, pg, pb),
+              });
+            }
+          }
+        }
+      }
+      
+      const textX = identiconX + identiconSize + 15;
+      let textY = identiconY + identiconSize - 12;
+      
+      if (keyVisualHash) {
+        certPage.drawText('ID Visual da Chave:', {
+          x: textX,
+          y: textY,
+          size: 8,
+          font: font,
+          color: rgb(0.3, 0.3, 0.3),
+        });
+        textY -= lineHeight * 0.7;
+        
+        certPage.drawText(keyVisualHash, {
+          x: textX,
+          y: textY,
+          size: 11,
+          font: font,
+          color: rgb(0.25, 0.32, 0.71),
+        });
+        textY -= lineHeight * 1.1;
+      }
+      
+      if (keyShortSuffix) {
+        certPage.drawText('Ultimos 20 caracteres da chave publica:', {
+          x: textX,
+          y: textY,
+          size: 8,
+          font: font,
+          color: rgb(0.3, 0.3, 0.3),
+        });
+        textY -= lineHeight * 0.7;
+        
+        certPage.drawText('...' + keyShortSuffix, {
+          x: textX,
+          y: textY,
+          size: 11,
+          font: font,
+          color: rgb(0.55, 0.22, 0.65),
+        });
+      }
+      
+      currentY = identiconY - lineHeight * 1.2;
     }
     
     // Links sociais do criador (se disponíveis)
