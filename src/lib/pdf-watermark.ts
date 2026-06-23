@@ -214,7 +214,7 @@ export async function addWatermarkToPdf(
       color: rgb(0.1, 0.3, 0.7),
     });
     
-    currentY -= lineHeight * 2;
+    currentY -= lineHeight * 1.4;
     
     // Subtítulo
     certPage.drawText('Verificado by Vero iD', {
@@ -225,7 +225,7 @@ export async function addWatermarkToPdf(
       color: rgb(0, 0, 0),
     });
     
-    currentY -= lineHeight * 2;
+    currentY -= lineHeight * 1.3;
     
     // Descrição
     certPage.drawText('Este documento foi assinado digitalmente e verificado pelo sistema Vero iD.', {
@@ -236,7 +236,7 @@ export async function addWatermarkToPdf(
       color: rgb(0.3, 0.3, 0.3),
     });
     
-    currentY -= lineHeight * 2.5;
+    currentY -= lineHeight * 1.5;
     
     // Separador
     certPage.drawLine({
@@ -266,7 +266,7 @@ export async function addWatermarkToPdf(
         color: rgb(0.2, 0.2, 0.2),
       });
       
-      currentY -= lineHeight * 0.8;
+      currentY -= lineHeight * 0.7;
       
       // Value
       certPage.drawText(item.value, {
@@ -277,12 +277,12 @@ export async function addWatermarkToPdf(
         color: rgb(0.4, 0.4, 0.4),
       });
       
-      currentY -= lineHeight * 1.5;
+      currentY -= lineHeight * 1.0;
     }
     
     // IDENTIDADE VISUAL DA CHAVE (mesma exibicao da pagina WEB do certificado)
     if (keyVisualHash || keyShortSuffix) {
-      currentY -= lineHeight * 0.3;
+      currentY -= lineHeight * 0.2;
       certPage.drawLine({
         start: { x: padding, y: currentY },
         end: { x: width - padding, y: currentY },
@@ -290,7 +290,7 @@ export async function addWatermarkToPdf(
         color: rgb(0.8, 0.8, 0.8),
       });
       
-      currentY -= lineHeight * 1.5;
+      currentY -= lineHeight * 1.0;
       
       certPage.drawText('Identidade Visual da Chave Publica:', {
         x: padding,
@@ -300,7 +300,7 @@ export async function addWatermarkToPdf(
         color: rgb(0.2, 0.2, 0.2),
       });
       
-      currentY -= lineHeight * 1.5;
+      currentY -= lineHeight * 1.0;
       
       const identiconSize = 50;
       const identiconX = padding + 10;
@@ -411,12 +411,12 @@ export async function addWatermarkToPdf(
         });
       }
       
-      currentY = identiconY - lineHeight * 1.2;
+      currentY = identiconY - lineHeight * 0.6;
     }
     
-    // Links sociais do criador (se disponíveis)
+    // Links sociais do criador (se disponíveis) — layout em 2 colunas
     if (certificateData.creatorSocialLinks && Object.keys(certificateData.creatorSocialLinks).length > 0) {
-      currentY -= lineHeight * 0.5;
+      currentY -= lineHeight * 0.3;
       
       // Separador
       certPage.drawLine({
@@ -426,7 +426,7 @@ export async function addWatermarkToPdf(
         color: rgb(0.8, 0.8, 0.8),
       });
       
-      currentY -= lineHeight * 1.5;
+      currentY -= lineHeight * 1.0;
       
       certPage.drawText('Perfis Oficiais do Criador:', {
         x: padding,
@@ -436,7 +436,7 @@ export async function addWatermarkToPdf(
         color: rgb(0.2, 0.2, 0.2),
       });
       
-      currentY -= lineHeight * 1.2;
+      currentY -= lineHeight * 0.9;
       
       const socialLinks = certificateData.creatorSocialLinks;
       const linkTexts: string[] = [];
@@ -449,15 +449,27 @@ export async function addWatermarkToPdf(
       if (socialLinks.tiktok) linkTexts.push(`TikTok: ${socialLinks.tiktok}`);
       if (socialLinks.website) linkTexts.push(`Website: ${socialLinks.website}`);
       
-      for (const linkText of linkTexts) {
-        certPage.drawText(linkText, {
-          x: padding + 10,
+      // Renderiza em 2 colunas: pares de links lado a lado
+      const col1X = padding + 10;
+      const col2X = padding + (width - padding * 2) / 2 + 5;
+      for (let i = 0; i < linkTexts.length; i += 2) {
+        certPage.drawText(linkTexts[i], {
+          x: col1X,
           y: currentY,
           size: 8,
           font: fontRegular,
           color: rgb(0.2, 0.4, 0.7),
         });
-        currentY -= lineHeight * 0.9;
+        if (i + 1 < linkTexts.length) {
+          certPage.drawText(linkTexts[i + 1], {
+            x: col2X,
+            y: currentY,
+            size: 8,
+            font: fontRegular,
+            color: rgb(0.2, 0.4, 0.7),
+          });
+        }
+        currentY -= lineHeight * 0.85;
       }
     }
     
@@ -479,7 +491,7 @@ export async function addWatermarkToPdf(
     const qrSizeLarge = 45; // 150 * 0.3 = 45
     const qrX = padding; // Alinhado à esquerda com o título
     
-    currentY -= lineHeight * 2;
+    currentY -= lineHeight * 0.8;
     
     // Título do QR Code
     certPage.drawText('QR Code de Verificação', {
@@ -490,7 +502,7 @@ export async function addWatermarkToPdf(
       color: rgb(0.2, 0.2, 0.2),
     });
     
-    currentY -= lineHeight * 1.5;
+    currentY -= lineHeight * 1.0;
     
     // QR Code centralizado
     certPage.drawImage(qrCodeImage, {
@@ -500,7 +512,7 @@ export async function addWatermarkToPdf(
       height: qrSizeLarge,
     });
     
-    currentY -= qrSizeLarge + lineHeight;
+    currentY -= qrSizeLarge + lineHeight * 0.5;
     
     // Instrução abaixo do QR Code
     const instructionText = 'Escaneie este QR Code para verificar a autenticidade do certificado';
