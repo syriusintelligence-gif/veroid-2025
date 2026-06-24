@@ -9,7 +9,7 @@
  * @updated 2026-06-18 - Adicionado QR code na barra e página final
  */
 
-import { PDFDocument, rgb, StandardFonts, degrees, PageSizes, pushGraphicsState, popGraphicsState, concatTransformationMatrix } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees, PageSizes } from 'pdf-lib';
 import { SignedContent } from './supabase-crypto';
 import QRCode from 'qrcode';
 import { generateQRData } from './qrcode';
@@ -95,40 +95,35 @@ export async function addWatermarkToPdf(
     console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s) originais...`);
     
     // PARTE 1: Adicionar watermark compacta em todas as páginas originais
-    // Estratégia: comprimir verticalmente o conteúdo original em ~96% e desenhar
-    // a barra (28 px) no espaço liberado no rodapé. Garante zero sobreposição.
+    // Estratégia: comprimir uniformemente o conteúdo original em 94% (X e Y iguais)
+    // e desenhar a barra (28 px) no espaço liberado no rodapé. Garante zero sobreposição.
     for (const page of pages) {
       const { width, height } = page.getSize();
       
       // Configurações otimizadas
       const watermarkHeight = 28; // Barra compacta
-      const respiro = 5; // Respiro mínimo entre conteúdo comprimido e a barra
-      const reservedSpace = watermarkHeight + respiro; // Espaço total reservado no rodapé
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
       const qrSize = 26;
       
-      // Escala vertical: comprime o conteúdo para caber em (height - reservedSpace)
-      // Mantém a escala horizontal em 1.0 para não distorcer largura/texto
-      const scaleY = (height - reservedSpace) / height;
+      // Escala uniforme 94% — comprime proporcionalmente X e Y do conteúdo original.
+      // Mantém proporção do texto/imagens, sem distorção.
+      const scale = 0.94;
       
-      // Aplica matriz de transformação ao stream de conteúdo da página ANTES de tudo:
-      //   [1, 0, 0, scaleY, 0, reservedSpace]
-      // Isso comprime o conteúdo no eixo Y e desloca para cima em `reservedSpace` px,
-      // de forma que o topo do conteúdo permaneça no topo da página (origem do pdf-lib
-      // é inferior-esquerda) e o rodapé do conteúdo termine em y = reservedSpace.
-      page.pushOperators(
-        pushGraphicsState(),
-        concatTransformationMatrix(1, 0, 0, scaleY, 0, reservedSpace)
-      );
-      // Restaura o estado gráfico DEPOIS de todo o conteúdo original.
-      // Como nossos drawRectangle/drawText abaixo são adicionados ao stream APÓS
-      // pushOperators, precisamos chamar popGraphicsState antes de desenhá-los.
-      page.pushOperators(popGraphicsState());
+      // Espaço liberado no rodapé pela compressão (6% da altura da página).
+      // Em A4 (842 px) ≈ 50 px disponíveis, suficientes para a barra de 28 px + respiro.
+      const reservedSpace = height * (1 - scale);
       
-      // A partir daqui, todos os draws ficam fora da transformação (escala 1:1)
-      // e são desenhados nas coordenadas reais da página.
+      // 1) Comprime uniformemente o conteúdo original em 94% (API oficial do pdf-lib).
+      page.scaleContent(scale, scale);
+      
+      // 2) Empurra o conteúdo comprimido para cima, liberando o espaço no rodapé.
+      page.translateContent(0, reservedSpace);
+      
+      // A partir daqui, nossos draws ficam fora da transformação aplicada ao
+      // conteúdo original (escala 1:1) e são desenhados nas coordenadas reais
+      // da página, no espaço de rodapé recém-liberado.
       
       // Fundo branco no rodapé (barra)
       page.drawRectangle({
