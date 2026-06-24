@@ -104,9 +104,11 @@ export async function addWatermarkToPdf(
       const { width, height } = page.getSize();
       
       // Configurações da barra (TAMANHO FIXO — não muda entre páginas/PDFs)
-      const watermarkHeight = 28; // Barra compacta (fixa)
-      const respiro = 5;          // Respiro entre conteúdo comprimido e a barra (fixo)
-      const reservedSpace = watermarkHeight + respiro; // 33 px reservados no rodapé (fixo)
+      const watermarkHeight = 28; // Barra compacta (fixa — design aprovado, NÃO alterar)
+      const respiro = 42;         // Respiro/margem entre conteúdo comprimido e a barra
+                                  // (suficiente para acomodar rodapés do PDF original com
+                                  // múltiplas linhas — ex: telefone + endereço + nº página)
+      const reservedSpace = watermarkHeight + respiro; // 70 px reservados no rodapé (fixo)
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
