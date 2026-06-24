@@ -118,8 +118,8 @@ export async function addWatermarkToPdf(
     
     // Configurações FIXAS da barra (idênticas ao design aprovado)
     const watermarkHeight = 28; // Barra compacta (FIXA — design aprovado)
-    const respiro = 42;         // Respiro entre conteúdo comprimido e barra
-    const reservedSpace = watermarkHeight + respiro; // 70 px reservados no rodapé
+    const respiro = 10;         // Respiro entre conteúdo comprimido e barra
+    const reservedSpace = watermarkHeight + respiro; // 38 px reservados no rodapé
     const barPadding = 10;
     const fontSize = 8;
     const fontSizeSmall = 7;
