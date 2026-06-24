@@ -95,30 +95,34 @@ export async function addWatermarkToPdf(
     console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s) originais...`);
     
     // PARTE 1: Adicionar watermark compacta em todas as páginas originais
-    // Estratégia: comprimir uniformemente o conteúdo original em 94% (X e Y iguais)
-    // e desenhar a barra (28 px) no espaço liberado no rodapé. Garante zero sobreposição.
+    // Estratégia: BARRA FIXA + COMPRESSÃO MÍNIMA AJUSTADA
+    // - A barra tem tamanho FIXO (28 px) — design polido e consistente em todas as páginas
+    // - O respiro entre o conteúdo original e a barra é FIXO (5 px)
+    // - O conteúdo original é comprimido EXATAMENTE o necessário para encaixar acima
+    //   da barra+respiro, sem sobrepor nada e sem deixar espaço vazio.
     for (const page of pages) {
       const { width, height } = page.getSize();
       
-      // Configurações otimizadas
-      const watermarkHeight = 28; // Barra compacta
+      // Configurações da barra (TAMANHO FIXO — não muda entre páginas/PDFs)
+      const watermarkHeight = 28; // Barra compacta (fixa)
+      const respiro = 5;          // Respiro entre conteúdo comprimido e a barra (fixo)
+      const reservedSpace = watermarkHeight + respiro; // 33 px reservados no rodapé (fixo)
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
       const qrSize = 26;
       
-      // Escala uniforme 94% — comprime proporcionalmente X e Y do conteúdo original.
-      // Mantém proporção do texto/imagens, sem distorção.
-      const scale = 0.94;
+      // Escala calculada DINAMICAMENTE para que o conteúdo original caiba EXATAMENTE
+      // em (altura_pagina - 33 px). Em A4 (842 px): scale = 809/842 ≈ 0.9608 (~96%).
+      // Compressão proporcional (X e Y iguais) para não distorcer texto/imagens.
+      const scale = (height - reservedSpace) / height;
       
-      // Espaço liberado no rodapé pela compressão (6% da altura da página).
-      // Em A4 (842 px) ≈ 50 px disponíveis, suficientes para a barra de 28 px + respiro.
-      const reservedSpace = height * (1 - scale);
-      
-      // 1) Comprime uniformemente o conteúdo original em 94% (API oficial do pdf-lib).
+      // 1) Comprime uniformemente o conteúdo original (API oficial do pdf-lib).
       page.scaleContent(scale, scale);
       
-      // 2) Empurra o conteúdo comprimido para cima, liberando o espaço no rodapé.
+      // 2) Empurra o conteúdo comprimido para cima EXATAMENTE em reservedSpace (33 px),
+      //    deixando o conteúdo do y=33 até o topo, e o espaço de y=0 a y=28 livre
+      //    para a barra (com 5 px de respiro entre y=28 e o início do conteúdo em y=33).
       page.translateContent(0, reservedSpace);
       
       // A partir daqui, nossos draws ficam fora da transformação aplicada ao
