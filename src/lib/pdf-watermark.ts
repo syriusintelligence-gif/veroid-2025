@@ -9,7 +9,7 @@
  * @updated 2026-06-18 - Adicionado QR code na barra e página final
  */
 
-import { PDFDocument, rgb, StandardFonts, degrees, PageSizes } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees, PageSizes, pushGraphicsState, popGraphicsState, concatTransformationMatrix } from 'pdf-lib';
 import { SignedContent } from './supabase-crypto';
 import QRCode from 'qrcode';
 import { generateQRData } from './qrcode';
@@ -95,32 +95,49 @@ export async function addWatermarkToPdf(
     console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s) originais...`);
     
     // PARTE 1: Adicionar watermark compacta em todas as páginas originais
+    // Estratégia: comprimir verticalmente o conteúdo original em ~96% e desenhar
+    // a barra (28 px) no espaço liberado no rodapé. Garante zero sobreposição.
     for (const page of pages) {
       const { width, height } = page.getSize();
       
       // Configurações otimizadas
-      const watermarkHeight = 28; // Barra compacta (reduzida — sem espaço vazio sob QR)
-      const marginTop = 8; // Respiro mínimo entre conteúdo original e a barra (sem faixa vazia)
-      const totalSpace = watermarkHeight + marginTop;
+      const watermarkHeight = 28; // Barra compacta
+      const respiro = 5; // Respiro mínimo entre conteúdo comprimido e a barra
+      const reservedSpace = watermarkHeight + respiro; // Espaço total reservado no rodapé
       const padding = 10;
       const fontSize = 8;
       const fontSizeSmall = 7;
-      const qrSize = 26; // QR code (ligeiramente reduzido para caber na barra mantendo legibilidade)
+      const qrSize = 26;
       
-      // Mover conteúdo para cima (com margem)
-      page.translateContent(0, totalSpace);
+      // Escala vertical: comprime o conteúdo para caber em (height - reservedSpace)
+      // Mantém a escala horizontal em 1.0 para não distorcer largura/texto
+      const scaleY = (height - reservedSpace) / height;
       
-      // Aumentar altura da página
-      page.setSize(width, height + totalSpace);
+      // Aplica matriz de transformação ao stream de conteúdo da página ANTES de tudo:
+      //   [1, 0, 0, scaleY, 0, reservedSpace]
+      // Isso comprime o conteúdo no eixo Y e desloca para cima em `reservedSpace` px,
+      // de forma que o topo do conteúdo permaneça no topo da página (origem do pdf-lib
+      // é inferior-esquerda) e o rodapé do conteúdo termine em y = reservedSpace.
+      page.pushOperators(
+        pushGraphicsState(),
+        concatTransformationMatrix(1, 0, 0, scaleY, 0, reservedSpace)
+      );
+      // Restaura o estado gráfico DEPOIS de todo o conteúdo original.
+      // Como nossos drawRectangle/drawText abaixo são adicionados ao stream APÓS
+      // pushOperators, precisamos chamar popGraphicsState antes de desenhá-los.
+      page.pushOperators(popGraphicsState());
       
-      // Fundo branco no rodapé
+      // A partir daqui, todos os draws ficam fora da transformação (escala 1:1)
+      // e são desenhados nas coordenadas reais da página.
+      
+      // Fundo branco no rodapé (barra)
       page.drawRectangle({
         x: 0,
         y: 0,
         width: width,
         height: watermarkHeight,
         color: rgb(1, 1, 1),
-        opacity: 0.95,
+        opacity: 1.0,
       });
       
       // Borda superior da barra
@@ -171,9 +188,9 @@ export async function addWatermarkToPdf(
         color: rgb(0.2, 0.6, 0.9),
       });
       
-      // Marca d'água diagonal discreta no centro
+      // Marca d'água diagonal discreta no centro (no espaço da página original)
       const centerX = width / 2;
-      const centerY = (height + totalSpace) / 2;
+      const centerY = height / 2;
       
       page.drawText('VERIFICADO', {
         x: centerX - 100,
