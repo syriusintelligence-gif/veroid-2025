@@ -120,7 +120,7 @@ export async function addWatermarkToPdf(
     const watermarkHeight = 28; // Barra compacta (FIXA — design aprovado)
     const respiro = 42;         // Respiro entre conteúdo comprimido e barra
     const reservedSpace = watermarkHeight + respiro; // 70 px reservados no rodapé
-    const padding = 10;
+    const barPadding = 10;
     const fontSize = 8;
     const fontSizeSmall = 7;
     const qrSize = 26;
@@ -178,7 +178,7 @@ export async function addWatermarkToPdf(
       
       // QR code pequeno no canto esquerdo (centralizado verticalmente)
       newPage.drawImage(qrCodeImage, {
-        x: padding,
+        x: barPadding,
         y: (watermarkHeight - qrSize) / 2,
         width: qrSize,
         height: qrSize,
@@ -186,7 +186,7 @@ export async function addWatermarkToPdf(
       
       // Título (ajustado para dar espaço ao QR code)
       newPage.drawText('Verificado by Vero iD', {
-        x: padding + qrSize + 8,
+        x: barPadding + qrSize + 8,
         y: watermarkHeight - 11,
         size: fontSize,
         font: font,
@@ -195,7 +195,7 @@ export async function addWatermarkToPdf(
       
       // Informações com data e hora
       newPage.drawText(infoLine, {
-        x: padding + qrSize + 8,
+        x: barPadding + qrSize + 8,
         y: watermarkHeight - 22,
         size: fontSizeSmall,
         font: fontRegular,
