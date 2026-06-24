@@ -90,49 +90,76 @@ export async function addWatermarkToPdf(
     }
     
     // Obter todas as páginas originais
-    const pages = pdfDoc.getPages();
+    const originalPages = pdfDoc.getPages();
+    const originalCount = originalPages.length;
     
-    console.log(`📄 [PDF Watermark] Adicionando watermark em ${pages.length} página(s) originais...`);
+    console.log(`📄 [PDF Watermark] Adicionando watermark em ${originalCount} página(s) originais (Opção P: embedPage + redesenhar)...`);
     
     // PARTE 1: Adicionar watermark compacta em todas as páginas originais
-    // Estratégia: BARRA FIXA + COMPRESSÃO MÍNIMA AJUSTADA
-    // - A barra tem tamanho FIXO (28 px) — design polido e consistente em todas as páginas
-    // - O respiro entre o conteúdo original e a barra é FIXO (5 px)
-    // - O conteúdo original é comprimido EXATAMENTE o necessário para encaixar acima
-    //   da barra+respiro, sem sobrepor nada e sem deixar espaço vazio.
-    for (const page of pages) {
-      const { width, height } = page.getSize();
+    // Estratégia OPÇÃO P: embedPage + redesenhar em página nova
+    // - Cada página original é embutida como XObject (PDFEmbeddedPage), preservando
+    //   fidelidade vetorial total (texto, fontes, imagens, bordas decorativas).
+    // - Páginas originais são removidas e substituídas por páginas novas do MESMO tamanho.
+    // - Na página nova, o XObject é desenhado em escala uniforme com posicionamento
+    //   determinístico: começa em Y = reservedSpace (70 px) e ocupa o topo.
+    // - A barra fixa de 28 px é desenhada no rodapé (Y = 0 a 28), com 42 px de respiro
+    //   entre a barra e o conteúdo original. ZERO sobreposição garantida.
+    
+    // Capturar tamanhos das páginas originais ANTES de embutir/remover
+    const originalSizes = originalPages.map(p => p.getSize());
+    
+    // Embutir TODAS as páginas originais em batch (mais eficiente)
+    const embeddedPages = await pdfDoc.embedPages(originalPages);
+    
+    // Remover páginas originais em ordem reversa (para não invalidar índices)
+    for (let i = originalCount - 1; i >= 0; i--) {
+      pdfDoc.removePage(i);
+    }
+    
+    // Configurações FIXAS da barra (idênticas ao design aprovado)
+    const watermarkHeight = 28; // Barra compacta (FIXA — design aprovado)
+    const respiro = 42;         // Respiro entre conteúdo comprimido e barra
+    const reservedSpace = watermarkHeight + respiro; // 70 px reservados no rodapé
+    const padding = 10;
+    const fontSize = 8;
+    const fontSizeSmall = 7;
+    const qrSize = 26;
+    
+    // Pré-computar dateTime/infoLine (não mudam entre páginas)
+    const dateTime = new Date(certificateData.createdAt);
+    const dateStr = dateTime.toLocaleDateString('pt-BR');
+    const timeStr = dateTime.toLocaleTimeString('pt-BR');
+    const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
+    
+    // Para cada página original, criar uma nova página A4 (mesmo tamanho) e redesenhar
+    for (let i = 0; i < originalCount; i++) {
+      const { width, height } = originalSizes[i];
+      const embeddedPage = embeddedPages[i];
       
-      // Configurações da barra (TAMANHO FIXO — não muda entre páginas/PDFs)
-      const watermarkHeight = 28; // Barra compacta (fixa — design aprovado, NÃO alterar)
-      const respiro = 42;         // Respiro/margem entre conteúdo comprimido e a barra
-                                  // (suficiente para acomodar rodapés do PDF original com
-                                  // múltiplas linhas — ex: telefone + endereço + nº página)
-      const reservedSpace = watermarkHeight + respiro; // 70 px reservados no rodapé (fixo)
-      const padding = 10;
-      const fontSize = 8;
-      const fontSizeSmall = 7;
-      const qrSize = 26;
+      // Inserir nova página na posição i com o MESMO tamanho da original
+      const newPage = pdfDoc.insertPage(i, [width, height]);
       
-      // Escala calculada DINAMICAMENTE para que o conteúdo original caiba EXATAMENTE
-      // em (altura_pagina - 33 px). Em A4 (842 px): scale = 809/842 ≈ 0.9608 (~96%).
-      // Compressão proporcional (X e Y iguais) para não distorcer texto/imagens.
+      // Escala uniforme calculada para que o conteúdo original caiba acima da
+      // área reservada (70 px no rodapé). Em A4 (842 px): scale = 772/842 ≈ 0.9169 (~91.7%).
+      // Compressão proporcional (X e Y iguais) — sem distorção.
       const scale = (height - reservedSpace) / height;
       
-      // 1) Comprime uniformemente o conteúdo original (API oficial do pdf-lib).
-      page.scaleContent(scale, scale);
+      // Desenhar a página original embutida ocupando o TOPO da nova página.
+      // Posição Y = reservedSpace (70 px) faz com que a base do conteúdo
+      // escalado fique EXATAMENTE em Y = 70, deixando os 70 px do rodapé livres.
+      newPage.drawPage(embeddedPage, {
+        x: 0,
+        y: reservedSpace,
+        xScale: scale,
+        yScale: scale,
+      });
       
-      // 2) Empurra o conteúdo comprimido para cima EXATAMENTE em reservedSpace (33 px),
-      //    deixando o conteúdo do y=33 até o topo, e o espaço de y=0 a y=28 livre
-      //    para a barra (com 5 px de respiro entre y=28 e o início do conteúdo em y=33).
-      page.translateContent(0, reservedSpace);
+      // ============================================================
+      // BARRA DE WATERMARK NO RODAPÉ (Y = 0 a Y = 28) — FIXA 28 px
+      // ============================================================
       
-      // A partir daqui, nossos draws ficam fora da transformação aplicada ao
-      // conteúdo original (escala 1:1) e são desenhados nas coordenadas reais
-      // da página, no espaço de rodapé recém-liberado.
-      
-      // Fundo branco no rodapé (barra)
-      page.drawRectangle({
+      // Fundo branco SÓLIDO no rodapé (cobre qualquer coisa que possa vazar)
+      newPage.drawRectangle({
         x: 0,
         y: 0,
         width: width,
@@ -142,7 +169,7 @@ export async function addWatermarkToPdf(
       });
       
       // Borda superior da barra
-      page.drawLine({
+      newPage.drawLine({
         start: { x: 0, y: watermarkHeight },
         end: { x: width, y: watermarkHeight },
         thickness: 1,
@@ -150,7 +177,7 @@ export async function addWatermarkToPdf(
       });
       
       // QR code pequeno no canto esquerdo (centralizado verticalmente)
-      page.drawImage(qrCodeImage, {
+      newPage.drawImage(qrCodeImage, {
         x: padding,
         y: (watermarkHeight - qrSize) / 2,
         width: qrSize,
@@ -158,7 +185,7 @@ export async function addWatermarkToPdf(
       });
       
       // Título (ajustado para dar espaço ao QR code)
-      page.drawText('Verificado by Vero iD', {
+      newPage.drawText('Verificado by Vero iD', {
         x: padding + qrSize + 8,
         y: watermarkHeight - 11,
         size: fontSize,
@@ -167,12 +194,7 @@ export async function addWatermarkToPdf(
       });
       
       // Informações com data e hora
-      const dateTime = new Date(certificateData.createdAt);
-      const dateStr = dateTime.toLocaleDateString('pt-BR');
-      const timeStr = dateTime.toLocaleTimeString('pt-BR');
-      const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
-      
-      page.drawText(infoLine, {
+      newPage.drawText(infoLine, {
         x: padding + qrSize + 8,
         y: watermarkHeight - 22,
         size: fontSizeSmall,
@@ -181,7 +203,7 @@ export async function addWatermarkToPdf(
       });
       
       // Selo "VERIFICADO" no canto direito (centralizado verticalmente)
-      page.drawText('VERIFICADO', {
+      newPage.drawText('VERIFICADO', {
         x: width - 100,
         y: (watermarkHeight - (fontSize + 2)) / 2 + 1,
         size: fontSize + 2,
@@ -189,11 +211,14 @@ export async function addWatermarkToPdf(
         color: rgb(0.2, 0.6, 0.9),
       });
       
-      // Marca d'água diagonal discreta no centro (no espaço da página original)
+      // ============================================================
+      // MARCA DIAGONAL "VERIFICADO" no centro (sobre o conteúdo)
+      // ============================================================
+      // Desenhada APÓS o drawPage para ficar visível sobre o conteúdo embutido.
       const centerX = width / 2;
       const centerY = height / 2;
       
-      page.drawText('VERIFICADO', {
+      newPage.drawText('VERIFICADO', {
         x: centerX - 100,
         y: centerY,
         size: 60,
