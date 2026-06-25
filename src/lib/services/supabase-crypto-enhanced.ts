@@ -114,6 +114,8 @@ export async function signContentEnhanced(
   thumbnail?: string,
   platforms?: string[],
   fileMetadata?: FileMetadata, // 🆕 Novo parâmetro opcional
+  creatorSocialLinksParam?: SocialLinks, // 🔗 Links sociais (opcional, sobrescreve busca do banco)
+  allowFileDownload?: boolean, // 📥 Permite download do arquivo (opcional)
   carouselMetadata?: CarouselMetadata // 🎠 Metadados de carrossel opcional
 ): Promise<SignContentResult> {
   const useEdgeFunction = isFeatureEnabled(FeatureFlag.USE_EDGE_FUNCTION_SIGNING);
@@ -141,23 +143,31 @@ export async function signContentEnhanced(
     });
   }
 
-  let creatorSocialLinks: SocialLinks | undefined = undefined;
-  try {
-    console.log('🔍 [Enhanced] Buscando links sociais do criador...');
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('social_links')
-      .eq('id', userId)
-      .single();
+  let creatorSocialLinks: SocialLinks | undefined = creatorSocialLinksParam;
+  if (!creatorSocialLinks) {
+    try {
+      console.log('🔍 [Enhanced] Buscando links sociais do criador...');
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('social_links')
+        .eq('id', userId)
+        .single();
 
-    if (!userError && userData && userData.social_links) {
-      creatorSocialLinks = userData.social_links;
-      console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
-    } else {
-      console.log('⚠️ [Enhanced] Nenhum link social encontrado para o usuário');
+      if (!userError && userData && userData.social_links) {
+        creatorSocialLinks = userData.social_links;
+        console.log('✅ [Enhanced] Links sociais encontrados:', creatorSocialLinks);
+      } else {
+        console.log('⚠️ [Enhanced] Nenhum link social encontrado para o usuário');
+      }
+    } catch (error) {
+      console.warn('⚠️ [Enhanced] Erro ao buscar links sociais (não crítico):', error);
     }
-  } catch (error) {
-    console.warn('⚠️ [Enhanced] Erro ao buscar links sociais (não crítico):', error);
+  } else {
+    console.log('✅ [Enhanced] Usando links sociais fornecidos como parâmetro');
+  }
+  // Log opcional do allowFileDownload (não usado diretamente no banco neste momento)
+  if (typeof allowFileDownload === 'boolean') {
+    console.log('📥 [Enhanced] allowFileDownload:', allowFileDownload);
   }
 
   // 🆕 Validar metadados de arquivo se fornecidos
