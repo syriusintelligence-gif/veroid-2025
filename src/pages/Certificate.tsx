@@ -413,22 +413,40 @@ export default function Certificate() {
           {content.thumbnail && (
             <div className="mb-6 sm:mb-8">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Preview do Conteúdo {content.totalImages && content.totalImages > 1 && `(${content.totalImages} imagens)`}
+                Preview do Conteúdo {(() => {
+                  // 🆕 FIX (Opção 1): fallback para casos onde total_images no banco veio null
+                  // mas carousel_metadata foi gravado corretamente. Preserva totalImages quando presente.
+                  const carouselMeta = content.carouselMetadata as CarouselMetadata | undefined;
+                  const effectiveTotal = content.totalImages
+                    || carouselMeta?.total_images
+                    || carouselMeta?.carousel_images?.length;
+                  return effectiveTotal && effectiveTotal > 1 ? `(${effectiveTotal} imagens)` : '';
+                })()}
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-600">
                 {(() => {
+                  // 🆕 FIX (Opção 1): calcula total efetivo combinando totalImages (campo dedicado)
+                  // e carousel_metadata.total_images / carousel_images.length como fallback.
+                  // Isso corrige certificados antigos onde total_images foi gravado como null.
+                  const carouselMeta = content.carouselMetadata as CarouselMetadata | undefined;
+                  const effectiveTotalImages = content.totalImages
+                    || carouselMeta?.total_images
+                    || carouselMeta?.carousel_images?.length
+                    || 0;
+
                   console.log('🔍 [CAROUSEL DEBUG] ========== INÍCIO DEBUG ==========');
                   console.log('🔍 [CAROUSEL DEBUG] content completo:', JSON.stringify(content, null, 2));
-                  console.log('🔍 [CAROUSEL DEBUG] totalImages:', content.totalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] totalImages (campo):', content.totalImages);
                   console.log('🔍 [CAROUSEL DEBUG] totalImages type:', typeof content.totalImages);
                   console.log('🔍 [CAROUSEL DEBUG] carouselMetadata:', content.carouselMetadata);
                   console.log('🔍 [CAROUSEL DEBUG] carouselMetadata type:', typeof content.carouselMetadata);
-                  console.log('🔍 [CAROUSEL DEBUG] Condição 1 (totalImages exists):', !!content.totalImages);
-                  console.log('🔍 [CAROUSEL DEBUG] Condição 2 (totalImages > 1):', content.totalImages && content.totalImages > 1);
+                  console.log('🔍 [CAROUSEL DEBUG] effectiveTotalImages (com fallback):', effectiveTotalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição 1 (effectiveTotalImages exists):', !!effectiveTotalImages);
+                  console.log('🔍 [CAROUSEL DEBUG] Condição 2 (effectiveTotalImages > 1):', effectiveTotalImages > 1);
                   console.log('🔍 [CAROUSEL DEBUG] Condição 3 (carouselMetadata exists):', !!content.carouselMetadata);
-                  console.log('🔍 [CAROUSEL DEBUG] Condição COMPLETA:', content.totalImages && content.totalImages > 1 && content.carouselMetadata);
-                  
-                  if (content.totalImages && content.totalImages > 1 && content.carouselMetadata) {
+                  console.log('🔍 [CAROUSEL DEBUG] Condição COMPLETA:', effectiveTotalImages > 1 && !!content.carouselMetadata);
+
+                  if (effectiveTotalImages > 1 && content.carouselMetadata) {
                     const metadata = content.carouselMetadata as CarouselMetadata;
                     console.log('🔍 [CAROUSEL DEBUG] metadata parseado:', metadata);
                     console.log('🔍 [CAROUSEL DEBUG] metadata.carousel_images:', metadata.carousel_images);
@@ -458,7 +476,7 @@ export default function Certificate() {
                                     onError={(e) => console.error(`❌ [CAROUSEL] Erro ao carregar imagem ${index + 1}:`, e)}
                                   />
                                   <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
-                                    {index + 1} / {content.totalImages}
+                                    {index + 1} / {effectiveTotalImages}
                                   </div>
                                 </div>
                               </CarouselItem>
@@ -486,22 +504,36 @@ export default function Certificate() {
           )}
 
           {/* Download Carrossel em ZIP */}
-          {content.totalImages && content.totalImages > 1 && content.carouselMetadata && (
-            <div className="mb-6 sm:mb-8">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Download do Carrossel
-              </div>
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-purple-600">
-                <CarouselDownloadButton
-                  carouselMetadata={content.carouselMetadata as CarouselMetadata}
-                  verificationCode={content.verificationCode}
-                  creatorName={content.creatorName}
-                  variant="default"
-                  size="default"
-                />
-              </div>
-            </div>
-          )}
+          {(() => {
+            // 🆕 FIX (Opção 1): mesma lógica de fallback do bloco de preview acima.
+            // Garante que o botão de download apareça para certificados antigos
+            // onde total_images foi gravado como null mas carousel_metadata existe.
+            const carouselMeta = content.carouselMetadata as CarouselMetadata | undefined;
+            const effectiveTotalImagesDownload = content.totalImages
+              || carouselMeta?.total_images
+              || carouselMeta?.carousel_images?.length
+              || 0;
+
+            if (effectiveTotalImagesDownload > 1 && content.carouselMetadata) {
+              return (
+                <div className="mb-6 sm:mb-8">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Download do Carrossel
+                  </div>
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-purple-600">
+                    <CarouselDownloadButton
+                      carouselMetadata={content.carouselMetadata as CarouselMetadata}
+                      verificationCode={content.verificationCode}
+                      creatorName={content.creatorName}
+                      variant="default"
+                      size="default"
+                    />
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Download Original File */}
           {content.filePath && content.fileName && (
