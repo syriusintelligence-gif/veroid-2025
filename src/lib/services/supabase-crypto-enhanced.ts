@@ -240,12 +240,15 @@ export async function signContentEnhanced(
       }
 
       // Chama a Edge Function com todos os parâmetros necessários
+      // 🆕 v1.1.0: agora passa também fileMetadata e carouselMetadata para suporte completo
       const edgeResult = await signContentViaEdgeFunction(
         content,
         creatorName,
         userId,
         thumbnail,
-        platforms
+        platforms,
+        fileMetadata,
+        carouselMetadata
       );
 
       if (!edgeResult.success) {

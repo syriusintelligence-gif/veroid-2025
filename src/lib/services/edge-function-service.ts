@@ -5,12 +5,16 @@
  * sem modificar o código existente. Pode ser ativado/desativado via feature flag.
  * 
  * @module EdgeFunctionService
- * @version 1.0.1
+ * @version 1.1.0
  * @phase FASE 3 - Integração Frontend
+ * 
+ * 🆕 v1.1.0: Suporte a carouselMetadata e fileMetadata
+ * 100% backward compatible - parâmetros novos são opcionais
  */
 
 import { supabase } from '../supabase';
 import type { SignedContent } from '../supabase-crypto';
+import type { CarouselMetadata } from '../types/carousel';
 
 /**
  * Configuração do serviço
@@ -21,6 +25,17 @@ const CONFIG = {
   RETRY_DELAY: 1000, // ms
   TIMEOUT: 30000, // 30 segundos
 };
+
+/**
+ * 🆕 Interface para metadados de arquivo (mesma estrutura do supabase-crypto-enhanced)
+ */
+export interface FileMetadata {
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  storage_bucket: string;
+}
 
 /**
  * Interface para o resultado da assinatura via Edge Function
@@ -38,7 +53,7 @@ export interface EdgeFunctionSignResult {
 /**
  * Interface para os dados de entrada da Edge Function
  * 
- * 🔧 ATUALIZADO: Agora corresponde exatamente ao que a Edge Function espera
+ * 🔧 ATUALIZADO v1.1.0: Adicionado carouselMetadata e fileMetadata (opcionais)
  */
 export interface SignContentRequest {
   content: string;
@@ -46,6 +61,9 @@ export interface SignContentRequest {
   thumbnail?: string;
   platforms?: string[];
   userId?: string;
+  // 🆕 Novos campos opcionais - backward compatible
+  carouselMetadata?: CarouselMetadata;
+  fileMetadata?: FileMetadata;
 }
 
 /**
@@ -54,35 +72,27 @@ export interface SignContentRequest {
  * Esta função substitui a assinatura client-side por uma chamada segura
  * à Edge Function, onde a chave privada permanece criptografada no servidor.
  * 
+ * 🆕 v1.1.0: Aceita parâmetros opcionais para carrossel e arquivo
+ * 100% backward compatible - chamadas existentes continuam funcionando
+ * 
  * @param content - Conteúdo a ser assinado
  * @param creatorName - Nome do criador
  * @param userId - ID do usuário
  * @param thumbnail - Thumbnail opcional (base64 ou URL)
  * @param platforms - Array de plataformas sociais
+ * @param fileMetadata - 🆕 Metadados de arquivo (opcional)
+ * @param carouselMetadata - 🆕 Metadados de carrossel (opcional)
  * @returns Resultado da assinatura com hash e signature
- * 
- * @example
- * ```typescript
- * const result = await signContentViaEdgeFunction(
- *   'Meu conteúdo',
- *   'João Silva',
- *   'user-123',
- *   'data:image/png;base64,...',
- *   ['Instagram', 'Facebook']
- * );
- * 
- * if (result.success) {
- *   console.log('Assinatura:', result.signature);
- *   console.log('Hash:', result.contentHash);
- * }
- * ```
  */
 export async function signContentViaEdgeFunction(
   content: string,
   creatorName: string,
   userId: string,
   thumbnail?: string,
-  platforms?: string[]
+  platforms?: string[],
+  // 🆕 Novos parâmetros opcionais - default undefined = comportamento atual preservado
+  fileMetadata?: FileMetadata,
+  carouselMetadata?: CarouselMetadata
 ): Promise<EdgeFunctionSignResult> {
   const startTime = Date.now();
   
@@ -93,6 +103,10 @@ export async function signContentViaEdgeFunction(
     userId: userId.substring(0, 8) + '...',
     hasThumbnail: !!thumbnail,
     platforms: platforms?.join(', '),
+    // 🆕 Log dos novos campos
+    hasFile: !!fileMetadata,
+    hasCarousel: !!carouselMetadata,
+    carouselImageCount: carouselMetadata?.carousel_images?.length || 0,
   });
 
   try {
@@ -110,15 +124,26 @@ export async function signContentViaEdgeFunction(
     console.log('✅ [EdgeFunction] Token de autenticação obtido');
 
     // Prepara o payload com todos os campos esperados pela Edge Function
+    // 🆕 Inclui carouselMetadata e fileMetadata quando fornecidos
     const payload: SignContentRequest = {
       content,
       creatorName,
       thumbnail,
       platforms,
       userId,
+      // 🆕 Adicionar apenas se fornecidos (mantém payload limpo)
+      ...(fileMetadata && { fileMetadata }),
+      ...(carouselMetadata && { carouselMetadata }),
     };
 
     console.log('📤 [EdgeFunction] Enviando requisição para:', CONFIG.EDGE_FUNCTION_URL);
+    if (carouselMetadata) {
+      console.log('🎠 [EdgeFunction] Payload inclui carouselMetadata com', 
+        carouselMetadata.total_images, 'imagens');
+    }
+    if (fileMetadata) {
+      console.log('📦 [EdgeFunction] Payload inclui fileMetadata:', fileMetadata.file_name);
+    }
 
     // Faz a chamada à Edge Function com retry logic
     const result = await callEdgeFunctionWithRetry(payload, session.access_token);
