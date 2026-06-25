@@ -525,6 +525,7 @@ export default function Certificate() {
                       carouselMetadata={content.carouselMetadata as CarouselMetadata}
                       verificationCode={content.verificationCode}
                       creatorName={content.creatorName}
+                      certificateData={content}
                       variant="default"
                       size="default"
                     />

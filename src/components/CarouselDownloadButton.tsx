@@ -5,8 +5,8 @@
  * Não afeta o código existente, apenas adiciona nova funcionalidade.
  * 
  * @module CarouselDownloadButton
- * @version 1.0.0
- * @created 2026-06-18
+ * @version 1.1.0
+ * @updated 2026-06-25 - Adicionada marca d'água em todas as imagens do ZIP
  */
 
 import { useState } from 'react';
@@ -14,7 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Download, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CarouselMetadata } from '@/lib/types/carousel';
+import type { SignedContent } from '@/lib/supabase-crypto';
 import { supabase } from '@/lib/supabase';
+import { addWatermarkToImage } from '@/lib/watermark';
 import JSZip from 'jszip';
 
 /**
@@ -30,6 +32,12 @@ interface CarouselDownloadButtonProps {
   /** Nome do criador (para nome do arquivo) */
   creatorName?: string;
   
+  /** 
+   * Dados completos do certificado (usado para gerar marca d'água).
+   * Opcional para retrocompatibilidade — se ausente, faz download sem watermark.
+   */
+  certificateData?: SignedContent;
+  
   /** Variante do botão (padrão: "default") */
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   
@@ -41,11 +49,14 @@ interface CarouselDownloadButtonProps {
  * Componente CarouselDownloadButton
  * 
  * Baixa todas as imagens do carrossel e agrupa em um arquivo ZIP.
+ * Quando `certificateData` é fornecido, aplica marca d'água em cada imagem
+ * (mesma watermark do download de imagem única).
  */
 export function CarouselDownloadButton({
   carouselMetadata,
   verificationCode,
   creatorName,
+  certificateData,
   variant = 'default',
   size = 'default',
 }: CarouselDownloadButtonProps) {
@@ -65,6 +76,7 @@ export function CarouselDownloadButton({
       console.log('📦 [CarouselDownload] Iniciando download do carrossel:', {
         totalImages: carouselMetadata.total_images,
         verificationCode,
+        hasCertificateData: !!certificateData,
       });
 
       // Verificar se carousel_images existe
@@ -74,13 +86,19 @@ export function CarouselDownloadButton({
 
       const zip = new JSZip();
       const bucket = carouselMetadata.storage_bucket || 'signed-documents';
+      const totalImages = carouselMetadata.carousel_images.length;
+
+      // Contador de marcas d'água aplicadas com sucesso (para log)
+      let watermarkSuccessCount = 0;
+      let watermarkFallbackCount = 0;
 
       // Baixar cada imagem
-      for (let i = 0; i < carouselMetadata.carousel_images.length; i++) {
+      for (let i = 0; i < totalImages; i++) {
         const image = carouselMetadata.carousel_images[i];
-        setProgress(`Baixando imagem ${i + 1} de ${carouselMetadata.carousel_images.length}...`);
+        const imageIndex = i + 1;
 
-        console.log(`📥 [CarouselDownload] Baixando imagem ${i + 1}:`, image.path);
+        setProgress(`Baixando imagem ${imageIndex} de ${totalImages}...`);
+        console.log(`📥 [CarouselDownload] Baixando imagem ${imageIndex}:`, image.path);
 
         // Gerar URL assinada para download
         const { data: signedUrlData, error: urlError } = await supabase.storage
@@ -88,24 +106,57 @@ export function CarouselDownloadButton({
           .createSignedUrl(image.path, 3600);
 
         if (urlError || !signedUrlData?.signedUrl) {
-          console.error(`❌ [CarouselDownload] Erro ao gerar URL da imagem ${i + 1}:`, urlError);
-          throw new Error(`Erro ao gerar URL da imagem ${i + 1}: ${urlError?.message || 'Desconhecido'}`);
+          console.error(`❌ [CarouselDownload] Erro ao gerar URL da imagem ${imageIndex}:`, urlError);
+          throw new Error(`Erro ao gerar URL da imagem ${imageIndex}: ${urlError?.message || 'Desconhecido'}`);
         }
 
-        // Baixar imagem
+        // Baixar imagem original
         const response = await fetch(signedUrlData.signedUrl);
         if (!response.ok) {
-          throw new Error(`Erro ao baixar imagem ${i + 1}: ${response.statusText}`);
+          throw new Error(`Erro ao baixar imagem ${imageIndex}: ${response.statusText}`);
         }
 
-        const blob = await response.blob();
+        const originalBlob = await response.blob();
 
-        // Adicionar ao ZIP com nome ordenado
+        // Nome do arquivo no ZIP (preserva ordem e extensão)
         const extension = image.name.split('.').pop() || 'jpg';
         const fileName = `imagem_${String(image.order).padStart(2, '0')}.${extension}`;
-        zip.file(fileName, blob);
 
-        console.log(`✅ [CarouselDownload] Imagem ${i + 1} adicionada ao ZIP`);
+        // Aplicar marca d'água se certificateData estiver disponível
+        let finalBlob: Blob = originalBlob;
+
+        if (certificateData) {
+          setProgress(`Aplicando marca d'água ${imageIndex} de ${totalImages}...`);
+          try {
+            const watermarkedBlob = await addWatermarkToImage(
+              signedUrlData.signedUrl,
+              certificateData
+            );
+            finalBlob = watermarkedBlob;
+            watermarkSuccessCount++;
+            console.log(`✅ [CarouselDownload] Marca d'água aplicada na imagem ${imageIndex}`);
+          } catch (watermarkError) {
+            // FALLBACK: se watermark falhar, usa imagem original (não trava o ZIP)
+            console.warn(
+              `⚠️ [CarouselDownload] Falha ao aplicar marca d'água na imagem ${imageIndex}, usando original:`,
+              watermarkError
+            );
+            watermarkFallbackCount++;
+            finalBlob = originalBlob;
+          }
+        }
+
+        zip.file(fileName, finalBlob);
+        console.log(`✅ [CarouselDownload] Imagem ${imageIndex} adicionada ao ZIP`);
+      }
+
+      // Log resumo do processamento de watermark
+      if (certificateData) {
+        console.log('📊 [CarouselDownload] Resumo de marcas d\'água:', {
+          total: totalImages,
+          comWatermark: watermarkSuccessCount,
+          semWatermark: watermarkFallbackCount,
+        });
       }
 
       setProgress('Gerando arquivo ZIP...');
