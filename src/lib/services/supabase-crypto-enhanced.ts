@@ -334,7 +334,8 @@ export async function signContentEnhanced(
       storage_bucket: fileMetadata?.storage_bucket || null,
       // 🎠 Adicionar metadados de carrossel
       total_images: carouselMetadata?.total_images || null,
-      carousel_metadata: carouselMetadata ? JSON.stringify(carouselMetadata) : null,
+      // 🐛 FIX v1.1.1: JSONB aceita objeto direto - JSON.stringify gravava string em jsonb
+      carousel_metadata: carouselMetadata || null,
     };
 
     console.log('💾 [Enhanced] Salvando conteúdo no banco...');
