@@ -1507,15 +1507,15 @@ ${content}
                   id="content"
                   placeholder="Digite informações adicionais, descrição, legenda, ou o texto completo do conteúdo..."
                   value={content}
-                  onChange={(e) => setContent(e.target.value.slice(0, 1200))}
-                  maxLength={1200}
+                  onChange={(e) => setContent(e.target.value.slice(0, 2500))}
+                  maxLength={2500}
                   rows={10}
                   className="resize-none"
                   disabled={isBlocked || isProcessingVideo || isUploadingFile}
                 />
-                <p className={`text-xs ${content.length >= 1100 ? (content.length >= 1200 ? 'text-red-500 font-medium' : 'text-yellow-600') : 'text-muted-foreground'}`}>
-                  {content.length}/1200 caracteres
-                  {content.length >= 1200 && ' (limite atingido)'}
+                <p className={`text-xs ${content.length >= 2400 ? (content.length >= 2500 ? 'text-red-500 font-medium' : 'text-yellow-600') : 'text-muted-foreground'}`}>
+                  {content.length}/2500 caracteres
+                  {content.length >= 2500 && ' (limite atingido)'}
                 </p>
               </div>
 
