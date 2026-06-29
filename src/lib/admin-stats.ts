@@ -150,6 +150,46 @@ export interface AdminListUsersByPlanResult {
   plan_type: string;
 }
 
+/* ----- Users stats by date (for "Usuários Cadastrados" card) ----- */
+
+export interface AdminUsersStatsDailyPoint {
+  date: string; // YYYY-MM-DD
+  qtd: number;
+}
+
+export interface AdminUsersStatsResult {
+  total_all: number;
+  total_filtered: number;
+  total_previous: number | null;
+  growth_pct: number | null;
+  daily: AdminUsersStatsDailyPoint[];
+  from: string | null;
+  to: string | null;
+}
+
+export interface AdminUserByPeriodRow {
+  id: string;
+  nome_completo: string;
+  nome_publico: string;
+  email: string;
+  cpf_cnpj: string;
+  telefone: string;
+  selfie_url: string;
+  verified: boolean;
+  is_admin: boolean;
+  blocked: boolean;
+  created_at: string;
+  plan_type: string;
+  subscription_status: string | null;
+}
+
+export interface AdminListUsersByPeriodResult {
+  items: AdminUserByPeriodRow[];
+  total: number;
+  from: string | null;
+  to: string | null;
+}
+
 /* --------------------------- Empty fallbacks --------------------------- */
 
 const EMPTY_STATS: AdminDashboardStats = {
@@ -351,6 +391,86 @@ export interface AdminListUsersByPlanFilters {
   search?: string;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Estatísticas do card "Usuários Cadastrados" com filtro de data.
+ * - from / to: timestamps ISO (inclusivo no from, exclusivo no to).
+ * - Sem from/to → conta total de usuários.
+ */
+export async function fetchAdminUsersStats(
+  from?: string | null,
+  to?: string | null
+): Promise<AdminUsersStatsResult> {
+  console.log('📊 [admin-stats] fetchAdminUsersStats()', { from, to });
+  const { data, error } = await supabase.rpc('admin_users_stats', {
+    p_from: from ?? null,
+    p_to:   to   ?? null,
+  });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_users_stats falhou:', error);
+    return {
+      total_all: 0,
+      total_filtered: 0,
+      total_previous: null,
+      growth_pct: null,
+      daily: [],
+      from: from ?? null,
+      to: to ?? null,
+    };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminUsersStatsResult>;
+  return {
+    total_all:       Number(payload.total_all ?? 0),
+    total_filtered:  Number(payload.total_filtered ?? 0),
+    total_previous:  payload.total_previous ?? null,
+    growth_pct:      payload.growth_pct ?? null,
+    daily:           Array.isArray(payload.daily) ? payload.daily : [],
+    from:            payload.from ?? from ?? null,
+    to:              payload.to   ?? to   ?? null,
+  };
+}
+
+export interface AdminListUsersByPeriodFilters {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Lista paginada de usuários criados em determinado período.
+ * Drilldown do card "Usuários Cadastrados" com filtro de data.
+ */
+export async function fetchAdminUsersByPeriod(
+  from: string | null,
+  to: string | null,
+  filters: AdminListUsersByPeriodFilters = {}
+): Promise<AdminListUsersByPeriodResult> {
+  const params = {
+    p_from:   from ?? null,
+    p_to:     to   ?? null,
+    p_search: filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_limit:  filters.limit  ?? 25,
+    p_offset: filters.offset ?? 0,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersByPeriod()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_by_period', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_by_period falhou:', error);
+    return { items: [], total: 0, from, to };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminListUsersByPeriodResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total: Number(payload.total ?? 0),
+    from:  payload.from ?? from,
+    to:    payload.to   ?? to,
+  };
 }
 
 /**

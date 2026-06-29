@@ -52,6 +52,7 @@ import {
 } from '@/lib/admin-stats';
 import ContentCard from '@/components/ContentCard';
 import PlanDistributionCard from '@/components/admin/PlanDistributionCard';
+import UsersRegisteredCard from '@/components/admin/UsersRegisteredCard';
 import { Badge } from '@/components/ui/badge';
 import {
   LineChart,
@@ -588,18 +589,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usuários Cadastrados</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : totalAuthors}
-              </div>
-              <p className="text-xs text-muted-foreground">Total de usuários</p>
-            </CardContent>
-          </Card>
+          <UsersRegisteredCard />
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
