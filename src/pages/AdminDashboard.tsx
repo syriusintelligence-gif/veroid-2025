@@ -75,7 +75,8 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // Quantidade de itens carregados por página no botão "Carregar mais".
-const PAGE_SIZE = 24;
+// O usuário pediu paginação curta: 10 itens iniciais e +10 por clique.
+const PAGE_SIZE = 10;
 
 type SortOption = 'recent' | 'most-verified' | 'least-verified' | 'alphabetical';
 
@@ -92,6 +93,9 @@ export default function AdminDashboard() {
   const [totalContents, setTotalContents] = useState(0);
   const [isLoadingContents, setIsLoadingContents] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Sinaliza que a lista atual é um "preview" enviado pelo backend
+  // (5 mais verificados + 5 mais recentes) por não haver filtros aplicados.
+  const [isPreview, setIsPreview] = useState(false);
 
   // Opções de usuário do filtro (apenas autores que possuem conteúdo)
   const [userOptions, setUserOptions] = useState<AdminUserOption[]>([]);
@@ -183,13 +187,15 @@ export default function AdminDashboard() {
   const loadFirstPage = useCallback(async () => {
     setIsLoadingContents(true);
     try {
-      const { items, total } = await fetchAdminSignedContents(currentFilters);
+      const { items, total, preview } = await fetchAdminSignedContents(currentFilters);
       setContents(items.map(adaptAdminSignedContent));
       setTotalContents(total);
+      setIsPreview(Boolean(preview));
     } catch (err) {
       console.error('❌ [AdminDashboard] Erro ao carregar conteúdos:', err);
       setContents([]);
       setTotalContents(0);
+      setIsPreview(false);
     } finally {
       setIsLoadingContents(false);
     }
@@ -199,11 +205,13 @@ export default function AdminDashboard() {
     if (isLoadingMore || contents.length >= totalContents) return;
     setIsLoadingMore(true);
     try {
-      const { items } = await fetchAdminSignedContents({
+      const { items, preview } = await fetchAdminSignedContents({
         ...currentFilters,
         offset: contents.length,
       });
       setContents(prev => [...prev, ...items.map(adaptAdminSignedContent)]);
+      // Ao paginar com offset > 0 a RPC sempre retorna preview=false.
+      setIsPreview(Boolean(preview));
     } catch (err) {
       console.error('❌ [AdminDashboard] Erro ao carregar mais conteúdos:', err);
     } finally {
@@ -908,12 +916,29 @@ export default function AdminDashboard() {
 
         {/* Lista de Conteúdos */}
         <div>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-2xl font-bold">Todos os Conteúdos Assinados</h2>
             <div className="text-sm text-muted-foreground">
-              {isLoadingContents ? 'Carregando...' : `${contents.length} de ${totalContents} carregados`}
+              {isLoadingContents
+                ? 'Carregando...'
+                : isPreview
+                  ? `Pré-visualização (${contents.length}) de ${totalContents} total`
+                  : `${contents.length} de ${totalContents} carregados`}
             </div>
           </div>
+
+          {!isLoadingContents && isPreview && contents.length > 0 && (
+            <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
+              <Eye className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-900">
+                <b>Modo pré-visualização:</b> exibindo os{' '}
+                <b>5 conteúdos mais verificados</b> + os{' '}
+                <b>5 mais recentes</b> ({totalContents} no total).
+                Use os <b>filtros abaixo</b> (Usuário, Plataforma,
+                Data ou Busca) para listar todos os conteúdos que combinam.
+              </div>
+            </div>
+          )}
 
           {isLoadingContents ? (
             <Card>

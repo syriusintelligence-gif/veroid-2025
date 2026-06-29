@@ -68,6 +68,12 @@ export interface AdminSignedContentRow {
 export interface AdminListSignedContentsResult {
   items: AdminSignedContentRow[];
   total: number;
+  /**
+   * Quando true, a RPC devolveu um conjunto de "preview" (top 5 mais
+   * verificados + top 5 mais recentes) por não haver nenhum filtro
+   * aplicado. O front exibe um aviso para o admin.
+   */
+  preview?: boolean;
 }
 
 export interface AdminUserRow {
@@ -265,8 +271,9 @@ export async function fetchAdminSignedContents(
 
   const payload = (data ?? {}) as Partial<AdminListSignedContentsResult>;
   return {
-    items: Array.isArray(payload.items) ? payload.items : [],
-    total: Number(payload.total ?? 0),
+    items:   Array.isArray(payload.items) ? payload.items : [],
+    total:   Number(payload.total ?? 0),
+    preview: Boolean(payload.preview ?? false),
   };
 }
 
