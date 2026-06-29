@@ -1,21 +1,21 @@
 /**
  * AdminAuditLogs.tsx
- * 
+ *
  * Dashboard de Logs de Auditoria para Administradores
- * 
+ *
  * Funcionalidades:
  * - Visualização de todos os logs de auditoria do sistema
  * - Filtros avançados (usuário, ação, período)
- * - Paginação para melhor performance
+ * - Paginação "Carregar mais" otimizada via RPC
  * - Exportação para CSV
  * - Proteção CSRF
  * - Acesso restrito a administradores
- * 
+ *
  * @author Vero iD Security Team
- * @version 1.0.0
+ * @version 1.1.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -52,52 +52,39 @@ import {
   User,
   Filter,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, isCurrentUserAdmin, getUsers, type User } from '@/lib/supabase-auth-v2';
-import { getAuditLogs, exportAuditLogsToCSV, AuditAction } from '@/lib/audit-logger';
+import { getCurrentUser, isCurrentUserAdmin, getUsers, type User as AppUser } from '@/lib/supabase-auth-v2';
+import { exportAuditLogsToCSV, AuditAction } from '@/lib/audit-logger';
+import { fetchAdminAuditLogs, type AdminAuditLogRow } from '@/lib/admin-stats';
 import { getCSRFToken } from '@/lib/csrf-protection';
 import { useToast } from '@/hooks/use-toast';
 
-// Interface para logs de auditoria
-interface AuditLog {
-  id: string;
-  user_id: string | null;
-  action: AuditAction;
-  details: Record<string, unknown>;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string;
-}
+const PAGE_SIZE = 50;
 
 export default function AdminAuditLogs() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // Estados de autenticação
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  
+
   // Estados de dados
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [logs, setLogs] = useState<AdminAuditLogRow[]>([]);
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [totalLogs, setTotalLogs] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // Estados de filtros
   const [filterUserId, setFilterUserId] = useState<string>('all');
   const [filterAction, setFilterAction] = useState<string>('all');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
-  // Estados de paginação
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50);
-  
+
   // 🔒 CSRF Protection
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [csrfReady, setCsrfReady] = useState(false);
@@ -132,116 +119,82 @@ export default function AdminAuditLogs() {
   }, []);
 
   /**
-   * Verifica autenticação e carrega dados iniciais
-   */
-  useEffect(() => {
-    checkAuthAndLoadData();
-  }, [navigate]);
-
-  /**
-   * Recarrega logs quando filtros ou página mudam
-   */
-  useEffect(() => {
-    if (isAuthorized) {
-      loadLogs();
-    }
-  }, [currentPage, filterUserId, filterAction, filterStartDate, filterEndDate, isAuthorized]);
-
-  /**
    * Verifica se usuário é admin e carrega dados iniciais
    */
-  const checkAuthAndLoadData = async () => {
-    try {
-      // Verifica se usuário está logado
-      const user = await getCurrentUser();
-      if (!user) {
-        navigate('/login');
-        return;
-      }
+  useEffect(() => {
+    const checkAuthAndLoad = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (!user) {
+          navigate('/login');
+          return;
+        }
 
-      // Verifica se é administrador
-      const adminStatus = await isCurrentUserAdmin();
-      if (!adminStatus) {
-        toast({
-          title: '🚫 Acesso Negado',
-          description: 'Você não tem permissão para acessar esta página.',
-          variant: 'destructive',
-        });
+        const adminStatus = await isCurrentUserAdmin();
+        if (!adminStatus) {
+          toast({
+            title: '🚫 Acesso Negado',
+            description: 'Você não tem permissão para acessar esta página.',
+            variant: 'destructive',
+          });
+          navigate('/dashboard');
+          return;
+        }
+
+        setCurrentUser(user);
+        setIsAuthorized(true);
+
+        // Carrega lista de usuários para filtros (uso local, lista pequena)
+        const users = await getUsers();
+        setAllUsers(users);
+      } catch (error) {
+        console.error('❌ [AdminAuditLogs] Erro ao verificar autenticação:', error);
         navigate('/dashboard');
-        return;
       }
-
-      setCurrentUser(user);
-      setIsAuthorized(true);
-
-      // Carrega lista de usuários para filtros
-      const users = await getUsers();
-      setAllUsers(users);
-
-      // Carrega logs iniciais
-      await loadLogs();
-    } catch (error) {
-      console.error('❌ [AdminAuditLogs] Erro ao verificar autenticação:', error);
-      navigate('/dashboard');
-    }
-  };
+    };
+    checkAuthAndLoad();
+  }, [navigate, toast]);
 
   /**
-   * Carrega logs de auditoria com filtros aplicados
+   * Converte os filtros do estado em parâmetros da RPC.
    */
-  const loadLogs = async () => {
+  const buildFilters = useCallback(() => {
+    const filters: {
+      userId: string | null;
+      action: string | null;
+      startDate: Date | null;
+      endDate: Date | null;
+    } = {
+      userId: filterUserId !== 'all' ? filterUserId : null,
+      action: filterAction !== 'all' ? filterAction : null,
+      startDate: filterStartDate ? new Date(filterStartDate) : null,
+      endDate: null,
+    };
+
+    if (filterEndDate) {
+      const endDate = new Date(filterEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      filters.endDate = endDate;
+    }
+
+    return filters;
+  }, [filterUserId, filterAction, filterStartDate, filterEndDate]);
+
+  /**
+   * Carrega a PRIMEIRA página (reseta offset).
+   */
+  const loadFirstPage = useCallback(async () => {
     setIsLoading(true);
-
     try {
-      console.log('📊 [AdminAuditLogs] Carregando logs de TODOS os usuários...');
-
-      // Prepara filtros - REMOVIDO O FILTRO DE USUÁRIO PADRÃO
-      const filters: {
-        userId?: string;
-        action?: AuditAction;
-        startDate?: Date;
-        endDate?: Date;
-        limit: number;
-        offset: number;
-      } = {
-        limit: itemsPerPage,
-        offset: (currentPage - 1) * itemsPerPage,
-      };
-
-      // Só aplica filtro de usuário se explicitamente selecionado
-      if (filterUserId !== 'all') {
-        filters.userId = filterUserId;
-        console.log('🔍 [AdminAuditLogs] Filtrando por usuário:', filterUserId);
-      } else {
-        console.log('🔍 [AdminAuditLogs] Buscando logs de TODOS os usuários');
-      }
-
-      if (filterAction !== 'all') {
-        filters.action = filterAction as AuditAction;
-      }
-
-      if (filterStartDate) {
-        filters.startDate = new Date(filterStartDate);
-      }
-
-      if (filterEndDate) {
-        // Adiciona 23:59:59 ao final do dia
-        const endDate = new Date(filterEndDate);
-        endDate.setHours(23, 59, 59, 999);
-        filters.endDate = endDate;
-      }
-
-      // Busca logs
-      const result = await getAuditLogs(filters);
-
-      setLogs(result.logs as AuditLog[]);
+      const filters = buildFilters();
+      const result = await fetchAdminAuditLogs({
+        ...filters,
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
+      setLogs(result.items);
       setTotalLogs(result.total);
-
-      console.log(`✅ [AdminAuditLogs] ${result.logs.length} logs carregados (total: ${result.total})`);
-      
-      // Log de debug para verificar usuários únicos
-      const uniqueUsers = new Set(result.logs.map((log: AuditLog) => log.user_id));
-      console.log(`👥 [AdminAuditLogs] Usuários únicos nos logs:`, Array.from(uniqueUsers));
+      console.log(`✅ [AdminAuditLogs] ${result.items.length} logs carregados (total: ${result.total})`);
     } catch (error) {
       console.error('❌ [AdminAuditLogs] Erro ao carregar logs:', error);
       toast({
@@ -249,13 +202,42 @@ export default function AdminAuditLogs() {
         description: 'Não foi possível carregar os logs de auditoria.',
         variant: 'destructive',
       });
+      setLogs([]);
+      setTotalLogs(0);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [buildFilters, toast]);
 
   /**
-   * Exporta logs para CSV
+   * Carrega mais (botão "Carregar mais").
+   */
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || logs.length >= totalLogs) return;
+    setIsLoadingMore(true);
+    try {
+      const filters = buildFilters();
+      const result = await fetchAdminAuditLogs({
+        ...filters,
+        limit: PAGE_SIZE,
+        offset: logs.length,
+      });
+      setLogs(prev => [...prev, ...result.items]);
+    } catch (error) {
+      console.error('❌ [AdminAuditLogs] Erro ao carregar mais logs:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [logs.length, totalLogs, isLoadingMore, buildFilters]);
+
+  // Recarrega quando filtros mudam (após autorizado)
+  useEffect(() => {
+    if (!isAuthorized) return;
+    void loadFirstPage();
+  }, [isAuthorized, loadFirstPage]);
+
+  /**
+   * Exporta logs para CSV (usa a função existente, intacta)
    */
   const handleExportCSV = async () => {
     setIsExporting(true);
@@ -263,7 +245,6 @@ export default function AdminAuditLogs() {
     try {
       console.log('📥 [AdminAuditLogs] Exportando logs para CSV...');
 
-      // Prepara filtros
       const filters: {
         userId?: string;
         action?: AuditAction;
@@ -289,10 +270,8 @@ export default function AdminAuditLogs() {
         filters.endDate = endDate;
       }
 
-      // Exporta para CSV
       const csv = await exportAuditLogsToCSV(filters);
 
-      // Cria blob e faz download
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -305,8 +284,6 @@ export default function AdminAuditLogs() {
         title: '✅ Exportação concluída',
         description: 'Os logs foram exportados com sucesso.',
       });
-
-      console.log('✅ [AdminAuditLogs] Logs exportados com sucesso');
     } catch (error) {
       console.error('❌ [AdminAuditLogs] Erro ao exportar logs:', error);
       toast({
@@ -328,7 +305,6 @@ export default function AdminAuditLogs() {
     setFilterStartDate('');
     setFilterEndDate('');
     setSearchTerm('');
-    setCurrentPage(1);
   };
 
   /**
@@ -345,19 +321,25 @@ export default function AdminAuditLogs() {
     });
   };
 
+  // Lookup rápido de usuário por ID
+  const userById = useMemo(() => {
+    const map = new Map<string, AppUser>();
+    allUsers.forEach(u => map.set(u.id, u));
+    return map;
+  }, [allUsers]);
+
   /**
    * Obtém nome do usuário pelo ID
    */
-  const getUserName = (userId: string | null): string => {
+  const getUserName = useCallback((userId: string | null): string => {
     if (!userId) return 'Sistema';
-    const user = allUsers.find(u => u.id === userId);
-    return user?.nomeCompleto || 'Usuário Desconhecido';
-  };
+    return userById.get(userId)?.nomeCompleto || 'Usuário Desconhecido';
+  }, [userById]);
 
   /**
    * Obtém badge de status da ação
    */
-  const getActionBadge = (action: AuditAction) => {
+  const getActionBadge = (action: string) => {
     const actionConfig: Record<string, { color: string; icon: React.ReactNode }> = {
       LOGIN: { color: 'bg-green-100 text-green-800', icon: <CheckCircle className="h-3 w-3" /> },
       LOGIN_FAILED: { color: 'bg-red-100 text-red-800', icon: <XCircle className="h-3 w-3" /> },
@@ -380,43 +362,24 @@ export default function AdminAuditLogs() {
   };
 
   /**
-   * Filtra logs por termo de busca (busca local)
+   * Filtra logs por termo de busca (busca local nos itens já carregados)
    */
-  const filteredLogs = logs.filter(log => {
-    if (!searchTerm) return true;
-    
+  const filteredLogs = useMemo(() => {
+    if (!searchTerm) return logs;
     const searchLower = searchTerm.toLowerCase();
-    const userName = getUserName(log.user_id).toLowerCase();
-    const action = log.action.toLowerCase();
-    const details = JSON.stringify(log.details).toLowerCase();
-    
-    return userName.includes(searchLower) || 
-           action.includes(searchLower) || 
-           details.includes(searchLower);
-  });
+    return logs.filter(log => {
+      const userName = getUserName(log.user_id).toLowerCase();
+      const action = log.action.toLowerCase();
+      const details = JSON.stringify(log.details).toLowerCase();
+      return (
+        userName.includes(searchLower) ||
+        action.includes(searchLower) ||
+        details.includes(searchLower)
+      );
+    });
+  }, [logs, searchTerm, getUserName]);
 
-  /**
-   * Calcula total de páginas
-   */
-  const totalPages = Math.ceil(totalLogs / itemsPerPage);
-
-  /**
-   * Navega para página anterior
-   */
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  /**
-   * Navega para próxima página
-   */
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
+  const hasMore = logs.length < totalLogs;
 
   // Se não autorizado, não renderiza nada
   if (!currentUser || !isAuthorized) {
@@ -490,21 +453,21 @@ export default function AdminAuditLogs() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalLogs}</div>
+              <div className="text-2xl font-bold">
+                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : totalLogs}
+              </div>
               <p className="text-xs text-muted-foreground">Registros no sistema</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Página Atual</CardTitle>
+              <CardTitle className="text-sm font-medium">Carregados</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {currentPage} / {totalPages || 1}
-              </div>
-              <p className="text-xs text-muted-foreground">Navegação</p>
+              <div className="text-2xl font-bold">{logs.length}</div>
+              <p className="text-xs text-muted-foreground">Nesta sessão</p>
             </CardContent>
           </Card>
 
@@ -658,7 +621,7 @@ export default function AdminAuditLogs() {
               </Button>
               <Button
                 variant="outline"
-                onClick={loadLogs}
+                onClick={loadFirstPage}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -667,7 +630,7 @@ export default function AdminAuditLogs() {
               <Button
                 variant="outline"
                 onClick={handleExportCSV}
-                disabled={isExporting || filteredLogs.length === 0}
+                disabled={isExporting || totalLogs === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
                 {isExporting ? 'Exportando...' : 'Exportar CSV'}
@@ -681,7 +644,9 @@ export default function AdminAuditLogs() {
           <CardHeader>
             <CardTitle>Registros de Auditoria</CardTitle>
             <CardDescription>
-              {filteredLogs.length} log(s) encontrado(s)
+              {isLoading
+                ? 'Carregando...'
+                : `${filteredLogs.length} log(s) visível(eis) • ${logs.length} de ${totalLogs} carregado(s)`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -741,38 +706,26 @@ export default function AdminAuditLogs() {
                   </Table>
                 </div>
 
-                {/* Paginação */}
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {(currentPage - 1) * itemsPerPage + 1} a{' '}
-                    {Math.min(currentPage * itemsPerPage, totalLogs)} de {totalLogs} logs
-                  </div>
-                  <div className="flex gap-2">
+                {/* Botão Carregar Mais */}
+                {hasMore && (
+                  <div className="flex items-center justify-center mt-6">
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={handlePreviousPage}
-                      disabled={currentPage === 1 || isLoading}
+                      size="lg"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Anterior
-                    </Button>
-                    <div className="flex items-center gap-2 px-4">
-                      <span className="text-sm font-medium">
-                        Página {currentPage} de {totalPages || 1}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNextPage}
-                      disabled={currentPage >= totalPages || isLoading}
-                    >
-                      Próxima
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        <>Carregar mais ({totalLogs - logs.length} restantes)</>
+                      )}
                     </Button>
                   </div>
-                </div>
+                )}
               </>
             )}
           </CardContent>

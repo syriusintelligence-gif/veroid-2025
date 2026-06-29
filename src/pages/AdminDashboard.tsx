@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,10 +36,20 @@ import {
   TrendingUp,
   BarChart3,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout, getUsers, isCurrentUserAdmin, type User as UserType } from '@/lib/supabase-auth-v2';
-import { getAllSignedContents, SignedContent } from '@/lib/supabase-crypto';
+import { getCurrentUser, logout, isCurrentUserAdmin, type User as UserType } from '@/lib/supabase-auth-v2';
+import { SignedContent } from '@/lib/supabase-crypto';
+import {
+  fetchAdminDashboardStats,
+  fetchAdminSignedContents,
+  fetchAdminUserOptions,
+  adaptAdminSignedContent,
+  type AdminDashboardStats,
+  type AdminUserOption,
+  type AdminListContentsFilters,
+} from '@/lib/admin-stats';
 import ContentCard from '@/components/ContentCard';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -61,74 +71,172 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
+// Quantidade de itens carregados por página no botão "Carregar mais".
+const PAGE_SIZE = 24;
+
+type SortOption = 'recent' | 'most-verified' | 'least-verified' | 'alphabetical';
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [allContents, setAllContents] = useState<SignedContent[]>([]);
-  const [allUsers, setAllUsers] = useState<UserType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
+
+  // Estatísticas agregadas (vêm prontas do Postgres via RPC)
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  // Lista paginada de conteúdos
+  const [contents, setContents] = useState<SignedContent[]>([]);
+  const [totalContents, setTotalContents] = useState(0);
+  const [isLoadingContents, setIsLoadingContents] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Opções de usuário do filtro (apenas autores que possuem conteúdo)
+  const [userOptions, setUserOptions] = useState<AdminUserOption[]>([]);
+
   // Filtros
   const [searchTitle, setSearchTitle] = useState('');
+  const [searchTitleDebounced, setSearchTitleDebounced] = useState('');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<string>('all');
   const [filterUser, setFilterUser] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('recent');
-  
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+
+  // Debounce do campo de busca para evitar uma RPC por tecla
   useEffect(() => {
-    checkAuthAndLoadData();
+    const handle = setTimeout(() => setSearchTitleDebounced(searchTitle), 300);
+    return () => clearTimeout(handle);
+  }, [searchTitle]);
+
+  // Mapeia filterDate -> p_days
+  const daysFromFilter = useMemo<number | null>(() => {
+    switch (filterDate) {
+      case 'today':
+        return 1;
+      case 'week':
+        return 7;
+      case 'month':
+        return 30;
+      case 'year':
+        return 365;
+      default:
+        return null;
+    }
+  }, [filterDate]);
+
+  // Monta o pacote de filtros que vai para a RPC.
+  const currentFilters = useMemo<AdminListContentsFilters>(() => ({
+    search:   searchTitleDebounced,
+    userId:   filterUser,
+    platform: filterPlatform,
+    days:     daysFromFilter,
+    sort:     sortBy,
+    limit:    PAGE_SIZE,
+    offset:   0,
+  }), [searchTitleDebounced, filterUser, filterPlatform, daysFromFilter, sortBy]);
+
+  /* --------------------------- Autenticação --------------------------- */
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      const adminStatus = await isCurrentUserAdmin();
+      if (!adminStatus) {
+        navigate('/dashboard');
+        return;
+      }
+      setCurrentUser(user);
+    };
+    checkAuth();
   }, [navigate]);
-  
-  const checkAuthAndLoadData = async () => {
-    const user = await getCurrentUser();
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    
-    const adminStatus = await isCurrentUserAdmin();
-    if (!adminStatus) {
-      navigate('/dashboard');
-      return;
-    }
-    
-    setCurrentUser(user);
-    
-    // Carrega dados do Supabase
-    await loadData();
-  };
-  
-  const loadData = async () => {
-    setIsLoading(true);
-    
+
+  /* --------------------------- Carregamentos --------------------------- */
+
+  const loadStats = useCallback(async () => {
+    setIsLoadingStats(true);
     try {
-      console.log('📊 [Admin] Carregando TODOS os conteúdos do Supabase...');
-      
-      // Carrega TODOS os conteúdos assinados do Supabase
-      const contents = await getAllSignedContents();
-      console.log(`✅ [Admin] ${contents.length} conteúdos carregados do Supabase`);
-      setAllContents(contents);
-      
-      // Carrega todos os usuários
-      const users = await getUsers();
-      console.log(`✅ [Admin] ${users.length} usuários carregados`);
-      setAllUsers(users);
-    } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
+      const next = await fetchAdminDashboardStats();
+      setStats(next);
+    } catch (err) {
+      console.error('❌ [AdminDashboard] Erro ao carregar estatísticas:', err);
     } finally {
-      setIsLoading(false);
+      setIsLoadingStats(false);
     }
-  };
-  
+  }, []);
+
+  const loadUserOptions = useCallback(async () => {
+    try {
+      const opts = await fetchAdminUserOptions();
+      setUserOptions(opts);
+    } catch (err) {
+      console.error('❌ [AdminDashboard] Erro ao carregar opções de usuário:', err);
+    }
+  }, []);
+
+  // Recarrega a primeira página da lista de conteúdos sempre que os filtros mudarem.
+  const loadFirstPage = useCallback(async () => {
+    setIsLoadingContents(true);
+    try {
+      const { items, total } = await fetchAdminSignedContents(currentFilters);
+      setContents(items.map(adaptAdminSignedContent));
+      setTotalContents(total);
+    } catch (err) {
+      console.error('❌ [AdminDashboard] Erro ao carregar conteúdos:', err);
+      setContents([]);
+      setTotalContents(0);
+    } finally {
+      setIsLoadingContents(false);
+    }
+  }, [currentFilters]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || contents.length >= totalContents) return;
+    setIsLoadingMore(true);
+    try {
+      const { items } = await fetchAdminSignedContents({
+        ...currentFilters,
+        offset: contents.length,
+      });
+      setContents(prev => [...prev, ...items.map(adaptAdminSignedContent)]);
+    } catch (err) {
+      console.error('❌ [AdminDashboard] Erro ao carregar mais conteúdos:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [contents.length, totalContents, isLoadingMore, currentFilters]);
+
+  // Carregamento inicial (stats + lista + opções) — em paralelo
+  useEffect(() => {
+    if (!currentUser) return;
+    void loadStats();
+    void loadUserOptions();
+  }, [currentUser, loadStats, loadUserOptions]);
+
+  // Recarrega lista a cada mudança nos filtros (depois de autenticado)
+  useEffect(() => {
+    if (!currentUser) return;
+    void loadFirstPage();
+  }, [currentUser, loadFirstPage]);
+
+  // Botão "Atualizar"
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([loadStats(), loadFirstPage(), loadUserOptions()]);
+  }, [loadStats, loadFirstPage, loadUserOptions]);
+
+  /* --------------------------- Helpers UI --------------------------- */
+
   const handleVerify = (id: string) => {
     navigate(`/verify?id=${id}`);
   };
-  
+
   const handleLogout = async () => {
     await logout();
     navigate('/');
   };
-  
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -137,191 +245,105 @@ export default function AdminDashboard() {
       .toUpperCase()
       .slice(0, 2);
   };
-  
-  // Função para filtrar e ordenar conteúdos
-  const getFilteredAndSortedContents = () => {
-    let filtered = [...allContents];
-    
-    // Filtro por título
-    if (searchTitle.trim()) {
-      filtered = filtered.filter(content =>
-        content.content.toLowerCase().includes(searchTitle.toLowerCase())
-      );
-    }
-    
-    // Filtro por usuário
-    if (filterUser !== 'all') {
-      filtered = filtered.filter(content => content.userId === filterUser);
-    }
-    
-    // Filtro por plataforma
-    if (filterPlatform !== 'all') {
-      filtered = filtered.filter(content =>
-        content.platforms?.includes(filterPlatform)
-      );
-    }
-    
-    // Filtro por data
-    if (filterDate !== 'all') {
-      const now = new Date();
-      filtered = filtered.filter(content => {
-        const contentDate = new Date(content.createdAt);
-        const diffDays = Math.floor((now.getTime() - contentDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        switch (filterDate) {
-          case 'today':
-            return diffDays === 0;
-          case 'week':
-            return diffDays <= 7;
-          case 'month':
-            return diffDays <= 30;
-          case 'year':
-            return diffDays <= 365;
-          default:
-            return true;
-        }
-      });
-    }
-    
-    // Ordenação
-    switch (sortBy) {
-      case 'most-verified':
-        filtered.sort((a, b) => (b.verificationCount || 0) - (a.verificationCount || 0));
-        break;
-      case 'least-verified':
-        filtered.sort((a, b) => (a.verificationCount || 0) - (b.verificationCount || 0));
-        break;
-      case 'alphabetical':
-        filtered.sort((a, b) => a.content.localeCompare(b.content));
-        break;
-      case 'recent':
-      default:
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-    }
-    
-    return filtered;
-  };
-  
-  // Obter todas as plataformas únicas
-  const getAllPlatforms = () => {
-    const platforms = new Set<string>();
-    allContents.forEach(content => {
-      content.platforms?.forEach(platform => platforms.add(platform));
-    });
-    return Array.from(platforms).sort();
-  };
-  
-  // Calcular total de verificações
-  const getTotalVerifications = () => {
-    return allContents.reduce((total, content) => total + (content.verificationCount || 0), 0);
-  };
-  
-  // Dados para gráfico de linha (evolução temporal)
-  const getTimelineData = () => {
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (29 - i));
-      return date.toISOString().split('T')[0];
-    });
-    
-    const dataMap = new Map<string, { date: string; assinaturas: number; verificacoes: number }>();
-    
-    last30Days.forEach(date => {
-      dataMap.set(date, { date, assinaturas: 0, verificacoes: 0 });
-    });
-    
-    allContents.forEach(content => {
-      const date = content.createdAt.split('T')[0];
-      if (dataMap.has(date)) {
-        const entry = dataMap.get(date)!;
-        entry.assinaturas += 1;
-        entry.verificacoes += content.verificationCount || 0;
-      }
-    });
-    
-    return Array.from(dataMap.values()).map(item => ({
+
+  const handleClearFilters = useCallback(() => {
+    setSearchTitle('');
+    setFilterUser('all');
+    setFilterPlatform('all');
+    setFilterDate('all');
+    setSortBy('recent');
+  }, []);
+
+  /* --------------------------- Derivados (useMemo) --------------------------- */
+
+  const totalVerifications = stats?.total_verifications ?? 0;
+  const totalAuthors = stats?.total_users ?? 0;
+  const totalContentsGlobal = stats?.total_contents ?? 0;
+  const averageVerifications = useMemo(() => {
+    if (!stats || stats.total_contents === 0) return '0';
+    return (stats.total_verifications / stats.total_contents).toFixed(1);
+  }, [stats]);
+
+  const timelineData = useMemo(() => {
+    if (!stats) return [];
+    return stats.timeline.map(item => ({
       ...item,
-      date: new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      date: new Date(item.date).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+      }),
     }));
-  };
-  
-  // Dados para gráfico de barras (por usuário)
-  const getUserStatsData = () => {
-    const userMap = new Map<string, { nome: string; assinaturas: number; verificacoes: number }>();
-    
-    allContents.forEach(content => {
-      const user = allUsers.find(u => u.id === content.userId);
-      const userName = user?.nomeCompleto || 'Desconhecido';
-      
-      if (!userMap.has(userName)) {
-        userMap.set(userName, { nome: userName, assinaturas: 0, verificacoes: 0 });
-      }
-      
-      const entry = userMap.get(userName)!;
-      entry.assinaturas += 1;
-      entry.verificacoes += content.verificationCount || 0;
-    });
-    
-    return Array.from(userMap.values()).sort((a, b) => b.assinaturas - a.assinaturas).slice(0, 10);
-  };
-  
-  // Dados para gráfico de pizza (por plataforma)
-  const getPlatformData = () => {
-    const platformMap = new Map<string, number>();
-    
-    allContents.forEach(content => {
-      content.platforms?.forEach(platform => {
-        platformMap.set(platform, (platformMap.get(platform) || 0) + 1);
-      });
-    });
-    
-    return Array.from(platformMap.entries()).map(([name, value]) => ({ name, value }));
-  };
-  
-  // Exportar para PDF
+  }, [stats]);
+
+  const userStatsData = useMemo(() => {
+    if (!stats) return [];
+    return stats.top_users.map(u => ({
+      nome: u.nome,
+      assinaturas: u.assinaturas,
+      verificacoes: u.verificacoes,
+    }));
+  }, [stats]);
+
+  const platformData = useMemo(() => stats?.platforms ?? [], [stats]);
+
+  const allPlatformOptions = useMemo(() => {
+    const set = new Set<string>();
+    platformData.forEach(p => set.add(p.name));
+    // Plataformas só vindas do payload de stats podem não cobrir 100% se nenhum
+    // conteúdo na janela ainda — mas o filtro é por valor exato e o resultado
+    // vazio é tratado. Isso evita uma query extra.
+    return Array.from(set).sort();
+  }, [platformData]);
+
+  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#f43f5e'];
+
+  /* --------------------------- Exportações --------------------------- */
+  // Exporta usando a lista JÁ CARREGADA (paginada). Para volumes grandes o
+  // usuário pode aplicar filtros mais estreitos antes de exportar.
+
   const exportToPDF = () => {
     const doc = new jsPDF();
-    const filteredContents = getFilteredAndSortedContents();
-    
-    // Título
+    const list = contents;
+
     doc.setFontSize(18);
     doc.text('Relatório Administrativo - Vero iD', 14, 20);
-    
-    // Estatísticas gerais
+
     doc.setFontSize(12);
-    doc.text(`Total de Conteúdos Assinados: ${allContents.length}`, 14, 35);
-    doc.text(`Total de Verificações: ${getTotalVerifications()}`, 14, 42);
-    doc.text(`Total de Usuários: ${allUsers.length}`, 14, 49);
+    doc.text(`Total de Conteúdos Assinados: ${totalContentsGlobal}`, 14, 35);
+    doc.text(`Total de Verificações: ${totalVerifications}`, 14, 42);
+    doc.text(`Total de Usuários: ${totalAuthors}`, 14, 49);
     doc.text(`Data do Relatório: ${new Date().toLocaleDateString('pt-BR')}`, 14, 56);
-    
-    // Tabela de conteúdos
-    const tableData = filteredContents.map(content => [
+    doc.setFontSize(9);
+    doc.text(
+      `Exportação contém ${list.length} de ${totalContents} conteúdo(s) carregados nesta sessão.`,
+      14, 62
+    );
+
+    const tableData = list.map(content => [
       content.content.substring(0, 50) + (content.content.length > 50 ? '...' : ''),
-      content.creatorName,
+      content.creatorName ?? '—',
       new Date(content.createdAt).toLocaleDateString('pt-BR'),
       (content.verificationCount || 0).toString(),
       content.platforms?.join(', ') || 'N/A',
     ]);
-    
-    doc.autoTable({
-      startY: 65,
+
+    (doc as unknown as { autoTable: (opts: Record<string, unknown>) => void }).autoTable({
+      startY: 70,
       head: [['Conteúdo', 'Criador', 'Data', 'Verificações', 'Plataformas']],
       body: tableData,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [37, 99, 235] },
     });
-    
+
     doc.save(`relatorio-veroid-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-  
-  // Exportar para Excel
+
   const exportToExcel = () => {
-    const filteredContents = getFilteredAndSortedContents();
-    
-    const data = filteredContents.map(content => ({
+    const list = contents;
+
+    const data = list.map(content => ({
       'Conteúdo': content.content,
-      'Criador': content.creatorName,
+      'Criador': content.creatorName ?? '—',
       'Data': new Date(content.createdAt).toLocaleDateString('pt-BR'),
       'Hora': new Date(content.createdAt).toLocaleTimeString('pt-BR'),
       'Verificações': content.verificationCount || 0,
@@ -329,48 +351,49 @@ export default function AdminDashboard() {
       'Código de Verificação': content.verificationCode,
       'ID': content.id,
     }));
-    
+
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Conteúdos');
-    
-    // Adicionar estatísticas em outra aba
-    const stats = [
-      { 'Métrica': 'Total de Conteúdos Assinados', 'Valor': allContents.length },
-      { 'Métrica': 'Total de Verificações', 'Valor': getTotalVerifications() },
-      { 'Métrica': 'Total de Usuários', 'Valor': allUsers.length },
+
+    const statsRows = [
+      { 'Métrica': 'Total de Conteúdos Assinados', 'Valor': totalContentsGlobal },
+      { 'Métrica': 'Total de Verificações', 'Valor': totalVerifications },
+      { 'Métrica': 'Total de Usuários', 'Valor': totalAuthors },
+      { 'Métrica': 'Itens exportados (página atual)', 'Valor': list.length },
+      { 'Métrica': 'Total filtrado', 'Valor': totalContents },
       { 'Métrica': 'Data do Relatório', 'Valor': new Date().toLocaleDateString('pt-BR') },
     ];
-    
-    const wsStats = XLSX.utils.json_to_sheet(stats);
+
+    const wsStats = XLSX.utils.json_to_sheet(statsRows);
     XLSX.utils.book_append_sheet(wb, wsStats, 'Estatísticas');
-    
+
     XLSX.writeFile(wb, `relatorio-veroid-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
-  
-  // Exportar para TXT
+
   const exportToTXT = () => {
-    const filteredContents = getFilteredAndSortedContents();
-    
+    const list = contents;
+
     let txt = '='.repeat(80) + '\n';
     txt += 'RELATÓRIO ADMINISTRATIVO - VERO iD\n';
     txt += '='.repeat(80) + '\n\n';
-    
+
     txt += `Data do Relatório: ${new Date().toLocaleString('pt-BR')}\n\n`;
-    
+
     txt += 'ESTATÍSTICAS GERAIS\n';
     txt += '-'.repeat(80) + '\n';
-    txt += `Total de Conteúdos Assinados: ${allContents.length}\n`;
-    txt += `Total de Verificações: ${getTotalVerifications()}\n`;
-    txt += `Total de Usuários Cadastrados: ${allUsers.length}\n`;
-    txt += `Conteúdos Filtrados: ${filteredContents.length}\n\n`;
-    
+    txt += `Total de Conteúdos Assinados: ${totalContentsGlobal}\n`;
+    txt += `Total de Verificações: ${totalVerifications}\n`;
+    txt += `Total de Usuários Cadastrados: ${totalAuthors}\n`;
+    txt += `Conteúdos exportados (página atual): ${list.length}\n`;
+    txt += `Total filtrado: ${totalContents}\n\n`;
+
     txt += 'LISTA DE CONTEÚDOS ASSINADOS\n';
     txt += '='.repeat(80) + '\n\n';
-    
-    filteredContents.forEach((content, index) => {
+
+    list.forEach((content, index) => {
       txt += `[${index + 1}] ${content.content}\n`;
-      txt += `    Criador: ${content.creatorName}\n`;
+      txt += `    Criador: ${content.creatorName ?? '—'}\n`;
       txt += `    Data: ${new Date(content.createdAt).toLocaleString('pt-BR')}\n`;
       txt += `    Verificações: ${content.verificationCount || 0}\n`;
       txt += `    Plataformas: ${content.platforms?.join(', ') || 'N/A'}\n`;
@@ -378,7 +401,7 @@ export default function AdminDashboard() {
       txt += `    ID: ${content.id}\n`;
       txt += '-'.repeat(80) + '\n\n';
     });
-    
+
     const blob = new Blob([txt], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -387,18 +410,16 @@ export default function AdminDashboard() {
     a.click();
     URL.revokeObjectURL(url);
   };
-  
-  const filteredContents = getFilteredAndSortedContents();
-  const timelineData = getTimelineData();
-  const userStatsData = getUserStatsData();
-  const platformData = getPlatformData();
-  
-  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#f43f5e'];
-  
+
+  /* --------------------------- Render --------------------------- */
+
   if (!currentUser) {
     return null;
   }
-  
+
+  const isAnyLoading = isLoadingStats || isLoadingContents;
+  const hasMore = contents.length < totalContents;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
@@ -420,10 +441,10 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadData}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isAnyLoading}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 mr-2 ${isAnyLoading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <DropdownMenu>
@@ -453,7 +474,7 @@ export default function AdminDashboard() {
                       <Badge className="bg-red-100 text-red-800 text-xs mt-1">Admin</Badge>
                     </div>
                   </div>
-                  
+
                   <div className="border-t pt-3 space-y-1 text-sm">
                     <div className="font-semibold mb-2">Informações do Perfil</div>
                     <div className="flex justify-between">
@@ -474,9 +495,9 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-                
+
                 <DropdownMenuSeparator />
-                
+
                 <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
                   <Home className="mr-2 h-4 w-4" />
                   <span>Dashboard</span>
@@ -489,26 +510,26 @@ export default function AdminDashboard() {
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Configurações</span>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
-                
+
                 <DropdownMenuItem onClick={() => navigate('/admin/users')} className="cursor-pointer text-red-600">
                   <Users className="mr-2 h-4 w-4" />
                   <span>Gerenciar Usuários</span>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer text-red-600">
                   <BarChart3 className="mr-2 h-4 w-4" />
                   <span>Dashboard Admin</span>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuItem onClick={() => navigate('/admin/audit-logs')} className="cursor-pointer text-red-600">
                   <FileText className="mr-2 h-4 w-4" />
                   <span>Logs de Auditoria</span>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
-                
+
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sair</span>
@@ -518,454 +539,68 @@ export default function AdminDashboard() {
           </div>
         </div>
       </header>
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Dashboard Administrativo</h1>
           <p className="text-muted-foreground">Visão geral de todos os conteúdos assinados e verificações</p>
         </div>
-        
+
         {/* Estatísticas Principais */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Conteúdos Assinados</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{allContents.length}</div>
+              <div className="text-2xl font-bold">
+                {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : totalContentsGlobal}
+              </div>
               <p className="text-xs text-muted-foreground">Total de assinaturas</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Verificações</CardTitle>
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{getTotalVerifications()}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : totalVerifications}
+              </div>
               <p className="text-xs text-muted-foreground">Verificações realizadas</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Usuários Cadastrados</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{allUsers.length}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : totalAuthors}
+              </div>
               <p className="text-xs text-muted-foreground">Total de usuários</p>
             </CardContent>
           </Card>
-        </div>
-        
-        {/* Novos Indicadores - Cadastros e Atividade */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          {/* Novos Cadastros Hoje */}
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cadastros Hoje</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Média de Verificações</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {allUsers.filter(u => {
-                  const createdDate = new Date(u.createdAt);
-                  const today = new Date();
-                  return createdDate.toDateString() === today.toDateString();
-                }).length}
+                {isLoadingStats ? <Loader2 className="h-6 w-6 animate-spin" /> : averageVerifications}
               </div>
-              <p className="text-xs text-muted-foreground">Novos usuários hoje</p>
-            </CardContent>
-          </Card>
-          
-          {/* Novos Cadastros Esta Semana */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cadastros (7 dias)</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {allUsers.filter(u => {
-                  const createdDate = new Date(u.createdAt);
-                  const weekAgo = new Date();
-                  weekAgo.setDate(weekAgo.getDate() - 7);
-                  return createdDate >= weekAgo;
-                }).length}
-              </div>
-              <p className="text-xs text-muted-foreground">Últimos 7 dias</p>
-            </CardContent>
-          </Card>
-          
-          {/* Novos Cadastros Este Mês */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cadastros (30 dias)</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {allUsers.filter(u => {
-                  const createdDate = new Date(u.createdAt);
-                  const monthAgo = new Date();
-                  monthAgo.setDate(monthAgo.getDate() - 30);
-                  return createdDate >= monthAgo;
-                }).length}
-              </div>
-              <p className="text-xs text-muted-foreground">Últimos 30 dias</p>
-            </CardContent>
-          </Card>
-          
-          {/* Usuários Bloqueados */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usuários Bloqueados</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {allUsers.filter(u => u.blocked === true).length}
-              </div>
-              <p className="text-xs text-muted-foreground">Contas bloqueadas</p>
+              <p className="text-xs text-muted-foreground">Por conteúdo</p>
             </CardContent>
           </Card>
         </div>
-        
-        {/* Novos Indicadores - Verificação e Engajamento */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {/* Taxa de Verificação de Email */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Taxa de Verificação</CardTitle>
-              <Eye className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {allUsers.length > 0 
-                  ? ((allUsers.filter(u => u.verified === true).length / allUsers.length) * 100).toFixed(1)
-                  : '0'}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {allUsers.filter(u => u.verified === true).length} de {allUsers.length} verificados
-              </p>
-            </CardContent>
-          </Card>
-          
-          {/* Conteúdos Nunca Verificados */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Nunca Verificados</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {allContents.filter(c => (c.verificationCount || 0) === 0).length}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {allContents.length > 0 
-                  ? ((allContents.filter(c => (c.verificationCount || 0) === 0).length / allContents.length) * 100).toFixed(1)
-                  : '0'}% do total
-              </p>
-            </CardContent>
-          </Card>
-          
-          {/* Trials Expirando em Breve */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Trials Expirando</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {allUsers.filter(u => {
-                  if (!u.trial_ends_at) return false;
-                  const trialEnd = new Date(u.trial_ends_at);
-                  const now = new Date();
-                  const sevenDaysFromNow = new Date();
-                  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-                  return trialEnd > now && trialEnd <= sevenDaysFromNow;
-                }).length}
-              </div>
-              <p className="text-xs text-muted-foreground">Próximos 7 dias</p>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Estatísticas de Usuários - NOVO */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Contas Ativas/Inativas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Contas Ativas vs Inativas
-              </CardTitle>
-              <CardDescription>Usuários ativos nos últimos 30 dias</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-sm font-medium">Contas Ativas</span>
-                  </div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {allUsers.filter(u => {
-                      if (!u.last_login_at) return false;
-                      const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
-                      return daysSinceLogin <= 30;
-                    }).length}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                    <span className="text-sm font-medium">Contas Inativas</span>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-600">
-                    {allUsers.filter(u => {
-                      if (!u.last_login_at) return true;
-                      const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
-                      return daysSinceLogin > 30;
-                    }).length}
-                  </div>
-                </div>
-                <div className="pt-4 border-t">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { 
-                            name: 'Ativas', 
-                            value: allUsers.filter(u => {
-                              if (!u.last_login_at) return false;
-                              const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
-                              return daysSinceLogin <= 30;
-                            }).length 
-                          },
-                          { 
-                            name: 'Inativas', 
-                            value: allUsers.filter(u => {
-                              if (!u.last_login_at) return true;
-                              const daysSinceLogin = Math.floor((new Date().getTime() - new Date(u.last_login_at).getTime()) / (1000 * 60 * 60 * 24));
-                              return daysSinceLogin > 30;
-                            }).length 
-                          },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        <Cell fill="#10b981" />
-                        <Cell fill="#9ca3af" />
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Distribuição de Usuários por Plano */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Distribuição de Usuários por Plano
-              </CardTitle>
-              <CardDescription>Quantidade de usuários em cada plano de assinatura</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 mb-6">
-                {/* Free Plan */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold">
-                      F
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">Free</p>
-                      <p className="text-xs text-gray-500">Plano gratuito</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-700">
-                      {allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length}
-                    </p>
-                    <p className="text-xs text-gray-500">usuários</p>
-                  </div>
-                </div>
 
-                {/* Creator Plan */}
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
-                      C
-                    </div>
-                    <div>
-                      <p className="font-semibold text-blue-900">Creator</p>
-                      <p className="text-xs text-blue-600">Plano básico</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-700">
-                      {allUsers.filter(u => u.subscription_tier === 'basic').length}
-                    </p>
-                    <p className="text-xs text-blue-600">usuários</p>
-                  </div>
-                </div>
-
-                {/* Creator Pro Plan */}
-                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">
-                      P
-                    </div>
-                    <div>
-                      <p className="font-semibold text-purple-900">Creator Pro</p>
-                      <p className="text-xs text-purple-600">Plano premium</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-purple-700">
-                      {allUsers.filter(u => u.subscription_tier === 'premium').length}
-                    </p>
-                    <p className="text-xs text-purple-600">usuários</p>
-                  </div>
-                </div>
-
-                {/* Creator Elite Plan */}
-                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold">
-                      E
-                    </div>
-                    <div>
-                      <p className="font-semibold text-amber-900">Creator Elite</p>
-                      <p className="text-xs text-amber-600">Plano enterprise</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-amber-700">
-                      {allUsers.filter(u => u.subscription_tier === 'enterprise').length}
-                    </p>
-                    <p className="text-xs text-amber-600">usuários</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gráfico de Pizza para Visualização */}
-              <div className="pt-4 border-t">
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { 
-                          name: 'Free', 
-                          value: allUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length 
-                        },
-                        { 
-                          name: 'Creator', 
-                          value: allUsers.filter(u => u.subscription_tier === 'basic').length 
-                        },
-                        { 
-                          name: 'Creator Pro', 
-                          value: allUsers.filter(u => u.subscription_tier === 'premium').length 
-                        },
-                        { 
-                          name: 'Creator Elite', 
-                          value: allUsers.filter(u => u.subscription_tier === 'enterprise').length 
-                        },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      <Cell fill="#6b7280" />
-                      <Cell fill="#3b82f6" />
-                      <Cell fill="#8b5cf6" />
-                      <Cell fill="#f59e0b" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Top 5 Usuários Mais Ativos */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Top 5 Usuários Mais Ativos
-            </CardTitle>
-            <CardDescription>Usuários com mais conteúdos assinados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {(() => {
-                const userContentCount = new Map<string, { user: UserType; count: number }>();
-                
-                allContents.forEach(content => {
-                  const user = allUsers.find(u => u.id === content.userId);
-                  if (user) {
-                    const existing = userContentCount.get(user.id);
-                    if (existing) {
-                      existing.count += 1;
-                    } else {
-                      userContentCount.set(user.id, { user, count: 1 });
-                    }
-                  }
-                });
-                
-                const topUsers = Array.from(userContentCount.values())
-                  .sort((a, b) => b.count - a.count)
-                  .slice(0, 5);
-                
-                if (topUsers.length === 0) {
-                  return (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum usuário com conteúdos assinados ainda
-                    </p>
-                  );
-                }
-                
-                return topUsers.map((item, index) => (
-                  <div key={item.user.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="font-medium">{item.user.nomeCompleto}</p>
-                        <p className="text-xs text-muted-foreground">@{item.user.nomePublico}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-blue-600">{item.count}</p>
-                      <p className="text-xs text-muted-foreground">assinaturas</p>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-        
         {/* Gráficos de Desempenho */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Gráfico de Linha - Evolução Temporal */}
@@ -991,92 +626,46 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           {/* Gráfico de Pizza - Distribuição por Plataforma */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Plataformas Mais Usadas
+                Distribuição por Plataforma
               </CardTitle>
               <CardDescription>Conteúdos assinados por plataforma</CardDescription>
             </CardHeader>
             <CardContent>
-              {platformData.length === 0 ? (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  Nenhuma plataforma registrada ainda
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={platformData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {platformData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={platformData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {platformData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>
-        
-        {/* Horários de Pico - Análise por Hora do Dia */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Horários de Pico de Assinaturas
-            </CardTitle>
-            <CardDescription>Distribuição de assinaturas por hora do dia</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={(() => {
-                  const hourMap = new Map<number, number>();
-                  for (let i = 0; i < 24; i++) {
-                    hourMap.set(i, 0);
-                  }
-                  
-                  allContents.forEach(content => {
-                    const hour = new Date(content.createdAt).getHours();
-                    hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
-                  });
-                  
-                  return Array.from(hourMap.entries()).map(([hour, count]) => ({
-                    hora: `${hour.toString().padStart(2, '0')}:00`,
-                    assinaturas: count,
-                  }));
-                })()}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hora" style={{ fontSize: '10px' }} />
-                <YAxis style={{ fontSize: '12px' }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="assinaturas" fill="#10b981" name="Assinaturas" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
+
         {/* Gráfico de Barras - Top 10 Usuários */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Top 10 Usuários - Assinaturas e Verificações
+              Top 10 Usuários Mais Ativos
             </CardTitle>
             <CardDescription>Usuários com mais assinaturas e verificações</CardDescription>
           </CardHeader>
@@ -1094,7 +683,7 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        
+
         {/* Botões de Exportação */}
         <Card className="mb-8">
           <CardHeader>
@@ -1102,26 +691,29 @@ export default function AdminDashboard() {
               <Download className="h-5 w-5" />
               Exportar Dados
             </CardTitle>
-            <CardDescription>Baixe os dados em diferentes formatos</CardDescription>
+            <CardDescription>
+              Exporta os {contents.length} conteúdo(s) atualmente carregado(s) (de {totalContents} filtrado(s)).
+              Use os filtros para refinar antes de exportar.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <Button onClick={exportToPDF} variant="outline">
+              <Button onClick={exportToPDF} variant="outline" disabled={contents.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
               </Button>
-              <Button onClick={exportToExcel} variant="outline">
+              <Button onClick={exportToExcel} variant="outline" disabled={contents.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar Excel (XLS)
               </Button>
-              <Button onClick={exportToTXT} variant="outline">
+              <Button onClick={exportToTXT} variant="outline" disabled={contents.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar TXT
               </Button>
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Filtros */}
         <Card className="mb-6">
           <CardHeader>
@@ -1146,7 +738,7 @@ export default function AdminDashboard() {
                   onChange={(e) => setSearchTitle(e.target.value)}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="filter-user">
                   <div className="flex items-center gap-2">
@@ -1160,15 +752,15 @@ export default function AdminDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os usuários</SelectItem>
-                    {allUsers.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.nomeCompleto}
+                    {userOptions.map(opt => (
+                      <SelectItem key={opt.id} value={opt.id}>
+                        {opt.nome_completo}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="filter-platform">
                   <div className="flex items-center gap-2">
@@ -1182,7 +774,7 @@ export default function AdminDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as plataformas</SelectItem>
-                    {getAllPlatforms().map(platform => (
+                    {allPlatformOptions.map(platform => (
                       <SelectItem key={platform} value={platform}>
                         {platform}
                       </SelectItem>
@@ -1190,7 +782,7 @@ export default function AdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="filter-date">
                   <div className="flex items-center gap-2">
@@ -1211,7 +803,7 @@ export default function AdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="sort-by">
                   <div className="flex items-center gap-2">
@@ -1219,7 +811,7 @@ export default function AdminDashboard() {
                     Ordenar
                   </div>
                 </Label>
-                <Select value={sortBy} onValueChange={setSortBy}>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
                   <SelectTrigger id="sort-by">
                     <SelectValue placeholder="Ordenar" />
                   </SelectTrigger>
@@ -1232,19 +824,13 @@ export default function AdminDashboard() {
                 </Select>
               </div>
             </div>
-            
+
             {(searchTitle || filterUser !== 'all' || filterPlatform !== 'all' || filterDate !== 'all' || sortBy !== 'recent') && (
               <div className="mt-4">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setSearchTitle('');
-                    setFilterUser('all');
-                    setFilterPlatform('all');
-                    setFilterDate('all');
-                    setSortBy('recent');
-                  }}
+                  onClick={handleClearFilters}
                 >
                   Limpar Filtros
                 </Button>
@@ -1252,56 +838,71 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
-        
+
         {/* Lista de Conteúdos */}
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Todos os Conteúdos Assinados</h2>
             <div className="text-sm text-muted-foreground">
-              {filteredContents.length} de {allContents.length} conteúdos
+              {isLoadingContents ? 'Carregando...' : `${contents.length} de ${totalContents} carregados`}
             </div>
           </div>
-          
-          {allContents.length === 0 ? (
+
+          {isLoadingContents ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  Nenhum conteúdo assinado ainda
-                </p>
+                <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
+                <p className="text-muted-foreground">Carregando conteúdos...</p>
               </CardContent>
             </Card>
-          ) : filteredContents.length === 0 ? (
+          ) : totalContents === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  Nenhum conteúdo encontrado com os filtros aplicados
+                  {totalContentsGlobal === 0
+                    ? 'Nenhum conteúdo assinado ainda'
+                    : 'Nenhum conteúdo encontrado com os filtros aplicados'}
                 </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchTitle('');
-                    setFilterUser('all');
-                    setFilterPlatform('all');
-                    setFilterDate('all');
-                    setSortBy('recent');
-                  }}
-                >
-                  Limpar Filtros
-                </Button>
+                {totalContentsGlobal > 0 && (
+                  <Button variant="outline" onClick={handleClearFilters}>
+                    Limpar Filtros
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredContents.map((content) => (
-                <ContentCard
-                  key={content.id}
-                  content={content}
-                  onVerify={handleVerify}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {contents.map((content) => (
+                  <ContentCard
+                    key={content.id}
+                    content={content}
+                    onVerify={handleVerify}
+                  />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center mt-8">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>Carregar mais ({totalContents - contents.length} restantes)</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

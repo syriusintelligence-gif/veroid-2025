@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,18 +32,52 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, FileText, Lock, Edit, Ban, Loader2 } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, Lock, Edit, Ban, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, isCurrentUserAdmin, getUsers, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
+import { getCurrentUser, isCurrentUserAdmin, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
+import { fetchAdminUsers, type AdminUserRow } from '@/lib/admin-stats';
 import { getCSRFToken } from '@/lib/csrf-protection';
 import { useToast } from '@/hooks/use-toast';
+
+// Quantidade de itens carregados por página no botão "Carregar mais".
+const PAGE_SIZE = 25;
+
+/**
+ * Converte uma linha do payload da RPC `admin_list_users` (snake_case)
+ * para o formato `User` (camelCase) usado pelo resto do app.
+ */
+function adaptAdminUser(row: AdminUserRow): User {
+  return {
+    id: row.id,
+    nomeCompleto: row.nome_completo,
+    nomePublico: row.nome_publico,
+    email: row.email,
+    cpfCnpj: row.cpf_cnpj,
+    telefone: row.telefone,
+    documentoUrl: row.documento_url,
+    selfieUrl: row.selfie_url,
+    createdAt: row.created_at,
+    verified: row.verified,
+    isAdmin: row.is_admin,
+    blocked: row.blocked,
+  };
+}
 
 export default function AdminUsers() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [verifiedCount, setVerifiedCount] = useState(0);
+  const [adminCount, setAdminCount] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchTermDebounced, setSearchTermDebounced] = useState('');
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -51,13 +85,13 @@ export default function AdminUsers() {
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Estados para edição
   const [editNomeCompleto, setEditNomeCompleto] = useState('');
   const [editNomePublico, setEditNomePublico] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editTelefone, setEditTelefone] = useState('');
-  
+
   // 🔒 CSRF Protection
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [csrfReady, setCsrfReady] = useState(false);
@@ -88,39 +122,89 @@ export default function AdminUsers() {
       mounted = false;
     };
   }, []);
-  
+
+  // Debounce do campo de busca
   useEffect(() => {
-    checkAuthAndLoadData();
+    const handle = setTimeout(() => setSearchTermDebounced(searchTerm), 300);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
+
+  // Autenticação
+  useEffect(() => {
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+
+      const adminStatus = await isCurrentUserAdmin();
+      if (!adminStatus) {
+        navigate('/dashboard');
+        return;
+      }
+
+      setCurrentUser(user);
+      setIsAuthorized(true);
+    };
+    checkAuth();
   }, [navigate]);
-  
-  const checkAuthAndLoadData = async () => {
-    // Verifica se usuário está logado
-    const user = await getCurrentUser();
-    if (!user) {
-      navigate('/login');
-      return;
+
+  /**
+   * Carrega a PRIMEIRA página da lista (zera offset).
+   * Chamado no carregamento inicial e a cada mudança de filtro de busca.
+   */
+  const loadFirstPage = useCallback(async () => {
+    setIsLoadingList(true);
+    try {
+      const result = await fetchAdminUsers({
+        search: searchTermDebounced,
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
+      setUsers(result.items.map(adaptAdminUser));
+      setTotalUsers(result.total);
+      setVerifiedCount(result.verified_count);
+      setAdminCount(result.admin_count);
+      setTodayCount(result.today_count);
+    } catch (err) {
+      console.error('❌ [AdminUsers] Erro ao carregar usuários:', err);
+      setUsers([]);
+      setTotalUsers(0);
+    } finally {
+      setIsLoadingList(false);
     }
-    
-    // Verifica se é administrador
-    const adminStatus = await isCurrentUserAdmin();
-    if (!adminStatus) {
-      // Redireciona para dashboard se não for admin
-      navigate('/dashboard');
-      return;
+  }, [searchTermDebounced]);
+
+  // Botão "Carregar mais"
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || users.length >= totalUsers) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchAdminUsers({
+        search: searchTermDebounced,
+        limit: PAGE_SIZE,
+        offset: users.length,
+      });
+      setUsers(prev => [...prev, ...result.items.map(adaptAdminUser)]);
+    } catch (err) {
+      console.error('❌ [AdminUsers] Erro ao carregar mais usuários:', err);
+    } finally {
+      setIsLoadingMore(false);
     }
-    
-    setCurrentUser(user);
-    setIsAuthorized(true);
-    
-    // Carrega lista de usuários
-    await loadUsers();
-  };
-  
-  const loadUsers = async () => {
-    const allUsers = await getUsers();
-    setUsers(allUsers);
-  };
-  
+  }, [users.length, totalUsers, isLoadingMore, searchTermDebounced]);
+
+  // Carrega lista quando autorizado ou quando filtro muda
+  useEffect(() => {
+    if (!isAuthorized) return;
+    void loadFirstPage();
+  }, [isAuthorized, loadFirstPage]);
+
+  // Recarrega após operações de mutação (edit/block/delete)
+  const refreshList = useCallback(async () => {
+    await loadFirstPage();
+  }, [loadFirstPage]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -129,19 +213,12 @@ export default function AdminUsers() {
       .toUpperCase()
       .slice(0, 2);
   };
-  
-  const filteredUsers = users.filter(user => 
-    user.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.cpfCnpj.includes(searchTerm) ||
-    (user.nomePublico && user.nomePublico.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-  
+
   const handleViewDetails = (user: User) => {
     setSelectedUser(user);
     setIsDialogOpen(true);
   };
-  
+
   const handleOpenEditDialog = (user: User) => {
     setSelectedUser(user);
     setEditNomeCompleto(user.nomeCompleto);
@@ -150,12 +227,11 @@ export default function AdminUsers() {
     setEditTelefone(user.telefone);
     setIsEditDialogOpen(true);
   };
-  
+
   // 🔒 Handler para salvar edição (COM CSRF)
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
-    
-    // Validação CSRF
+
     if (!csrfToken) {
       toast({
         title: 'Erro de Segurança',
@@ -164,27 +240,25 @@ export default function AdminUsers() {
       });
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       console.log('🔒 [AdminUsers] Atualizando usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
+
       const result = await updateUser(selectedUser.id, {
         nomeCompleto: editNomeCompleto,
         nomePublico: editNomePublico,
         email: editEmail,
         telefone: editTelefone,
       });
-      
+
       if (result.success) {
         toast({
           title: "✅ Usuário atualizado",
           description: "Os dados do usuário foram atualizados com sucesso.",
         });
-        
-        // Recarrega a lista de usuários
-        await loadUsers();
+        await refreshList();
         setIsEditDialogOpen(false);
       } else {
         toast({
@@ -203,17 +277,16 @@ export default function AdminUsers() {
       setIsLoading(false);
     }
   };
-  
+
   const handleOpenBlockDialog = (user: User) => {
     setSelectedUser(user);
     setIsBlockDialogOpen(true);
   };
-  
+
   // 🔒 Handler para bloquear/desbloquear (COM CSRF)
   const handleToggleBlock = async () => {
     if (!selectedUser) return;
-    
-    // Validação CSRF
+
     if (!csrfToken) {
       toast({
         title: 'Erro de Segurança',
@@ -222,25 +295,23 @@ export default function AdminUsers() {
       });
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       console.log('🔒 [AdminUsers] Alternando bloqueio com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
+
       const newBlockedStatus = !selectedUser.blocked;
       const result = await toggleBlockUser(selectedUser.id, newBlockedStatus);
-      
+
       if (result.success) {
         toast({
           title: newBlockedStatus ? "🚫 Usuário bloqueado" : "✅ Usuário desbloqueado",
-          description: newBlockedStatus 
+          description: newBlockedStatus
             ? "O usuário foi bloqueado e não poderá mais acessar o sistema."
             : "O usuário foi desbloqueado e pode acessar o sistema novamente.",
         });
-        
-        // Recarrega a lista de usuários
-        await loadUsers();
+        await refreshList();
         setIsBlockDialogOpen(false);
       } else {
         toast({
@@ -259,17 +330,16 @@ export default function AdminUsers() {
       setIsLoading(false);
     }
   };
-  
+
   const handleOpenDeleteDialog = (user: User) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
-  
+
   // 🔒 Handler para excluir usuário (COM CSRF)
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-    
-    // Validação CSRF
+
     if (!csrfToken) {
       toast({
         title: 'Erro de Segurança',
@@ -278,22 +348,20 @@ export default function AdminUsers() {
       });
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       console.log('🔒 [AdminUsers] Excluindo usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-      
+
       const result = await deleteUser(selectedUser.id);
-      
+
       if (result.success) {
         toast({
           title: "🗑️ Usuário excluído",
           description: "O usuário foi excluído permanentemente do sistema.",
         });
-        
-        // Recarrega a lista de usuários
-        await loadUsers();
+        await refreshList();
         setIsDeleteDialogOpen(false);
       } else {
         toast({
@@ -312,22 +380,24 @@ export default function AdminUsers() {
       setIsLoading(false);
     }
   };
-  
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
-  
+
+  const hasMore = useMemo(() => users.length < totalUsers, [users.length, totalUsers]);
+
   // Se não autorizado, não renderiza nada (já redirecionou)
   if (!currentUser || !isAuthorized) {
     return null;
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
@@ -355,7 +425,7 @@ export default function AdminUsers() {
           </div>
         </div>
       </header>
-      
+
       <div className="container mx-auto px-4 py-8">
         {/* Alerta de Segurança */}
         <Alert className="mb-6 border-red-200 bg-red-50">
@@ -375,7 +445,7 @@ export default function AdminUsers() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         {/* Título */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
@@ -384,8 +454,8 @@ export default function AdminUsers() {
           </h1>
           <p className="text-muted-foreground">Visualize e gerencie todos os usuários cadastrados no sistema</p>
         </div>
-        
-        {/* Estatísticas */}
+
+        {/* Estatísticas (vêm prontas do backend num único request) */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -393,11 +463,13 @@ export default function AdminUsers() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">
+                {isLoadingList ? <Loader2 className="h-6 w-6 animate-spin" /> : totalUsers}
+              </div>
               <p className="text-xs text-muted-foreground">Cadastrados no sistema</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Verificados</CardTitle>
@@ -405,12 +477,12 @@ export default function AdminUsers() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {users.filter(u => u.verified).length}
+                {isLoadingList ? <Loader2 className="h-6 w-6 animate-spin" /> : verifiedCount}
               </div>
               <p className="text-xs text-muted-foreground">Contas verificadas</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Administradores</CardTitle>
@@ -418,12 +490,12 @@ export default function AdminUsers() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {users.filter(u => u.isAdmin).length}
+                {isLoadingList ? <Loader2 className="h-6 w-6 animate-spin" /> : adminCount}
               </div>
               <p className="text-xs text-muted-foreground">Usuários admin</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Cadastros Hoje</CardTitle>
@@ -431,17 +503,13 @@ export default function AdminUsers() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {users.filter(u => {
-                  const today = new Date().toDateString();
-                  const userDate = new Date(u.createdAt).toDateString();
-                  return today === userDate;
-                }).length}
+                {isLoadingList ? <Loader2 className="h-6 w-6 animate-spin" /> : todayCount}
               </div>
               <p className="text-xs text-muted-foreground">Novos usuários</p>
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Filtros */}
         <Card className="mb-6">
           <CardHeader>
@@ -468,143 +536,170 @@ export default function AdminUsers() {
                 </Button>
               )}
             </div>
-            {searchTerm && (
+            {searchTermDebounced && (
               <p className="text-sm text-muted-foreground mt-2">
-                Encontrados: {filteredUsers.length} de {users.length} usuários
+                Encontrados: {users.length} de {totalUsers} usuários
               </p>
             )}
           </CardContent>
         </Card>
-        
+
         {/* Tabela de Usuários */}
         <Card>
           <CardHeader>
             <CardTitle>Lista de Usuários</CardTitle>
             <CardDescription>
-              {filteredUsers.length} usuário(s) cadastrado(s)
+              {isLoadingList ? 'Carregando...' : `${users.length} de ${totalUsers} usuário(s) carregado(s)`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {filteredUsers.length === 0 ? (
+            {isLoadingList ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
+                <p className="text-muted-foreground">Carregando usuários...</p>
+              </div>
+            ) : users.length === 0 ? (
               <div className="text-center py-12">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  {searchTerm ? 'Nenhum usuário encontrado com os critérios de busca' : 'Nenhum usuário cadastrado ainda'}
+                  {searchTermDebounced ? 'Nenhum usuário encontrado com os critérios de busca' : 'Nenhum usuário cadastrado ainda'}
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Usuário</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>CPF/CNPJ</TableHead>
-                      <TableHead>Telefone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Cadastro</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border-2 border-blue-600">
-                              <AvatarImage src={user.selfieUrl} alt={user.nomeCompleto} />
-                              <AvatarFallback className="bg-blue-600 text-white">
-                                {getInitials(user.nomeCompleto)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.nomeCompleto}</p>
-                              {user.nomePublico && user.nomePublico !== user.nomeCompleto && (
-                                <p className="text-xs text-muted-foreground">@{user.nomePublico}</p>
-                              )}
-                              <div className="flex gap-1 mt-1">
-                                {user.isAdmin && (
-                                  <Badge className="bg-red-100 text-red-800 text-xs">
-                                    Admin
-                                  </Badge>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>CPF/CNPJ</TableHead>
+                        <TableHead>Telefone</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Cadastro</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10 border-2 border-blue-600">
+                                <AvatarImage src={user.selfieUrl} alt={user.nomeCompleto} />
+                                <AvatarFallback className="bg-blue-600 text-white">
+                                  {getInitials(user.nomeCompleto)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{user.nomeCompleto}</p>
+                                {user.nomePublico && user.nomePublico !== user.nomeCompleto && (
+                                  <p className="text-xs text-muted-foreground">@{user.nomePublico}</p>
                                 )}
-                                {user.blocked && (
-                                  <Badge className="bg-gray-100 text-gray-800 text-xs">
-                                    Bloqueado
-                                  </Badge>
-                                )}
+                                <div className="flex gap-1 mt-1">
+                                  {user.isAdmin && (
+                                    <Badge className="bg-red-100 text-red-800 text-xs">
+                                      Admin
+                                    </Badge>
+                                  )}
+                                  {user.blocked && (
+                                    <Badge className="bg-gray-100 text-gray-800 text-xs">
+                                      Bloqueado
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell className="font-mono text-sm">{user.cpfCnpj}</TableCell>
-                        <TableCell>{user.telefone}</TableCell>
-                        <TableCell>
-                          {user.verified ? (
-                            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Verificado
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Pendente
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(user.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDetails(user)}
-                              title="Ver detalhes"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(user)}
-                              title="Editar usuário"
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenBlockDialog(user)}
-                              title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenDeleteDialog(user)}
-                              title="Excluir usuário"
-                              className="text-red-600 hover:text-red-700"
-                              disabled={!csrfReady || !csrfToken}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                          </TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell className="font-mono text-sm">{user.cpfCnpj}</TableCell>
+                          <TableCell>{user.telefone}</TableCell>
+                          <TableCell>
+                            {user.verified ? (
+                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verificado
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Pendente
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDate(user.createdAt)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewDetails(user)}
+                                title="Ver detalhes"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditDialog(user)}
+                                title="Editar usuário"
+                                disabled={!csrfReady || !csrfToken}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenBlockDialog(user)}
+                                title={user.blocked ? "Desbloquear usuário" : "Bloquear usuário"}
+                                disabled={!csrfReady || !csrfToken}
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenDeleteDialog(user)}
+                                title="Excluir usuário"
+                                className="text-red-600 hover:text-red-700"
+                                disabled={!csrfReady || !csrfToken}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        <>Carregar mais ({totalUsers - users.length} restantes)</>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
-        
+
         {/* Dialog de Detalhes */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-2xl">
@@ -639,7 +734,7 @@ export default function AdminUsers() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground">Email</Label>
@@ -667,7 +762,7 @@ export default function AdminUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         {/* Dialog de Edição (COM CSRF) */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-2xl">
@@ -726,7 +821,7 @@ export default function AdminUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         {/* Dialog de Bloqueio (COM CSRF) */}
         <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
           <AlertDialogContent>
@@ -749,21 +844,21 @@ export default function AdminUsers() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        
+
         {/* Dialog de Exclusão (COM CSRF) */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Excluir Usuário Permanentemente</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir permanentemente {selectedUser?.nomeCompleto}? 
+                Tem certeza que deseja excluir permanentemente {selectedUser?.nomeCompleto}?
                 Esta ação não pode ser desfeita e todos os dados do usuário serão removidos do sistema.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDeleteUser} 
+              <AlertDialogAction
+                onClick={handleDeleteUser}
                 disabled={isLoading || !csrfToken}
                 className="bg-red-600 hover:bg-red-700"
               >
