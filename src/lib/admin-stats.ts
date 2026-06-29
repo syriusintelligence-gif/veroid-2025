@@ -113,6 +113,43 @@ export interface AdminUserOption {
   nome_completo: string;
 }
 
+/* ----- Plan distribution types ----- */
+
+export type CanonicalPlanType = 'free' | 'creator' | 'creator_pro' | 'creator_elite';
+
+export interface AdminPlanDistributionItem {
+  plan_type: string;
+  total: number;
+}
+
+export interface AdminPlanDistributionResult {
+  items: AdminPlanDistributionItem[];
+  total_users: number;
+}
+
+export interface AdminUserByPlanRow {
+  id: string;
+  nome_completo: string;
+  nome_publico: string;
+  email: string;
+  cpf_cnpj: string;
+  telefone: string;
+  selfie_url: string;
+  verified: boolean;
+  is_admin: boolean;
+  blocked: boolean;
+  created_at: string;
+  plan_type: string;
+  subscription_status: string | null;
+  subscription_period_end: string | null;
+}
+
+export interface AdminListUsersByPlanResult {
+  items: AdminUserByPlanRow[];
+  total: number;
+  plan_type: string;
+}
+
 /* --------------------------- Empty fallbacks --------------------------- */
 
 const EMPTY_STATS: AdminDashboardStats = {
@@ -288,6 +325,63 @@ export async function fetchAdminUserOptions(): Promise<AdminUserOption[]> {
   }
 
   return Array.isArray(data) ? (data as AdminUserOption[]) : [];
+}
+
+/**
+ * Distribuição de usuários por tipo de plano (free, creator, creator_pro,
+ * creator_elite). Inclui sempre os 4 planos canônicos, mesmo que com total = 0.
+ */
+export async function fetchAdminPlanDistribution(): Promise<AdminPlanDistributionResult> {
+  console.log('📊 [admin-stats] fetchAdminPlanDistribution()');
+  const { data, error } = await supabase.rpc('admin_plan_distribution');
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_plan_distribution falhou:', error);
+    return { items: [], total_users: 0 };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminPlanDistributionResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total_users: Number(payload.total_users ?? 0),
+  };
+}
+
+export interface AdminListUsersByPlanFilters {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Lista paginada de usuários de um plano específico.
+ * Usada pelo drilldown ao clicar num plano da distribuição.
+ */
+export async function fetchAdminUsersByPlan(
+  planType: string,
+  filters: AdminListUsersByPlanFilters = {}
+): Promise<AdminListUsersByPlanResult> {
+  const params = {
+    p_plan_type: planType,
+    p_search: filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_limit:  filters.limit  ?? 25,
+    p_offset: filters.offset ?? 0,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersByPlan()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_by_plan', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_by_plan falhou:', error);
+    return { items: [], total: 0, plan_type: planType };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminListUsersByPlanResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total: Number(payload.total ?? 0),
+    plan_type: payload.plan_type ?? planType,
+  };
 }
 
 /* --------------------------- Adapters --------------------------- */

@@ -51,6 +51,7 @@ import {
   type AdminListContentsFilters,
 } from '@/lib/admin-stats';
 import ContentCard from '@/components/ContentCard';
+import PlanDistributionCard from '@/components/admin/PlanDistributionCard';
 import { Badge } from '@/components/ui/badge';
 import {
   LineChart,
@@ -728,6 +729,9 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Distribuição por Tipo de Plano (drilldown clicável) */}
+        <PlanDistributionCard />
 
         {/* Gráfico de Barras - Top 10 Usuários */}
         <Card className="mb-8">
