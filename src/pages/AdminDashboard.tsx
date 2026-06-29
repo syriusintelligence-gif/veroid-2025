@@ -284,7 +284,20 @@ export default function AdminDashboard() {
     }));
   }, [stats]);
 
-  const platformData = useMemo(() => stats?.platforms ?? [], [stats]);
+  const platformData = useMemo(() => {
+    // Ordena do mais relevante para o menos relevante (decrescente por valor).
+    // Isso garante que a fatia maior fique no topo da legenda e o gráfico
+    // siga uma sequência visual lógica.
+    const raw = stats?.platforms ?? [];
+    return [...raw].sort((a, b) => b.value - a.value);
+  }, [stats]);
+
+  // Total absoluto das plataformas (soma de todas as fatias) — usado para
+  // calcular o percentual exibido na legenda lateral.
+  const platformsTotal = useMemo(
+    () => platformData.reduce((acc, p) => acc + p.value, 0),
+    [platformData]
+  );
 
   const allPlatformOptions = useMemo(() => {
     const set = new Set<string>();
@@ -627,7 +640,11 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Gráfico de Pizza - Distribuição por Plataforma */}
+          {/* Gráfico de Pizza - Distribuição por Plataforma
+              Layout: pizza compacta à esquerda + legenda lateral à direita
+              com cor / nome / quantidade / percentual, ordenada por
+              relevância (maior → menor). Labels sobre as fatias foram
+              removidos para evitar sobreposição em itens pequenos. */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -637,25 +654,77 @@ export default function AdminDashboard() {
               <CardDescription>Conteúdos assinados por plataforma</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={platformData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {platformData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {platformData.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
+                  Sem dados de plataformas para exibir.
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Pizza compacta */}
+                  <div className="w-full sm:w-1/2 flex-shrink-0">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie
+                          data={platformData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={90}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        >
+                          {platformData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => {
+                            const pct = platformsTotal > 0
+                              ? ((value / platformsTotal) * 100).toFixed(1)
+                              : '0';
+                            return [`${value} (${pct}%)`, name];
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legenda lateral — relevância decrescente */}
+                  <div className="w-full sm:w-1/2 space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                    {platformData.map((p, index) => {
+                      const pct = platformsTotal > 0
+                        ? ((p.value / platformsTotal) * 100).toFixed(1)
+                        : '0';
+                      return (
+                        <div
+                          key={p.name}
+                          className="flex items-center justify-between gap-3 text-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              aria-hidden
+                            />
+                            <span className="truncate font-medium" title={p.name}>
+                              {p.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0 tabular-nums">
+                            <span className="text-muted-foreground">{p.value}</span>
+                            <span className="text-xs font-semibold text-blue-600 min-w-[3rem] text-right">
+                              {pct}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
