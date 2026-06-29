@@ -53,6 +53,7 @@ import {
 import ContentCard from '@/components/ContentCard';
 import PlanDistributionCard from '@/components/admin/PlanDistributionCard';
 import UsersRegisteredCard from '@/components/admin/UsersRegisteredCard';
+import EngagementMetricsCards from '@/components/admin/EngagementMetricsCards';
 import { Badge } from '@/components/ui/badge';
 import {
   LineChart,
@@ -719,6 +720,9 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Métricas de Engajamento — Dia do Ciclo, Ativação, Abandono */}
+        <EngagementMetricsCards />
 
         {/* Distribuição por Tipo de Plano (drilldown clicável) */}
         <PlanDistributionCard />

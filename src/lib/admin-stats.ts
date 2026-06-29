@@ -473,6 +473,221 @@ export async function fetchAdminUsersByPeriod(
   };
 }
 
+/* ----- Engagement metrics types (Trial Cycle / Activation / Churn) ----- */
+
+export interface AdminTrialCycleBucket {
+  label: string;
+  day: number;
+  qtd: number;
+  color: 'green' | 'yellow' | 'orange' | 'red';
+}
+
+export interface AdminTrialCycleByDay {
+  day_of_cycle: number;
+  qtd: number;
+}
+
+export interface AdminTrialCycleStatsResult {
+  total_in_trial: number;
+  buckets: AdminTrialCycleBucket[];
+  by_day: AdminTrialCycleByDay[];
+}
+
+export interface AdminTrialUserRow {
+  id: string;
+  nome_completo: string;
+  nome_publico: string;
+  email: string;
+  cpf_cnpj: string;
+  telefone: string;
+  selfie_url: string;
+  verified: boolean;
+  is_admin: boolean;
+  blocked: boolean;
+  created_at: string;
+  plan_type: string;
+  trial_start: string;
+  trial_end: string;
+  day_of_cycle: number;
+  days_remaining: number;
+}
+
+export interface AdminListUsersInTrialDayResult {
+  items: AdminTrialUserRow[];
+  total: number;
+  day_of_cycle: number;
+}
+
+export interface AdminActivationFunnelResult {
+  registered: number;
+  logged_in: number;
+  activated: number;
+  engaged: number;
+  rate_logged_in: number;
+  rate_activated: number;
+  rate_engaged: number;
+  avg_days_to_activate: number | null;
+  from: string | null;
+  to: string | null;
+}
+
+export interface AdminChurnBucketResult {
+  qtd: number;
+  base: number;
+  rate: number;
+}
+
+export interface AdminChurnInactiveResult extends AdminChurnBucketResult {
+  threshold_days: number;
+}
+
+export interface AdminChurnMetricsResult {
+  total_users: number;
+  trial_abandoned: AdminChurnBucketResult;
+  post_trial_churn: AdminChurnBucketResult;
+  inactive: AdminChurnInactiveResult;
+}
+
+/**
+ * 01) Distribuição dos leads pelo dia do ciclo de trial.
+ */
+export async function fetchAdminTrialCycleStats(): Promise<AdminTrialCycleStatsResult> {
+  console.log('📊 [admin-stats] fetchAdminTrialCycleStats()');
+  const { data, error } = await supabase.rpc('admin_trial_cycle_stats');
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_trial_cycle_stats falhou:', error);
+    return { total_in_trial: 0, buckets: [], by_day: [] };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminTrialCycleStatsResult>;
+  return {
+    total_in_trial: Number(payload.total_in_trial ?? 0),
+    buckets:        Array.isArray(payload.buckets) ? payload.buckets : [],
+    by_day:         Array.isArray(payload.by_day) ? payload.by_day : [],
+  };
+}
+
+/**
+ * Drilldown: lista paginada de usuários no dia X do trial.
+ *  - dayOfCycle = 0  → todos em trial
+ *  - dayOfCycle 1..6 → exato
+ *  - dayOfCycle 7    → dia 7+
+ */
+export async function fetchAdminUsersInTrialDay(
+  dayOfCycle: number,
+  filters: { search?: string; limit?: number; offset?: number } = {}
+): Promise<AdminListUsersInTrialDayResult> {
+  const params = {
+    p_day_of_cycle: dayOfCycle,
+    p_search: filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_limit:  filters.limit  ?? 25,
+    p_offset: filters.offset ?? 0,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersInTrialDay()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_in_trial_day', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_in_trial_day falhou:', error);
+    return { items: [], total: 0, day_of_cycle: dayOfCycle };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminListUsersInTrialDayResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total: Number(payload.total ?? 0),
+    day_of_cycle: Number(payload.day_of_cycle ?? dayOfCycle),
+  };
+}
+
+/**
+ * 02) Funil: Cadastrados → Logaram → Ativaram (1º conteúdo) → Engajaram (3+).
+ */
+export async function fetchAdminActivationFunnel(
+  from?: string | null,
+  to?: string | null
+): Promise<AdminActivationFunnelResult> {
+  console.log('📊 [admin-stats] fetchAdminActivationFunnel()', { from, to });
+  const { data, error } = await supabase.rpc('admin_activation_funnel', {
+    p_from: from ?? null,
+    p_to:   to   ?? null,
+  });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_activation_funnel falhou:', error);
+    return {
+      registered: 0,
+      logged_in: 0,
+      activated: 0,
+      engaged: 0,
+      rate_logged_in: 0,
+      rate_activated: 0,
+      rate_engaged: 0,
+      avg_days_to_activate: null,
+      from: from ?? null,
+      to: to ?? null,
+    };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminActivationFunnelResult>;
+  return {
+    registered:           Number(payload.registered ?? 0),
+    logged_in:            Number(payload.logged_in ?? 0),
+    activated:            Number(payload.activated ?? 0),
+    engaged:              Number(payload.engaged ?? 0),
+    rate_logged_in:       Number(payload.rate_logged_in ?? 0),
+    rate_activated:       Number(payload.rate_activated ?? 0),
+    rate_engaged:         Number(payload.rate_engaged ?? 0),
+    avg_days_to_activate: payload.avg_days_to_activate ?? null,
+    from:                 payload.from ?? from ?? null,
+    to:                   payload.to   ?? to   ?? null,
+  };
+}
+
+/**
+ * 04) Métricas de abandono: trial / pós-trial / inatividade.
+ */
+export async function fetchAdminChurnMetrics(
+  inactiveDaysThreshold = 30
+): Promise<AdminChurnMetricsResult> {
+  console.log('📊 [admin-stats] fetchAdminChurnMetrics()', { inactiveDaysThreshold });
+  const { data, error } = await supabase.rpc('admin_churn_metrics', {
+    p_inactive_days_threshold: inactiveDaysThreshold,
+  });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_churn_metrics falhou:', error);
+    return {
+      total_users: 0,
+      trial_abandoned:  { qtd: 0, base: 0, rate: 0 },
+      post_trial_churn: { qtd: 0, base: 0, rate: 0 },
+      inactive:         { qtd: 0, base: 0, rate: 0, threshold_days: inactiveDaysThreshold },
+    };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminChurnMetricsResult>;
+  return {
+    total_users: Number(payload.total_users ?? 0),
+    trial_abandoned: {
+      qtd:  Number(payload.trial_abandoned?.qtd  ?? 0),
+      base: Number(payload.trial_abandoned?.base ?? 0),
+      rate: Number(payload.trial_abandoned?.rate ?? 0),
+    },
+    post_trial_churn: {
+      qtd:  Number(payload.post_trial_churn?.qtd  ?? 0),
+      base: Number(payload.post_trial_churn?.base ?? 0),
+      rate: Number(payload.post_trial_churn?.rate ?? 0),
+    },
+    inactive: {
+      qtd:            Number(payload.inactive?.qtd  ?? 0),
+      base:           Number(payload.inactive?.base ?? 0),
+      rate:           Number(payload.inactive?.rate ?? 0),
+      threshold_days: Number(payload.inactive?.threshold_days ?? inactiveDaysThreshold),
+    },
+  };
+}
+
 /**
  * Lista paginada de usuários de um plano específico.
  * Usada pelo drilldown ao clicar num plano da distribuição.
