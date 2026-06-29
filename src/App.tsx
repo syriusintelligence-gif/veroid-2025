@@ -27,6 +27,7 @@ import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import Pricing from './pages/Pricing';
 import EmailConfirmation from './pages/EmailConfirmation';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
+import GTMRouteTracker from './components/analytics/GTMRouteTracker';
 import { Toaster } from '@/components/ui/toaster';
 
 // 🔒 CSRF Protection imports
@@ -341,6 +342,9 @@ function AppContent() {
 
   return (
     <>
+      {/* GTM SPA pageview tracker - publica spa_pageview no dataLayer a cada navegação */}
+      <GTMRouteTracker />
+
       {/* Modal de Aviso de Timeout - ATIVADO */}
       <SessionTimeoutWarning
         isOpen={showTimeoutWarning}
