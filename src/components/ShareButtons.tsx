@@ -9,7 +9,7 @@ import {
   Check,
   Instagram
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { createShortUrl } from '@/lib/services/url-shortener';
 
 interface ShareButtonsProps {
   certificateUrl: string;
@@ -34,36 +33,12 @@ export default function ShareButtons({
   compact = false 
 }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
-  const [shortUrl, setShortUrl] = useState<string>(certificateUrl);
   
-  // Gera o link curto ao montar o componente
-  useEffect(() => {
-    async function generateShortUrl() {
-      console.log('🔗 [ShareButtons] Iniciando geração de link curto...');
-      console.log('🔗 [ShareButtons] URL original:', certificateUrl);
-      
-      try {
-        const short = await createShortUrl(certificateUrl);
-        console.log('✅ [ShareButtons] Link curto gerado:', short);
-        setShortUrl(short);
-      } catch (error) {
-        console.error('❌ [ShareButtons] Erro ao gerar link curto:', error);
-        console.error('❌ [ShareButtons] Stack trace:', error instanceof Error ? error.stack : 'N/A');
-        // Mantém a URL original em caso de erro
-        console.log('⚠️ [ShareButtons] Usando URL original como fallback');
-        setShortUrl(certificateUrl);
-      }
-    }
-    generateShortUrl();
-  }, [certificateUrl]);
-  
-  const shareText = `${title}\n\n${description}\n\nVerifique a autenticidade aqui:\n${shortUrl}`;
-  
-  console.log('📱 [ShareButtons] Texto de compartilhamento gerado:', shareText);
+  const shareText = `${title}\n\n${description}\n\nAcesse o conteúdo no link abaixo:\n${certificateUrl}`;
   
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(shortUrl);
+      await navigator.clipboard.writeText(certificateUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -77,7 +52,7 @@ export default function ShareButtons({
         await navigator.share({
           title: title,
           text: description,
-          url: shortUrl,
+          url: certificateUrl,
         });
       } catch (err) {
         console.error('Erro ao compartilhar:', err);
@@ -89,18 +64,18 @@ export default function ShareButtons({
   };
   
   const handleFacebookShare = () => {
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`;
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(certificateUrl)}`;
     window.open(url, '_blank', 'width=600,height=400');
   };
   
   const handleTwitterShare = () => {
     const text = encodeURIComponent(`${title}\n\n${description}`);
-    const url = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shortUrl)}`;
+    const url = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(certificateUrl)}`;
     window.open(url, '_blank', 'width=600,height=400');
   };
   
   const handleLinkedInShare = () => {
-    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shortUrl)}`;
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(certificateUrl)}`;
     window.open(url, '_blank', 'width=600,height=400');
   };
   
@@ -126,7 +101,7 @@ export default function ShareButtons({
             Compartilhar
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 shadow-lg">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Compartilhar Certificado</DropdownMenuLabel>
           <DropdownMenuSeparator />
           
