@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3 } from 'lucide-react';
+import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
@@ -107,9 +107,10 @@ export default function Index() {
         transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="glass-header sticky top-0 z-50 shadow-lg shadow-blue-500/10"
       >
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+        <div className="container mx-auto px-2 sm:px-4 py-3 md:py-4 flex items-center justify-between gap-2">
           <motion.div 
-            className="flex items-center gap-2"
+            className="flex items-center gap-1.5 sm:gap-2 cursor-pointer flex-shrink-0"
+            onClick={() => navigate('/')}
             whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
             transition={{ duration: 0.2 }}
           >
@@ -125,13 +126,13 @@ export default function Index() {
               }}
               whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
             >
-              <Shield className="h-7 w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+              <Shield className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
             </motion.div>
-            <span className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <span className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight whitespace-nowrap">
               Vero iD
             </span>
           </motion.div>
-          <nav className="flex gap-2 md:gap-3">
+          <nav className="flex gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
             {isAdmin && (
               <motion.div 
                 whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
@@ -140,16 +141,16 @@ export default function Index() {
                 <Button 
                   variant="outline" 
                   onClick={() => navigate('/admin/dashboard')} 
-                  className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+                  className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
                 >
                   <motion.div
                     whileHover={shouldReduceMotion ? {} : { rotate: 360 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <BarChart3 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                    <BarChart3 className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
                   </motion.div>
-                  <span className="hidden sm:inline">Admin Dashboard</span>
-                  <span className="sm:hidden">Admin</span>
+                  <span className="hidden md:inline">Admin Dashboard</span>
+                  <span className="hidden sm:inline md:hidden">Admin</span>
                 </Button>
               </motion.div>
             )}
@@ -159,8 +160,34 @@ export default function Index() {
             >
               <Button 
                 variant="outline" 
+                onClick={() => navigate('/pricing')} 
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-2 md:px-4 transition-all duration-300"
+              >
+                <CreditCard className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span>Planos</span>
+              </Button>
+            </motion.div>
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/verify')} 
+                className="button-ripple border-white/20 text-cyan-400 hover:bg-white/10 hover:border-cyan-400/50 hover:text-cyan-300 hover:shadow-lg hover:shadow-cyan-500/20 text-xs md:text-sm px-1.5 sm:px-2 md:px-4 transition-all duration-300"
+              >
+                <CheckCircle className="h-3 w-3 sm:mr-1 md:mr-2 md:h-4 md:w-4" />
+                <span className="hidden md:inline">Verificar</span>
+              </Button>
+            </motion.div>
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05, y: -2 }} 
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            >
+              <Button 
+                variant="outline" 
                 onClick={() => navigate('/login')} 
-                className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-3 md:px-4 transition-all duration-300"
+                className="button-ripple border-white/20 bg-white/90 text-slate-900 hover:bg-white hover:border-cyan-400/50 hover:text-slate-950 hover:shadow-lg hover:shadow-white/20 font-semibold text-xs md:text-sm px-2 sm:px-3 md:px-4 transition-all duration-300"
               >
                 Entrar
               </Button>
@@ -171,7 +198,7 @@ export default function Index() {
             >
               <Button 
                 onClick={() => navigate('/cadastro')} 
-                className="button-ripple bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-3 md:px-4"
+                className="button-ripple bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/50 transition-all duration-300 text-xs md:text-sm px-2 sm:px-3 md:px-4"
               >
                 Cadastro
               </Button>
@@ -228,10 +255,9 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <span className="text-white">O Fim da Desinformação</span>
-            <br />
+            <span className="text-white">Conteúdo Digital Falso em Seu Nome? </span>
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
               animate={shouldReduceMotion ? {} : {
@@ -246,13 +272,13 @@ export default function Index() {
                 backgroundSize: '200% 200%'
               }}
             >
-              Começa com a Sua Assinatura.
+              Nunca Mais!
             </motion.span>
           </motion.h1>
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Proteja sua reputação contra <strong className="text-white">Deepfakes</strong> e <strong className="text-white">Fake News</strong>. Nosso sistema de assinatura digital utiliza criptografia avançada para garantir que seu conteúdo seja <strong className="text-white">matemático e incontestavelmente seu</strong>.
+              Mantenha a sua <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">reputação protegida</strong> contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea.
             </p>
           </motion.div>
           
@@ -324,7 +350,27 @@ export default function Index() {
               <span className="text-white">Como </span>
               <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Funciona?</span>
             </h2>
-            <p className="text-lg md:text-xl text-gray-400 px-4">Processo simples e seguro em 3 passos</p>
+            <p className="text-lg md:text-xl text-gray-400 px-4 mb-8 md:mb-12">Processo simples e seguro em 3 passos</p>
+            
+            {/* Video Demo */}
+            <motion.div
+              className="max-w-4xl mx-auto px-4"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+              animate={howItWorksInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+              transition={{ duration: shouldReduceMotion ? 0.01 : 0.8, delay: shouldReduceMotion ? 0 : 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl shadow-cyan-500/20 mb-12 md:mb-16" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src="https://www.youtube.com/embed/vWNLWkWNxuE"
+                  title="Demonstração Vero iD - Como funciona a assinatura digital"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+            </motion.div>
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
@@ -407,7 +453,7 @@ export default function Index() {
             <p className="text-lg md:text-xl text-gray-400 px-4">Proteja sua reputação e combata a desinformação com tecnologia comprovada</p>
           </motion.div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto auto-rows-fr">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto auto-rows-fr mb-12 md:mb-16">
             {[
               {
                 icon: Shield,
@@ -493,9 +539,137 @@ export default function Index() {
               </motion.div>
             ))}
           </div>
+          
+
         </div>
       </section>
       
+      {/* FAQ Section */}
+      <section className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden">
+        {/* Grid pattern background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10 pointer-events-none" />
+        
+        <div className="relative z-10 container mx-auto px-4 max-w-6xl">
+          <motion.div 
+            className="text-center mb-10 md:mb-16"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7 }}
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-4 tracking-tight px-4">
+              <span className="text-white">FAQ - </span>
+              <span className="bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Perguntas Frequentes</span>
+            </h2>
+            <p className="text-lg md:text-xl text-gray-400 px-4">Tire suas dúvidas sobre o Vero iD</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.2 }}
+          >
+            <div className="glass-card glass-noise p-6 md:p-8 rounded-2xl">
+              <div className="space-y-4">
+                {[
+                  {
+                    question: "O que é o Vero iD e como funciona?",
+                    answer: "O Vero iD é uma plataforma de certificação digital que permite assinar documentos eletronicamente com validade jurídica. Ao criar sua conta, você recebe uma assinatura digital única que garante a autenticidade e integridade dos documentos assinados. Cada assinatura é registrada com blockchain, tornando impossível a adulteração e permitindo a verificação pública da autenticidade."
+                  },
+                  {
+                    question: "Como posso verificar se um documento assinado com Vero iD é autêntico?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>Existem quatro formas simples de verificar:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Via QR Code:</strong> Escaneie o QR Code presente no documento certificado para verificar instantaneamente sua autenticidade</li>
+                          <li><strong>Via Código de Verificação:</strong> Acesse https://www.veroid.com.br/verify e insira o código único do documento para confirmar sua validade, data de emissão e informações do signatário.</li>
+                          <li><strong>Via Link Direto:</strong> Ao clicar no link compartilhado você será direcionado ao certificado completo contendo todas as informações pertinentes ao conteúdo publicado.</li>
+                          <li><strong>Via compartilhamento:</strong> É possível realizar o download do certificado completo e compartilhar com todos usuários.</li>
+                        </ul>
+                      </div>
+                    )
+                  },
+                  {
+                    question: "Meus documentos assinados têm validade jurídica?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>Sim! As assinaturas digitais realizadas através do Vero iD possuem validade jurídica conforme a legislação brasileira (MP 2.200-2/2001 e Lei 14.063/2020). Cada certificado é único, protegido por criptografia e registrado de forma imutável, garantindo:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Autenticidade:</strong> Confirma a identidade do signatário</li>
+                          <li><strong>Integridade:</strong> Garante que o documento não foi alterado após a assinatura</li>
+                          <li><strong>Não-repúdio:</strong> O signatário não pode negar que assinou o documento</li>
+                          <li><strong>Rastreabilidade:</strong> Todas as informações da assinatura ficam registradas permanentemente</li>
+                        </ul>
+                      </div>
+                    )
+                  },
+                  {
+                    question: "Como funciona a segurança dos meus dados e certificados?",
+                    answer: (
+                      <div className="space-y-3">
+                        <p>A segurança é nossa prioridade máxima. O Vero iD implementa múltiplas camadas de proteção:</p>
+                        <ul className="list-disc pl-5 space-y-2">
+                          <li><strong>Criptografia de ponta a ponta:</strong> Todos os dados são criptografados durante transmissão e armazenamento</li>
+                          <li><strong>Autenticação segura:</strong> Sistema robusto de login com proteção de senha</li>
+                          <li><strong>Backup automático:</strong> Seus certificados e documentos são armazenados de forma segura e redundante</li>
+                          <li><strong>Registro blockchain:</strong> Cada assinatura é registrada em blockchain, tornando impossível qualquer alteração posterior</li>
+                          <li><strong>Conformidade com LGPD:</strong> Seus dados pessoais são tratados de acordo com a Lei Geral de Proteção de Dados</li>
+                        </ul>
+                        <p className="mt-3">Além disso, você pode gerenciar suas configurações de segurança, incluir autenticação de dois fatores e controlar o acesso à sua conta através das configurações de perfil.</p>
+                      </div>
+                    )
+                  }
+                ].map((faq, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: shouldReduceMotion ? 0 : -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.5, delay: shouldReduceMotion ? 0 : index * 0.1 }}
+                  >
+                    <details className="group border-b border-white/10 pb-4 last:border-0">
+                      <summary className="flex items-center justify-between cursor-pointer py-4 text-left font-semibold text-white hover:text-cyan-400 transition-colors duration-200 list-none">
+                        <span className="text-base md:text-lg pr-4">{faq.question}</span>
+                        <svg 
+                          className="h-5 w-5 text-cyan-400 transition-transform duration-300 group-open:rotate-180 flex-shrink-0" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <div className="pt-2 pb-2 text-sm md:text-base text-gray-300 leading-relaxed">
+                        {typeof faq.answer === 'string' ? faq.answer : faq.answer}
+                      </div>
+                    </details>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.div 
+                className="mt-8 pt-6 border-t border-white/10 text-center"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.5 }}
+              >
+                <p className="text-gray-400 text-sm md:text-base mb-2">Ainda tem dúvidas?</p>
+                <a 
+                  href="mailto:contato@veroid.com.br"
+                  className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors duration-200"
+                >
+                  <Mail className="h-4 w-4" />
+                  Entre em contato pelo email contato@veroid.com.br
+                </a>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* CTA Final with Parallax */}
       <section ref={ctaRef} className="relative bg-gradient-to-br from-blue-950 via-purple-950 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Background glow with parallax */}
@@ -538,7 +712,7 @@ export default function Index() {
               animate={ctaInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
               transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.4, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              Junte-se aos criadores de conteúdo que já estão combatendo deepfakes e fake news com tecnologia de ponta
+              Use assinatura digital para transformar cada publicação em evidência irrefutável de autoria.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
@@ -578,7 +752,7 @@ export default function Index() {
         <div className="container mx-auto px-4 text-center text-gray-400">
           <p className="font-semibold text-white text-sm md:text-base">© {new Date().getFullYear()} Vero iD - Sistema de Autenticação Digital</p>
           <p className="text-xs md:text-sm mt-2">Combatendo desinformação através de criptografia avançada</p>
-          <div className="flex justify-center gap-4 mt-4 text-xs md:text-sm">
+          <div className="flex justify-center items-center gap-4 mt-4 text-xs md:text-sm flex-wrap">
             <button 
               onClick={() => navigate('/privacy')} 
               className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
@@ -587,18 +761,31 @@ export default function Index() {
             </button>
             <span className="text-gray-600">•</span>
             <button 
-              onClick={() => navigate('/cookies')} 
-              className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
-            >
-              Política de Cookies
-            </button>
-            <span className="text-gray-600">•</span>
-            <button 
               onClick={() => navigate('/terms')} 
               className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
             >
               Termos de Uso
             </button>
+            <span className="text-gray-600">•</span>
+            <a 
+              href="mailto:contato@veroid.com.br"
+              className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              contato@veroid.com.br
+            </a>
+            <span className="text-gray-600">•</span>
+            <a 
+              href="https://www.instagram.com/veroid.oficial/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 hover:underline transition-colors duration-200"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+              @veroid.oficial
+            </a>
           </div>
         </div>
       </motion.footer>
