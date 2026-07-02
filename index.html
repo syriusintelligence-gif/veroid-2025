@@ -11,15 +11,44 @@
   'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
   })(window,document,'script','dataLayer','GTM-P7KX8DNZ');</script>
   <!-- End Google Tag Manager -->
-  <link rel="icon" href="https://public-frontend-cos.metadl.com/mgx/img/favicon.png" type="image/png">
+  <!--
+    Favicons — servidos localmente (public/) para que WhatsApp, Telegram,
+    iMessage e outros clientes que leem <link rel="icon"> como fallback
+    peguem o ícone oficial do Vero iD, não um asset externo do template.
+  -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/og-image.png" type="image/png">
+  <link rel="apple-touch-icon" href="/og-image.png">
+
   <title>Vero iD - Sistema de Autenticação Digital</title>
-  <meta name="description" content="Combata deepfakes e fake news com assinaturas digitais verificáveis. Sistema de autenticação baseado em criptografia avançada." />
+  <meta name="description" content="Mantenha a sua reputação protegida contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea." />
   <meta name="author" content="Vero iD" />
   <meta name="keywords" content="autenticação digital, assinatura digital, deepfake, fake news, criptografia, segurança" />
 
+  <!--
+    Open Graph — usado por WhatsApp, Facebook, LinkedIn, Telegram, iMessage,
+    Discord, Slack e demais clientes que renderizam preview de link.
+    URLs em og:image e og:url são ABSOLUTAS por exigência do WhatsApp.
+  -->
+  <meta property="og:site_name" content="Vero iD" />
   <meta property="og:title" content="Vero iD - Sistema de Autenticação Digital" />
-  <meta property="og:description" content="Combata deepfakes e fake news com assinaturas digitais verificáveis" />
+  <meta property="og:description" content="Mantenha a sua reputação protegida contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea." />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.veroid.com.br" />
+  <meta property="og:image" content="https://www.veroid.com.br/og-image.png" />
+  <meta property="og:image:secure_url" content="https://www.veroid.com.br/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="Vero iD - Sistema de Autenticação Digital" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <!-- Twitter Card — preview em X/Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Vero iD - Sistema de Autenticação Digital" />
+  <meta name="twitter:description" content="Mantenha a sua reputação protegida contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea." />
+  <meta name="twitter:image" content="https://www.veroid.com.br/og-image.png" />
+  <meta name="twitter:image:alt" content="Vero iD - Sistema de Autenticação Digital" />
 
   <!-- Google Fonts - Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
