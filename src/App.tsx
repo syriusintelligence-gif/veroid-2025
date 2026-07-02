@@ -26,8 +26,10 @@ import ChangePassword from './pages/ChangePassword';
 import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import Pricing from './pages/Pricing';
 import EmailConfirmation from './pages/EmailConfirmation';
+import CookiePolicy from './pages/CookiePolicy';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import GTMRouteTracker from './components/analytics/GTMRouteTracker';
+import CookieConsentBanner from './components/CookieConsentBanner';
 import { Toaster } from '@/components/ui/toaster';
 
 // 🔒 CSRF Protection imports
@@ -345,6 +347,9 @@ function AppContent() {
       {/* GTM SPA pageview tracker - publica spa_pageview no dataLayer a cada navegação */}
       <GTMRouteTracker />
 
+      {/* Banner de Consentimento de Cookies (LGPD + Google Consent Mode v2) */}
+      <CookieConsentBanner />
+
       {/* Modal de Aviso de Timeout - ATIVADO */}
       <SessionTimeoutWarning
         isOpen={showTimeoutWarning}
@@ -363,6 +368,7 @@ function AppContent() {
         <Route path="/email-confirmation" element={<EmailConfirmation />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/cookies" element={<CookiePolicy />} />
         <Route path="/verify" element={<Verify />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/certificate" element={<Certificate />} />
