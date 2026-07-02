@@ -779,3 +779,191 @@ export function adaptAdminSignedContent(
     totalImages: row.total_images ?? undefined,
   };
 }
+
+/* ============================================================= */
+/* ===== Revenue Metrics (bloco "Receita e Faturamento") ======= */
+/* ============================================================= */
+/**
+ * Helpers para as RPCs `admin_revenue_metrics` e `admin_revenue_timeline`
+ * definidas em `supabase/sql/admin_revenue_metrics.sql`.
+ *
+ * IMPORTANTE:
+ *  - NÃO substituem nenhum helper existente.
+ *  - Só leem `subscriptions` e `billing_audit` (via RPCs SECURITY DEFINER).
+ *  - Em caso de erro devolvem estruturas vazias/seguras para a UI.
+ */
+
+export type AdminRevenueRange = 'this_month' | 'last_month' | 'last_90d' | 'this_year' | 'all';
+
+export interface AdminRevenueStatusBreakdownItem {
+  status: string;
+  total: number;
+}
+
+export interface AdminRevenueLtvItem {
+  plan_type: string;
+  price_cents: number;
+  avg_months: number;
+  sample_size: number;
+  ltv_cents: number | null;
+}
+
+export interface AdminRevenueRenewals30d {
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  window_days: number;
+}
+
+export interface AdminRevenuePayments {
+  processed: number;
+  failed: number;
+  refunded: number;
+}
+
+export interface AdminRevenuePlanChanges {
+  upgrades: number;
+  downgrades: number;
+  lateral: number;
+  scheduled_downgrades: number;
+}
+
+export interface AdminRevenueCoupons {
+  total_with_coupon: number;
+  total_discount_cents: number;
+  has_data: boolean;
+}
+
+export interface AdminRevenueMetricsResult {
+  range: AdminRevenueRange;
+  from: string | null;
+  to: string | null;
+  now: string | null;
+
+  mrr_cents: number;
+  arr_cents: number;
+  paying_users: number;
+  arpu_cents: number;
+
+  total_accum_cents: number;
+  revenue_range_cents: number;
+  revenue_prev_cents: number;
+  variation_pct: number | null;
+
+  status_breakdown: AdminRevenueStatusBreakdownItem[];
+  ltv_by_plan: AdminRevenueLtvItem[];
+  renewals_30d: AdminRevenueRenewals30d;
+  payments: AdminRevenuePayments;
+  plan_changes: AdminRevenuePlanChanges;
+  coupons: AdminRevenueCoupons;
+}
+
+export interface AdminRevenueTimelinePoint {
+  date: string;          // YYYY-MM-DD
+  revenue_cents: number;
+}
+
+const EMPTY_REVENUE_METRICS: AdminRevenueMetricsResult = {
+  range: 'this_month',
+  from: null,
+  to: null,
+  now: null,
+
+  mrr_cents: 0,
+  arr_cents: 0,
+  paying_users: 0,
+  arpu_cents: 0,
+
+  total_accum_cents: 0,
+  revenue_range_cents: 0,
+  revenue_prev_cents: 0,
+  variation_pct: null,
+
+  status_breakdown: [],
+  ltv_by_plan: [],
+  renewals_30d: { succeeded: 0, failed: 0, skipped: 0, window_days: 30 },
+  payments: { processed: 0, failed: 0, refunded: 0 },
+  plan_changes: { upgrades: 0, downgrades: 0, lateral: 0, scheduled_downgrades: 0 },
+  coupons: { total_with_coupon: 0, total_discount_cents: 0, has_data: false },
+};
+
+/**
+ * Métricas agregadas de receita para o AdminDashboard.
+ */
+export async function fetchAdminRevenueMetrics(
+  range: AdminRevenueRange = 'this_month'
+): Promise<AdminRevenueMetricsResult> {
+  console.log('📊 [admin-stats] fetchAdminRevenueMetrics()', { range });
+  const { data, error } = await supabase.rpc('admin_revenue_metrics', { p_range: range });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_revenue_metrics falhou:', error);
+    return { ...EMPTY_REVENUE_METRICS, range };
+  }
+
+  const p = (data ?? {}) as Partial<AdminRevenueMetricsResult>;
+  return {
+    range:                (p.range as AdminRevenueRange) ?? range,
+    from:                 p.from ?? null,
+    to:                   p.to ?? null,
+    now:                  p.now ?? null,
+
+    mrr_cents:            Number(p.mrr_cents ?? 0),
+    arr_cents:            Number(p.arr_cents ?? 0),
+    paying_users:         Number(p.paying_users ?? 0),
+    arpu_cents:           Number(p.arpu_cents ?? 0),
+
+    total_accum_cents:    Number(p.total_accum_cents ?? 0),
+    revenue_range_cents:  Number(p.revenue_range_cents ?? 0),
+    revenue_prev_cents:   Number(p.revenue_prev_cents ?? 0),
+    variation_pct:        p.variation_pct === null || p.variation_pct === undefined
+                            ? null
+                            : Number(p.variation_pct),
+
+    status_breakdown:     Array.isArray(p.status_breakdown) ? p.status_breakdown : [],
+    ltv_by_plan:          Array.isArray(p.ltv_by_plan) ? p.ltv_by_plan : [],
+    renewals_30d: {
+      succeeded:   Number(p.renewals_30d?.succeeded ?? 0),
+      failed:      Number(p.renewals_30d?.failed ?? 0),
+      skipped:     Number(p.renewals_30d?.skipped ?? 0),
+      window_days: Number(p.renewals_30d?.window_days ?? 30),
+    },
+    payments: {
+      processed: Number(p.payments?.processed ?? 0),
+      failed:    Number(p.payments?.failed ?? 0),
+      refunded:  Number(p.payments?.refunded ?? 0),
+    },
+    plan_changes: {
+      upgrades:             Number(p.plan_changes?.upgrades ?? 0),
+      downgrades:           Number(p.plan_changes?.downgrades ?? 0),
+      lateral:              Number(p.plan_changes?.lateral ?? 0),
+      scheduled_downgrades: Number(p.plan_changes?.scheduled_downgrades ?? 0),
+    },
+    coupons: {
+      total_with_coupon:    Number(p.coupons?.total_with_coupon ?? 0),
+      total_discount_cents: Number(p.coupons?.total_discount_cents ?? 0),
+      has_data:             Boolean(p.coupons?.has_data ?? false),
+    },
+  };
+}
+
+/**
+ * Série diária de receita (últimos N dias) para o mini-gráfico do card.
+ */
+export async function fetchAdminRevenueTimeline(
+  days: number = 30
+): Promise<AdminRevenueTimelinePoint[]> {
+  console.log('📊 [admin-stats] fetchAdminRevenueTimeline()', { days });
+  const { data, error } = await supabase.rpc('admin_revenue_timeline', { p_days: days });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_revenue_timeline falhou:', error);
+    return [];
+  }
+
+  if (!Array.isArray(data)) return [];
+  return (data as Array<Partial<AdminRevenueTimelinePoint>>).map(pt => ({
+    date:          String(pt.date ?? ''),
+    revenue_cents: Number(pt.revenue_cents ?? 0),
+  }));
+}

@@ -54,6 +54,7 @@ import ContentCard from '@/components/ContentCard';
 import PlanDistributionCard from '@/components/admin/PlanDistributionCard';
 import UsersRegisteredCard from '@/components/admin/UsersRegisteredCard';
 import EngagementMetricsCards from '@/components/admin/EngagementMetricsCards';
+import RevenueMetricsCard from '@/components/admin/RevenueMetricsCard';
 import { Badge } from '@/components/ui/badge';
 import {
   LineChart,
@@ -734,6 +735,9 @@ export default function AdminDashboard() {
 
         {/* Distribuição por Tipo de Plano (drilldown clicável) */}
         <PlanDistributionCard />
+
+        {/* Receita e Faturamento (MRR/ARR/ARPU/LTV/Renovações/Pagamentos/Cupons) */}
+        <RevenueMetricsCard />
 
         {/* Gráfico de Barras - Top 10 Usuários */}
         <Card className="mb-8">
