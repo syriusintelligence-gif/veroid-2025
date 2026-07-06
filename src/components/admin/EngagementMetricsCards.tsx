@@ -36,6 +36,7 @@ import {
   Users as UsersIcon,
   AlertTriangle,
   Calendar,
+  Download,
 } from 'lucide-react';
 import {
   fetchAdminTrialCycleStats,
@@ -206,19 +207,144 @@ function TrialDrilldownDialog({
 
   const hasMore = users.length < total;
 
+  /* ---------- CSV Export (feature aditiva) ----------
+   * Baixa TODOS os leads que casam com o filtro atual (dia + busca),
+   * não apenas a página visível. Faz 1 chamada com limit alto e
+   * gera um CSV compatível com Excel/Google Sheets diretamente no
+   * navegador. Não modifica nenhum estado da listagem.
+   */
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCSV = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      // Busca todos os leads que casam com o filtro atual (limit alto).
+      const result = await fetchAdminUsersInTrialDay(dayOfCycle, {
+        search: searchDebounced,
+        limit: 10000,
+        offset: 0,
+      });
+
+      const rows = result.items;
+      if (rows.length === 0) {
+        console.warn('[TrialDrilldown] Export CSV: nenhum lead para exportar.');
+        return;
+      }
+
+      // Cabeçalhos amigáveis (pt-BR)
+      const headers = [
+        'Nome Completo',
+        'Nome Público',
+        'Email',
+        'CPF/CNPJ',
+        'Telefone',
+        'Plano',
+        'Dia do Ciclo',
+        'Dias Restantes',
+        'Trial Início',
+        'Trial Fim',
+        'Cadastrado em',
+        'Verificado',
+        'Bloqueado',
+      ];
+
+      // Escapa um valor para CSV: envolve em aspas e duplica aspas internas
+      const escape = (val: unknown): string => {
+        if (val === null || val === undefined) return '""';
+        const s = String(val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+
+      const fmtDate = (iso: string | null | undefined): string => {
+        if (!iso) return '';
+        try {
+          return new Date(iso).toLocaleDateString('pt-BR');
+        } catch {
+          return '';
+        }
+      };
+
+      const lines = [
+        headers.map(escape).join(';'),
+        ...rows.map(u =>
+          [
+            u.nome_completo,
+            u.nome_publico,
+            u.email,
+            u.cpf_cnpj,
+            u.telefone,
+            getPlanName(u.plan_type),
+            u.day_of_cycle,
+            u.days_remaining,
+            fmtDate(u.trial_start),
+            fmtDate(u.trial_end),
+            fmtDate(u.created_at),
+            u.verified ? 'Sim' : 'Não',
+            u.blocked  ? 'Sim' : 'Não',
+          ]
+            .map(escape)
+            .join(';')
+        ),
+      ];
+
+      // BOM (\ufeff) para o Excel reconhecer acentos em UTF-8 corretamente.
+      const csvContent = '\ufeff' + lines.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      link.href = url;
+      link.download = `leads-em-trial-dia-${dayOfCycle}-${today}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('❌ [TrialDrilldown] Export CSV falhou:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [dayOfCycle, searchDebounced, isExporting]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-purple-600" />
-            Leads em trial — {bucketLabel}
-          </DialogTitle>
-          <DialogDescription>
-            {isLoading
-              ? 'Carregando...'
-              : `${users.length} de ${total} lead(s)${searchDebounced ? ' filtrado(s)' : ''}.`}
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-purple-600" />
+                Leads em trial — {bucketLabel}
+              </DialogTitle>
+              <DialogDescription>
+                {isLoading
+                  ? 'Carregando...'
+                  : `${users.length} de ${total} lead(s)${searchDebounced ? ' filtrado(s)' : ''}.`}
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={isExporting || isLoading || total === 0}
+              className="flex-shrink-0"
+              title="Baixa TODOS os leads que casam com o filtro atual (não apenas a página visível)"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </>
+              )}
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="relative">
