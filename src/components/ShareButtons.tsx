@@ -18,6 +18,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+// 🆕 Encurtador de URL usado APENAS no compartilhamento via WhatsApp.
+// Fallback silencioso: se o serviço falhar, `createShortUrl` já retorna a URL longa original.
+import { createShortUrl } from '@/lib/services/url-shortener';
 
 interface ShareButtonsProps {
   certificateUrl: string;
@@ -79,8 +82,21 @@ export default function ShareButtons({
     window.open(url, '_blank', 'width=600,height=400');
   };
   
-  const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(shareText);
+  const handleWhatsAppShare = async () => {
+    // 🆕 Encurta a URL SOMENTE para o WhatsApp (Opção C).
+    // Fluxo original preservado como fallback: qualquer falha volta a usar `certificateUrl`.
+    let urlToShare = certificateUrl;
+    try {
+      const shortUrl = await createShortUrl(certificateUrl);
+      if (shortUrl && typeof shortUrl === 'string') {
+        urlToShare = shortUrl;
+      }
+    } catch (err) {
+      console.error('[ShareButtons] Falha ao encurtar URL para WhatsApp, usando URL original:', err);
+    }
+
+    const whatsappText = `${title}\n\n${description}\n\nAcesse o conteúdo no link abaixo:\n${urlToShare}`;
+    const text = encodeURIComponent(whatsappText);
     const url = `https://wa.me/?text=${text}`;
     window.open(url, '_blank');
   };
