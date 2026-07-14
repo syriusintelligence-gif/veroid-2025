@@ -247,6 +247,9 @@ function TrialDrilldownDialog({
         'Cadastrado em',
         'Verificado',
         'Bloqueado',
+        // 🆕 Opt-in WhatsApp (LGPD) — coluna aditiva no CSV
+        'Opt-in WhatsApp',
+        'Opt-in WhatsApp em',
       ];
 
       // Escapa um valor para CSV: envolve em aspas e duplica aspas internas
@@ -282,6 +285,10 @@ function TrialDrilldownDialog({
             fmtDate(u.created_at),
             u.verified ? 'Sim' : 'Não',
             u.blocked  ? 'Sim' : 'Não',
+            // 🆕 Opt-in WhatsApp — mostra "Sim"/"Não" (default "Não" quando
+            //    o campo não vem, para ambientes sem a migração aplicada).
+            u.whatsapp_optin ? 'Sim' : 'Não',
+            fmtDate(u.whatsapp_optin_at),
           ]
             .map(escape)
             .join(';')

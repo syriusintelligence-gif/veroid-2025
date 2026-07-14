@@ -504,6 +504,10 @@ export interface AdminTrialUserRow {
   id: string;
   nome_completo: string;
   nome_publico: string;
+  // 🆕 Opt-in WhatsApp (LGPD). Opcionais para preservar compatibilidade
+  //    caso a RPC não retorne os campos (ambientes sem a migração aplicada).
+  whatsapp_optin?: boolean;
+  whatsapp_optin_at?: string | null;
   email: string;
   cpf_cnpj: string;
   telefone: string;
