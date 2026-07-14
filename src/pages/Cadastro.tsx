@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, Image, AlertCircle, XCircle, Eye, EyeOff, Mail } from 'lucide-react';
+import { Shield, ArrowLeft, Loader2, Upload, Camera, CheckCircle2, Image, AlertCircle, XCircle, Eye, EyeOff, Mail, MessageCircle, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerUser,
@@ -44,8 +44,17 @@ import { verifyAgeFromDocument, formatBirthDate } from '@/lib/age-verification';
 import { validateDocument as validateDocumentWithAI, formatValidationIssues } from '@/lib/document-validation';
 // 🤖 Gemini AI: Validação de selfie com IA
 import { validateSelfie, formatSelfieValidationIssues } from '@/lib/selfie-validation';
+// 📊 GTM: Instrumentação básica de tracking do funil de cadastro
+//    (form_start, form_step, sign_up, form_error) — Oportunidade 1
+import {
+  trackCadastroStart,
+  trackCadastroStep,
+  trackCadastroSuccess,
+  trackCadastroError,
+  CadastroStep,
+} from '@/lib/gtm-tracker';
 
-// Última atualização: 2026-04-25 07:41:43.284211 - Sistema de cadastro Vero iD
+// Última atualização: 2026-07-14 - Adiciona opt-in WhatsApp + tela intermediária de boas-vindas + GTM tracking
 
 
 
@@ -110,6 +119,13 @@ export default function Cadastro() {
   const [ageDeclarationAccepted, setAgeDeclarationAccepted] = useState(false);
   const [documentoHash, setDocumentoHash] = useState<string>('');
   const [fileValidationError, setFileValidationError] = useState<string>('');
+  // 🆕 Opt-in WhatsApp (LGPD) — checkbox opcional no Step 1
+  const [whatsappOptin, setWhatsappOptin] = useState(false);
+  // 🆕 Tela intermediária de boas-vindas entre Step 1 e Step 2.
+  //    Não é um novo `step` numerado porque não queremos criar conta
+  //    prematuramente (o trigger de trial no INSERT dispararia).
+  //    É apenas um overlay visual dentro do próprio step 1.
+  const [showWelcome, setShowWelcome] = useState(false);
   
   const [ageVerificationStatus, setAgeVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
   const [verifiedAge, setVerifiedAge] = useState<number | null>(null);
@@ -151,6 +167,14 @@ export default function Cadastro() {
       console.error('❌ [Cadastro] Erro ao obter CSRF token:', csrfError);
     }
   }, [csrfToken, csrfError]);
+  
+  // 📊 GTM: Dispara `form_start` no primeiro mount + step inicial "dados_pessoais".
+  //    Roda apenas uma vez — sem dependências dinâmicas — para não duplicar
+  //    o evento em re-renders. Nunca falha o app (o próprio tracker é defensivo).
+  useEffect(() => {
+    trackCadastroStart();
+    trackCadastroStep(1, CadastroStep.DADOS_PESSOAIS);
+  }, []);
   
   useEffect(() => {
     if (stream && videoRef.current && webcamActive) {
@@ -681,11 +705,33 @@ export default function Cadastro() {
     return true;
   };
   
+  // 🆕 Deriva o primeiro nome do "Nome Completo / Razão Social" para
+  //    personalizar a tela intermediária de boas-vindas (decisão e1 = SIM).
+  //    Se o campo estiver vazio ou for uma única palavra, retorna string
+  //    vazia — o componente cai no fallback genérico.
+  const getFirstName = (): string => {
+    const trimmed = nomeCompleto.trim();
+    if (!trimmed) return '';
+    return trimmed.split(/\s+/)[0];
+  };
+
   const handleNextStep = async () => {
     if (step === 1) {
       const isValid = await validateStep1();
       if (isValid) {
-        setStep(2);
+        // 🆕 Tela intermediária de boas-vindas (decisão a2 + c1):
+        //    exibe a mensagem "Perfeito! Seus dados foram salvos..." e
+        //    aguarda o usuário clicar em "Continuar cadastro" para avançar.
+        //    Registra o evento de tracking `form_step` = 2 / boas_vindas.
+        setShowWelcome(true);
+        trackCadastroStep(2, CadastroStep.BOAS_VINDAS);
+      } else {
+        // 📊 GTM: erro genérico na validação do Step 1
+        trackCadastroError({
+          stepNumber: 1,
+          stepName: CadastroStep.DADOS_PESSOAIS,
+          errorType: 'validation_failed',
+        });
       }
     } else if (step === 2 && validateStep2()) {
       // Verificação simplificada: apenas checkbox de declaração de maioridade
@@ -694,8 +740,26 @@ export default function Cadastro() {
       console.log('🤳 [CADASTRO] Selfie validada pela IA');
       console.log('✅ [CADASTRO] Declaração de maioridade aceita');
       
+      // 📊 GTM: avança para senha (step 4 conceitual: dados > boas-vindas > verificação > senha)
+      trackCadastroStep(4, CadastroStep.SENHA);
       setStep(3);
+    } else if (step === 2 && !validateStep2()) {
+      // 📊 GTM: erro genérico na validação do Step 2 (documento/idade)
+      trackCadastroError({
+        stepNumber: 3,
+        stepName: CadastroStep.VERIFICACAO,
+        errorType: 'validation_failed',
+      });
     }
+  };
+
+  // 🆕 Handler do botão "Continuar cadastro" da tela intermediária.
+  //    Sai da tela de boas-vindas e efetivamente entra no Step 2 (verificação).
+  const handleContinueFromWelcome = () => {
+    setShowWelcome(false);
+    // 📊 GTM: marca a transição para a etapa de verificação (step 3 conceitual)
+    trackCadastroStep(3, CadastroStep.VERIFICACAO);
+    setStep(2);
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -746,12 +810,24 @@ export default function Cadastro() {
           ...sanitizedData,
           documentoUrl,
           selfieUrl,
+          // 🆕 Repassa opt-in WhatsApp e declaração de maioridade para a
+          //    Edge Function persistir com auditoria LGPD completa
+          //    (timestamp + IP + user-agent). Se o usuário não marcou,
+          //    default é false — nenhuma coluna de auditoria é preenchida.
+          whatsappOptin,
+          ageDeclarationAccepted,
         },
         senha
       );
       
       if (!result.success) {
         setError('Não foi possível completar o cadastro. Verifique seus dados ou faça login se já possui conta.');
+        // 📊 GTM: registra o erro final (falha na criação da conta)
+        trackCadastroError({
+          stepNumber: 4,
+          stepName: CadastroStep.SENHA,
+          errorType: 'register_failed',
+        });
         setIsLoading(false);
         return;
       }
@@ -759,11 +835,26 @@ export default function Cadastro() {
       console.log('✅ Usuário registrado com sucesso!');
       console.log('🔄 Redirecionando para página de confirmação de email...');
       
+      // 📊 GTM: dispara evento de CONVERSÃO `sign_up` — este é o evento
+      //    que a agência de tráfego deve mapear como conversão no Google
+      //    Ads / Meta Ads / GA4. Payload contém apenas metadados agregados
+      //    (sem PII crua).
+      trackCadastroSuccess({
+        whatsappOptin,
+        ageDeclarationAccepted,
+      });
+
       navigate(`/email-confirmation?email=${encodeURIComponent(sanitizedData.email)}`);
       
     } catch (err) {
       console.error('❌ Erro ao criar conta:', err);
       setError('Não foi possível completar o cadastro. Tente novamente mais tarde.');
+      // 📊 GTM: erro crítico (exceção) na criação da conta
+      trackCadastroError({
+        stepNumber: 4,
+        stepName: CadastroStep.SENHA,
+        errorType: 'register_exception',
+      });
       setIsLoading(false);
     }
   };
@@ -830,7 +921,8 @@ export default function Cadastro() {
             <CardHeader>
               <CardTitle>Criar Conta</CardTitle>
               <CardDescription>
-                {step === 1 && 'Preencha seus dados pessoais'}
+                {step === 1 && !showWelcome && 'Preencha seus dados pessoais'}
+                {step === 1 && showWelcome && 'Dados recebidos com sucesso'}
                 {step === 2 && 'Verificação de identidade'}
                 {step === 3 && 'Crie uma senha segura'}
               </CardDescription>
@@ -863,7 +955,51 @@ export default function Cadastro() {
                 />
               )}
               
-              {step === 1 && (
+              {/* 🆕 Tela intermediária de boas-vindas (decisão a2 + c1 + e1).
+                   É renderizada DENTRO do Step 1 quando `showWelcome === true`,
+                   ao invés de criar um novo step numerado. Isso é intencional:
+                   nenhuma conta é criada ainda, então o trigger de trial do
+                   banco NÃO dispara prematuramente. O usuário volta ao Step 2
+                   real apenas ao clicar em "Continuar cadastro". */}
+              {step === 1 && showWelcome && (
+                <div className="space-y-6 py-4">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center shadow-inner">
+                      <PartyPopper className="h-10 w-10 text-green-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        {getFirstName()
+                          ? `Bem-vindo(a), ${getFirstName()}!`
+                          : 'Bem-vindo(a)!'}
+                      </h3>
+                      <p className="text-base text-gray-700 font-medium">
+                        Perfeito! Seus dados foram salvos.
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Falta pouco para você começar a assinar.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-900 text-sm">
+                      A seguir, vamos fazer uma verificação rápida de identidade e criar sua senha de acesso.
+                    </AlertDescription>
+                  </Alert>
+
+                  <Button
+                    onClick={handleContinueFromWelcome}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-6 text-base"
+                    disabled={isLoading}
+                  >
+                    Continuar cadastro
+                  </Button>
+                </div>
+              )}
+
+              {step === 1 && !showWelcome && (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="nomeCompleto">Nome Completo / Razão Social *</Label>
@@ -933,6 +1069,35 @@ export default function Cadastro() {
                     <p className="text-xs text-muted-foreground">
                       Apenas números brasileiros (DDD + número)
                     </p>
+                  </div>
+                  
+                  {/* 🆕 Opt-in WhatsApp (LGPD-friendly, opcional).
+                       Bloco visualmente distinto (verde WhatsApp) para
+                       transmitir confiança e destacar que é opcional.
+                       Toda a auditoria (timestamp + IP + user-agent) é
+                       gravada apenas se o checkbox for marcado. */}
+                  <div className="space-y-3 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="whatsappOptin"
+                        checked={whatsappOptin}
+                        onCheckedChange={(checked) => setWhatsappOptin(checked === true)}
+                        className="mt-0.5"
+                        disabled={isLoading}
+                      />
+                      <div className="space-y-1 flex-1">
+                        <Label
+                          htmlFor="whatsappOptin"
+                          className="text-sm font-semibold text-green-900 cursor-pointer flex items-center gap-2"
+                        >
+                          <MessageCircle className="h-4 w-4 text-green-700" />
+                          Aceite receber comunicações pelo WhatsApp <span className="text-xs font-normal text-green-700">(opcional)</span>
+                        </Label>
+                        <p className="text-xs text-green-800 leading-relaxed">
+                          Aceito receber comunicações do Vero iD pelo WhatsApp sobre novidades, atualizações e informações relevantes da minha conta. Posso cancelar a qualquer momento.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   
                   <Button 

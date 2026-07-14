@@ -65,6 +65,11 @@ export interface Database {
           is_admin: boolean;
           blocked: boolean;
           social_links: SocialLinks | null;
+          // 🆕 Opt-in WhatsApp (LGPD-compliant, 4 colunas: flag + timestamp + IP + user-agent)
+          whatsapp_optin?: boolean | null;
+          whatsapp_optin_at?: string | null;
+          whatsapp_optin_ip?: string | null;
+          whatsapp_optin_user_agent?: string | null;
         };
         Insert: {
           id?: string;
@@ -80,6 +85,11 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
+          // 🆕 Opt-in WhatsApp (LGPD-compliant)
+          whatsapp_optin?: boolean | null;
+          whatsapp_optin_at?: string | null;
+          whatsapp_optin_ip?: string | null;
+          whatsapp_optin_user_agent?: string | null;
         };
         Update: {
           id?: string;
@@ -95,6 +105,11 @@ export interface Database {
           is_admin?: boolean;
           blocked?: boolean;
           social_links?: SocialLinks | null;
+          // 🆕 Opt-in WhatsApp (LGPD-compliant)
+          whatsapp_optin?: boolean | null;
+          whatsapp_optin_at?: string | null;
+          whatsapp_optin_ip?: string | null;
+          whatsapp_optin_user_agent?: string | null;
         };
       };
       signed_contents: {

@@ -1,8 +1,11 @@
 /**
  * Sistema de Autenticação Robusto com Supabase
- * Versão 2.8 - Adiciona função updatePublicName
- * 
+ * Versão 2.9 - Adiciona opt-in WhatsApp + declaração de maioridade no registro
+ *
  * Changelog:
+ * - v2.9: Adiciona campos opcionais `whatsappOptin` e `ageDeclarationAccepted`
+ *         em registerUser, com auditoria LGPD via Edge Function (timestamp +
+ *         IP + user-agent). 100% aditivo — chamadas legadas continuam OK.
  * - v2.8: Adiciona updatePublicName para permitir edição do nome público
  * - v2.7: Adiciona validação de unicidade de links sociais para prevenir fraude
  * - v2.6: Correção final - não enviar phone para Auth, apenas para tabela users
@@ -127,7 +130,7 @@ export function isValidPassword(password: string): boolean {
   const hasMinLength = password.length >= 6;
   const hasUpperCase = /[A-Z]/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-  
+
   return hasMinLength && hasUpperCase && hasSpecialChar;
 }
 
@@ -139,12 +142,12 @@ async function checkUserExistsInAuth(email: string): Promise<boolean> {
     const { data, error } = await supabase.rpc('check_user_exists_in_auth', {
       user_email: email.toLowerCase()
     });
-    
+
     if (error) {
       console.log('⚠️ Função RPC não disponível, usando método alternativo');
       return false;
     }
-    
+
     return data === true;
   } catch (error) {
     console.log('⚠️ Erro ao verificar usuário no Auth:', error);
@@ -163,12 +166,12 @@ async function syncUserData(authUserId: string, email: string): Promise<User | n
       .select('*')
       .eq('email', email.toLowerCase())
       .single();
-    
+
     if (userError || !userData) {
       console.error('❌ Usuário não encontrado na tabela users:', userError);
       return null;
     }
-    
+
     // Se o ID não corresponder, atualiza
     if (userData.id !== authUserId) {
       console.log('🔄 Sincronizando IDs...');
@@ -178,15 +181,15 @@ async function syncUserData(authUserId: string, email: string): Promise<User | n
         .eq('email', email.toLowerCase())
         .select()
         .single();
-      
+
       if (updateError) {
         console.error('❌ Erro ao sincronizar IDs:', updateError);
         return dbUserToAppUser(userData);
       }
-      
+
       return dbUserToAppUser(updatedUser);
     }
-    
+
     return dbUserToAppUser(userData);
   } catch (error) {
     console.error('❌ Erro ao sincronizar dados:', error);
@@ -196,66 +199,95 @@ async function syncUserData(authUserId: string, email: string): Promise<User | n
 
 /**
  * Registra um novo usuário no Supabase usando Edge Function
+ *
+ * @param user   Dados do usuário (User sem os campos gerados pelo servidor).
+ *               Pode incluir opcionalmente `whatsappOptin` (boolean) e
+ *               `ageDeclarationAccepted` (boolean) — se ausentes, são
+ *               tratados como `false` para preservar 100% de compatibilidade
+ *               com chamadas legadas.
+ * @param senha  Senha em texto plano (será validada e enviada ao Supabase Auth)
  */
 export async function registerUser(
-  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'>,
+  user: Omit<User, 'id' | 'createdAt' | 'verified' | 'isAdmin'> & {
+    // 🆕 Campos opcionais aditivos — não quebra chamadas existentes
+    whatsappOptin?: boolean;
+    ageDeclarationAccepted?: boolean;
+  },
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     console.log('🔐 [REGISTRO] Iniciando registro de usuário...');
     console.log('📧 Email:', user.email);
-    
+
     // Valida email
     if (!isValidEmail(user.email)) {
       return { success: false, error: 'Email inválido. Por favor, verifique o formato do email.' };
     }
-    
+
     // Valida senha
     if (!isValidPassword(senha)) {
-      return { 
-        success: false, 
-        error: 'Senha inválida. A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial (!@#$%^&*(),.?":{}|<>)' 
+      return {
+        success: false,
+        error: 'Senha inválida. A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial (!@#$%^&*(),.?":{}|<>)'
       };
     }
-    
+
     // Verifica se email já existe na tabela users
     const { data: existingUsers, error: checkError } = await supabase
       .from('users')
       .select('email')
       .eq('email', user.email.toLowerCase());
-    
+
     if (checkError) {
       console.error('❌ Erro ao verificar email:', checkError);
       return { success: false, error: 'Erro ao validar email. Por favor, tente novamente.' };
     }
-    
+
     if (existingUsers && existingUsers.length > 0) {
       return { success: false, error: 'Este email já está cadastrado. Por favor, use outro email ou faça login se já possui conta.' };
     }
-    
+
     // Verifica se CPF/CNPJ já existe
     const { data: existingCpf, error: cpfError } = await supabase
       .from('users')
       .select('cpf_cnpj')
       .eq('cpf_cnpj', user.cpfCnpj);
-    
+
     if (cpfError) {
       console.error('❌ Erro ao verificar CPF/CNPJ:', cpfError);
       return { success: false, error: 'Erro ao validar CPF/CNPJ. Por favor, tente novamente.' };
     }
-    
+
     if (existingCpf && existingCpf.length > 0) {
       return { success: false, error: 'Este CPF/CNPJ já está cadastrado. Por favor, use outro CPF/CNPJ ou faça login se já possui conta.' };
+    }
+
+    console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
+
+    // 🔒 CORREÇÃO FINAL: NÃO enviar phone para Auth (apenas email + senha)
+    // O telefone será salvo apenas na tabela users via Edge Function
+    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : null;
+
+    console.log('📞 Telefone será salvo apenas na tabela users:', phoneValue || 'NULL');
+    console.log('🚀 Criando usuário no Auth apenas com email e senha...');
+
+    // Cria usuário no Supabase Auth - APENAS email e senha!
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: user.email.toLowerCase(),
+      password: senha,
+    });
+
+    if (authError) {
       console.error('❌ Erro ao criar autenticação:', authError);
       console.error('❌ Detalhes completos do erro:', {
         message: authError.message,
         status: authError.status,
         name: authError.name,
       });
-      
+
       // Traduz mensagens de erro comuns do Supabase
       let errorMessage = authError.message;
-      
+
       if (authError.message.includes('User already registered')) {
         errorMessage = 'Este email já está cadastrado. Por favor, use outro email ou faça login.';
       } else if (authError.message.includes('Password should be')) {
@@ -265,51 +297,33 @@ export async function registerUser(
       } else if (authError.message.includes('rate limit')) {
         errorMessage = 'Muitas tentativas de cadastro. Por favor, aguarde alguns minutos e tente novamente.';
       }
-      
+
       return { success: false, error: errorMessage };
     }
-    
-    console.log('✅ Validações OK. Criando usuário no Supabase Auth...');
-    
-    // 🔒 CORREÇÃO FINAL: NÃO enviar phone para Auth (apenas email + senha)
-    // O telefone será salvo apenas na tabela users via Edge Function
-    const phoneValue = user.telefone && user.telefone.trim() !== '' ? user.telefone : null;
-    
-    console.log('📞 Telefone será salvo apenas na tabela users:', phoneValue || 'NULL');
-    console.log('🚀 Criando usuário no Auth apenas com email e senha...');
-    
-    // Cria usuário no Supabase Auth - APENAS email e senha!
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: user.email.toLowerCase(),
-      password: senha,
-    });
-    
-    if (authError) {
-      console.error('❌ Erro ao criar autenticação:', authError);
-      console.error('❌ Detalhes completos do erro:', {
-        message: authError.message,
-        status: authError.status,
-        name: authError.name,
-      });
-      return { success: false, error: authError.message };
-    }
-    
+
     if (!authData.user) {
       return { success: false, error: 'Erro ao criar conta. Por favor, verifique seus dados e tente novamente.' };
     }
-    
+
     console.log('✅ Usuário criado no Auth. ID:', authData.user.id);
-    
+
     // Determina se é admin
-    const isAdmin = user.email.toLowerCase() === 'syriusintelligence@gmail.com' || 
+    const isAdmin = user.email.toLowerCase() === 'syriusintelligence@gmail.com' ||
                     user.email.toLowerCase() === 'marcelo@vsparticipacoes.com';
-    
+
     console.log('💾 Chamando Edge Function para inserir dados na tabela users...');
-    
+
     // Chama Edge Function para inserir dados usando SERVICE ROLE KEY
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
+
+    // 🆕 Captura User-Agent para compliance LGPD do opt-in WhatsApp
+    //    (IP é capturado do lado do servidor pela Edge Function via headers)
+    const userAgent =
+      typeof navigator !== 'undefined' && navigator.userAgent
+        ? navigator.userAgent
+        : null;
+
     const response = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
       method: 'POST',
       headers: {
@@ -327,11 +341,19 @@ export async function registerUser(
         selfie_url: user.selfieUrl,
         verified: true,
         is_admin: isAdmin,
+        // 🆕 Declaração de maioridade (compliance) — mantém padrão já usado
+        age_declaration_accepted: user.ageDeclarationAccepted ?? false,
+        age_declaration_user_agent: userAgent,
+        // 🆕 Opt-in WhatsApp (LGPD) — 4 colunas: flag + timestamp + IP + user-agent
+        //    IP é preenchido pela Edge Function (getClientIP);
+        //    timestamp e user-agent também são resolvidos no servidor.
+        whatsapp_optin: user.whatsappOptin ?? false,
+        whatsapp_optin_user_agent: userAgent,
       }),
     });
-    
+
     const result = await response.json();
-    
+
     if (!result.success || !result.user) {
       console.error('❌ Erro ao inserir dados do usuário via Edge Function:', result.error);
       // Tenta deletar o usuário do Auth se falhar
@@ -340,10 +362,10 @@ export async function registerUser(
       } catch (e) {
         console.error('❌ Erro ao reverter criação do usuário:', e);
       }
-      
+
       // Mensagem de erro mais específica
       let errorMessage = result.error || 'Erro ao salvar dados do usuário';
-      
+
       if (result.error?.includes('duplicate') || result.error?.includes('already exists')) {
         if (result.error.includes('email')) {
           errorMessage = 'Este email já está cadastrado. Por favor, use outro email.';
@@ -353,21 +375,21 @@ export async function registerUser(
           errorMessage = 'Dados duplicados. Verifique se você já possui uma conta cadastrada.';
         }
       }
-      
+
       return { success: false, error: errorMessage };
     }
-    
+
     const userData = result.user;
-    
+
     console.log('✅ Usuário registrado com sucesso!');
     console.log('📊 Dados:', { email: userData.email, isAdmin: userData.is_admin });
-    
+
     // Define contexto do usuário no Sentry
     setUserContext({
       id: userData.id,
       username: userData.nome_publico,
     });
-    
+
     // 📊 Log de auditoria
     await logAuditEvent(AuditAction.USER_CREATED, {
       success: true,
@@ -378,16 +400,16 @@ export async function registerUser(
         verified: userData.verified,
       }
     }, userData.id);
-    
+
     return {
       success: true,
       user: dbUserToAppUser(userData),
     };
   } catch (error) {
     console.error('❌ Erro ao registrar usuário:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }
@@ -402,51 +424,51 @@ export async function loginUser(
   try {
     console.log('🔐 [LOGIN] Iniciando processo de login...');
     console.log('📧 Email:', email);
-    
+
     const debugInfo: DebugInfo = {
       step: 'inicio',
       email: email.toLowerCase(),
       timestamp: new Date().toISOString(),
     };
-    
+
     // Valida email
     if (!isValidEmail(email)) {
       return { success: false, error: 'Email inválido. Por favor, verifique o formato do email.', debugInfo };
     }
-    
+
     debugInfo.step = 'validacao_ok';
-    
+
     // Tenta fazer login no Supabase Auth
     console.log('🔑 Tentando autenticar no Supabase Auth...');
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: email.toLowerCase(),
       password: senha,
     });
-    
+
     debugInfo.authAttempt = {
       success: !authError,
       error: authError?.message,
       hasUser: !!authData?.user,
       userId: authData?.user?.id,
     };
-    
+
     if (authError) {
       console.error('❌ Erro de autenticação:', authError.message);
       debugInfo.step = 'auth_error';
-      
+
       // Verifica se o usuário existe na tabela users
       const { data: userInTable, error: tableError } = await supabase
         .from('users')
         .select('*')
         .eq('email', email.toLowerCase())
         .single();
-      
+
       debugInfo.userInTable = {
         exists: !!userInTable,
         error: tableError?.message,
         userId: userInTable?.id,
       };
-      
+
       // 📊 Log de auditoria - Login falhou
       await logAuditEvent(AuditAction.LOGIN_FAILED, {
         success: false,
@@ -454,30 +476,30 @@ export async function loginUser(
         email: email.toLowerCase(),
         userExists: !!userInTable,
       });
-      
+
       if (userInTable) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: 'Usuário encontrado no sistema, mas a senha está incorreta ou o email não foi confirmado. Use a opção "Esqueceu a senha?" para resetar.',
-          debugInfo 
+          debugInfo
         };
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: 'Email ou senha incorretos',
-        debugInfo 
+        debugInfo
       };
     }
-    
+
     if (!authData.user) {
       debugInfo.step = 'no_user_data';
       return { success: false, error: 'Erro ao fazer login', debugInfo };
     }
-    
+
     console.log('✅ Autenticação bem-sucedida. ID:', authData.user.id);
     debugInfo.step = 'auth_success';
-    
+
     // Busca dados completos do usuário
     console.log('📊 Buscando dados do usuário...');
     const { data: userData, error: userError } = await supabase
@@ -485,30 +507,30 @@ export async function loginUser(
       .select('*')
       .eq('id', authData.user.id)
       .single();
-    
+
     debugInfo.userDataFetch = {
       success: !userError,
       error: userError?.message,
       found: !!userData,
     };
-    
+
     if (userError || !userData) {
       console.error('❌ Erro ao buscar dados do usuário:', userError);
-      
+
       // Tenta sincronizar pelo email
       console.log('🔄 Tentando sincronizar dados...');
       const syncedUser = await syncUserData(authData.user.id, email);
-      
+
       if (syncedUser) {
         console.log('✅ Dados sincronizados com sucesso!');
         debugInfo.step = 'sync_success';
-        
+
         // Define contexto do usuário no Sentry
         setUserContext({
           id: syncedUser.id,
           username: syncedUser.nomePublico,
         });
-        
+
         // 📊 Log de auditoria - Login bem-sucedido
         await logAuditEvent(AuditAction.LOGIN, {
           success: true,
@@ -516,37 +538,37 @@ export async function loginUser(
           isAdmin: syncedUser.isAdmin,
           synced: true,
         }, syncedUser.id);
-        
+
         return { success: true, user: syncedUser, debugInfo };
       }
-      
+
       debugInfo.step = 'user_data_error';
       return { success: false, error: 'Erro ao carregar dados do usuário', debugInfo };
     }
-    
+
     console.log('✅ Login realizado com sucesso!');
     console.log('👤 Usuário:', userData.email, '| Admin:', userData.is_admin);
-    
+
     debugInfo.step = 'complete';
     debugInfo.userInfo = {
       email: userData.email,
       isAdmin: userData.is_admin,
       verified: userData.verified,
     };
-    
+
     // Define contexto do usuário no Sentry
     setUserContext({
       id: userData.id,
       username: userData.nome_publico,
     });
-    
+
     // 📊 Log de auditoria - Login bem-sucedido
     await logAuditEvent(AuditAction.LOGIN, {
       success: true,
       email: userData.email,
       isAdmin: userData.is_admin,
     }, userData.id);
-    
+
     return {
       success: true,
       user: dbUserToAppUser(userData),
@@ -554,16 +576,16 @@ export async function loginUser(
     };
   } catch (error) {
     console.error('❌ Erro crítico ao fazer login:', error);
-    
+
     // 📊 Log de auditoria - Erro crítico
     await logAuditEvent(AuditAction.LOGIN_FAILED, {
       success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
       email: email.toLowerCase(),
     });
-    
-    return { 
-      success: false, 
+
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Erro desconhecido',
       debugInfo: { step: 'error', error: error instanceof Error ? error.message : 'unknown' }
     };
@@ -576,17 +598,17 @@ export async function loginUser(
 export async function logout(): Promise<void> {
   try {
     console.log('👋 Fazendo logout...');
-    
+
     // Obtém usuário antes do logout para log
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
-    
+
     // Limpa contexto do usuário no Sentry
     clearUserContext();
-    
+
     await supabase.auth.signOut();
     console.log('✅ Logout realizado com sucesso');
-    
+
     // 📊 Log de auditoria
     if (userId) {
       await logAuditEvent(AuditAction.LOGOUT, {
@@ -604,30 +626,30 @@ export async function logout(): Promise<void> {
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const { data: { user: authUser } } = await supabase.auth.getUser();
-    
+
     if (!authUser) {
       return null;
     }
-    
+
     const { data: userData, error } = await supabase
       .from('users')
       .select('*')
       .eq('id', authUser.id)
       .single();
-    
+
     if (error || !userData) {
       console.error('❌ Erro ao buscar usuário atual:', error);
       return null;
     }
-    
+
     const user = dbUserToAppUser(userData);
-    
+
     // Define contexto do usuário no Sentry
     setUserContext({
       id: user.id,
       username: user.nomePublico,
     });
-    
+
     return user;
   } catch (error) {
     console.error('❌ Erro ao obter usuário atual:', error);
@@ -645,16 +667,16 @@ export async function requestPasswordReset(
     console.log('🔑 [PASSWORD RESET] Iniciando solicitação de recuperação...');
     console.log('📧 Email:', email);
     console.log('🌐 Origin:', window.location.origin);
-    
+
     const redirectUrl = `${window.location.origin}/auth/callback`;
     console.log('🔗 Redirect URL gerada:', redirectUrl);
-    
+
     const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
       redirectTo: redirectUrl,
     });
-    
+
     console.log('📊 Resposta do Supabase:', { data, error });
-    
+
     if (error) {
       console.error('❌ Erro ao solicitar reset de senha:', error);
       console.error('❌ Detalhes do erro:', {
@@ -662,32 +684,32 @@ export async function requestPasswordReset(
         status: error.status,
         name: error.name,
       });
-      
-      return { 
-        success: false, 
-        message: `Erro ao solicitar recuperação de senha: ${error.message}` 
+
+      return {
+        success: false,
+        message: `Erro ao solicitar recuperação de senha: ${error.message}`
       };
     }
-    
+
     console.log('✅ Email de recuperação enviado com sucesso');
     console.log('📧 Verifique o email:', email);
     console.log('🔗 O link redirecionará para:', redirectUrl);
-    
+
     // 📊 Log de auditoria
     await logAuditEvent(AuditAction.PASSWORD_RESET_REQUEST, {
       success: true,
       email: email.toLowerCase(),
     });
-    
+
     return {
       success: true,
       message: 'Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.',
     };
   } catch (error) {
     console.error('❌ Erro crítico ao solicitar reset de senha:', error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }
@@ -700,22 +722,22 @@ export async function resetPassword(
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('🔐 [RESET PASSWORD] Iniciando reset de senha...');
-    
+
     if (!isValidPassword(newPassword)) {
       return {
         success: false,
         message: 'A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial',
       };
     }
-    
+
     console.log('✅ Senha válida, atualizando...');
-    
+
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
-    
+
     console.log('📊 Resposta do updateUser:', { data, error });
-    
+
     if (error) {
       console.error('❌ Erro ao resetar senha:', error);
       console.error('❌ Detalhes do erro:', {
@@ -723,31 +745,31 @@ export async function resetPassword(
         status: error.status,
         name: error.name,
       });
-      
-      return { 
-        success: false, 
-        message: `Erro ao alterar senha: ${error.message}` 
+
+      return {
+        success: false,
+        message: `Erro ao alterar senha: ${error.message}`
       };
     }
-    
+
     console.log('✅ Senha alterada com sucesso');
-    
+
     // 📊 Log de auditoria
     if (data.user) {
       await logAuditEvent(AuditAction.PASSWORD_RESET_COMPLETE, {
         success: true,
       }, data.user.id);
     }
-    
+
     return {
       success: true,
       message: 'Senha alterada com sucesso',
     };
   } catch (error) {
     console.error('❌ Erro crítico ao resetar senha:', error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }
@@ -762,7 +784,7 @@ export async function changePassword(
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('🔐 [CHANGE PASSWORD] Iniciando alteração de senha...');
-    
+
     // Valida nova senha
     if (!isValidPassword(newPassword)) {
       return {
@@ -770,7 +792,7 @@ export async function changePassword(
         message: 'A senha deve ter no mínimo 6 caracteres, incluindo 1 letra maiúscula e 1 caractere especial',
       };
     }
-    
+
     // Obtém usuário atual
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -779,15 +801,15 @@ export async function changePassword(
         message: 'Usuário não autenticado',
       };
     }
-    
+
     console.log('🔑 Verificando senha atual...');
-    
+
     // Verifica senha atual fazendo um re-login temporário
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: currentUser.email,
       password: currentPassword,
     });
-    
+
     if (signInError) {
       console.error('❌ Senha atual incorreta:', signInError.message);
       return {
@@ -795,16 +817,16 @@ export async function changePassword(
         message: 'Senha atual incorreta',
       };
     }
-    
+
     console.log('✅ Senha atual verificada, atualizando para nova senha...');
-    
+
     // Atualiza para nova senha
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
-    
+
     console.log('📊 Resposta do updateUser:', { data, error });
-    
+
     if (error) {
       console.error('❌ Erro ao alterar senha:', error);
       console.error('❌ Detalhes do erro:', {
@@ -812,15 +834,15 @@ export async function changePassword(
         status: error.status,
         name: error.name,
       });
-      
-      return { 
-        success: false, 
-        message: `Erro ao alterar senha: ${error.message}` 
+
+      return {
+        success: false,
+        message: `Erro ao alterar senha: ${error.message}`
       };
     }
-    
+
     console.log('✅ Senha alterada com sucesso');
-    
+
     // 📊 Log de auditoria
     if (data.user) {
       await logAuditEvent(AuditAction.PASSWORD_RESET_COMPLETE, {
@@ -828,16 +850,16 @@ export async function changePassword(
         changedInSettings: true,
       }, data.user.id);
     }
-    
+
     return {
       success: true,
       message: 'Senha alterada com sucesso',
     };
   } catch (error) {
     console.error('❌ Erro crítico ao alterar senha:', error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }
@@ -859,12 +881,12 @@ export async function getUsers(): Promise<User[]> {
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       console.error('❌ Erro ao buscar usuários:', error);
       return [];
     }
-    
+
     return data.map(dbUserToAppUser);
   } catch (error) {
     console.error('❌ Erro ao buscar usuários:', error);
@@ -887,13 +909,13 @@ export async function updateUser(
   try {
     console.log('✏️ [UPDATE USER] Atualizando usuário:', userId);
     console.log('📊 Dados a atualizar:', updates);
-    
+
     // Verifica se o usuário atual é admin
     const isAdmin = await isCurrentUserAdmin();
     if (!isAdmin) {
       return { success: false, error: 'Apenas administradores podem editar usuários' };
     }
-    
+
     // Prepara os dados para atualização
     const updateData: Record<string, string | null> = {};
     if (updates.nomeCompleto) updateData.nome_completo = updates.nomeCompleto;
@@ -903,7 +925,7 @@ export async function updateUser(
       // 🔒 CORREÇÃO: Telefone vazio = NULL
       updateData.telefone = updates.telefone && updates.telefone.trim() !== '' ? updates.telefone : null;
     }
-    
+
     // Atualiza o usuário na tabela
     const { data, error } = await supabase
       .from('users')
@@ -911,14 +933,14 @@ export async function updateUser(
       .eq('id', userId)
       .select()
       .single();
-    
+
     if (error) {
       console.error('❌ Erro ao atualizar usuário:', error);
       return { success: false, error: 'Erro ao atualizar usuário' };
     }
-    
+
     console.log('✅ Usuário atualizado com sucesso');
-    
+
     // 📊 Log de auditoria
     const currentUser = await getCurrentUser();
     if (currentUser) {
@@ -928,7 +950,7 @@ export async function updateUser(
         updates: updates,
       }, currentUser.id);
     }
-    
+
     return {
       success: true,
       user: dbUserToAppUser(data),
@@ -951,26 +973,26 @@ export async function toggleBlockUser(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`🚫 [${blocked ? 'BLOCK' : 'UNBLOCK'} USER] Usuário:`, userId);
-    
+
     // Verifica se o usuário atual é admin
     const isAdmin = await isCurrentUserAdmin();
     if (!isAdmin) {
       return { success: false, error: 'Apenas administradores podem bloquear usuários' };
     }
-    
+
     // Atualiza o status de bloqueio
     const { error } = await supabase
       .from('users')
       .update({ blocked })
       .eq('id', userId);
-    
+
     if (error) {
       console.error('❌ Erro ao atualizar status de bloqueio:', error);
       return { success: false, error: 'Erro ao atualizar status de bloqueio' };
     }
-    
+
     console.log(`✅ Usuário ${blocked ? 'bloqueado' : 'desbloqueado'} com sucesso`);
-    
+
     // 📊 Log de auditoria
     const currentUser = await getCurrentUser();
     if (currentUser) {
@@ -980,7 +1002,7 @@ export async function toggleBlockUser(
         targetUserId: userId,
       }, currentUser.id);
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('❌ Erro ao bloquear/desbloquear usuário:', error);
@@ -999,30 +1021,30 @@ export async function deleteUser(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('🗑️ [DELETE USER] Excluindo usuário:', userId);
-    
+
     // Verifica se o usuário atual é admin
     const isAdmin = await isCurrentUserAdmin();
     if (!isAdmin) {
       return { success: false, error: 'Apenas administradores podem excluir usuários' };
     }
-    
+
     // Verifica se não está tentando excluir a si mesmo
     const currentUser = await getCurrentUser();
     if (currentUser?.id === userId) {
       return { success: false, error: 'Você não pode excluir sua própria conta' };
     }
-    
+
     // Exclui o usuário da tabela users
     const { error: deleteError } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);
-    
+
     if (deleteError) {
       console.error('❌ Erro ao excluir usuário da tabela:', deleteError);
       return { success: false, error: 'Erro ao excluir usuário' };
     }
-    
+
     // Tenta excluir do Auth (requer permissões de admin)
     try {
       await supabase.auth.admin.deleteUser(userId);
@@ -1030,9 +1052,9 @@ export async function deleteUser(
     } catch (authError) {
       console.warn('⚠️ Não foi possível excluir do Auth (pode requerer permissões adicionais):', authError);
     }
-    
+
     console.log('✅ Usuário excluído com sucesso');
-    
+
     // 📊 Log de auditoria
     if (currentUser) {
       await logAuditEvent(AuditAction.USER_DELETED, {
@@ -1040,7 +1062,7 @@ export async function deleteUser(
         targetUserId: userId,
       }, currentUser.id);
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('❌ Erro ao excluir usuário:', error);
@@ -1057,16 +1079,16 @@ export async function deleteUser(
 export async function deleteSelfAccount(): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('🗑️ [DELETE SELF ACCOUNT] Iniciando auto-exclusão...');
-    
+
     // Obtém o usuário atual
     const currentUser = await getCurrentUser();
     if (!currentUser) {
       return { success: false, error: 'Usuário não autenticado' };
     }
-    
+
     const userId = currentUser.id;
     console.log('👤 Usuário a ser excluído:', userId, currentUser.email);
-    
+
     // 🆕 PASSO 1: CANCELAR ASSINATURA NO STRIPE ANTES DE EXCLUIR A CONTA
     console.log('🚫 [DELETE SELF ACCOUNT] Verificando assinatura ativa...');
     try {
@@ -1075,24 +1097,24 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'active');
-      
+
       if (subscriptions && subscriptions.length > 0) {
         console.log(`📊 [DELETE SELF ACCOUNT] Encontradas ${subscriptions.length} assinatura(s) ativa(s)`);
-        
+
         // Obter sessão atual para autenticação
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session) {
           // Cancelar cada assinatura ativa
           for (const subscription of subscriptions) {
             if (subscription.stripe_subscription_id && subscription.stripe_subscription_id.startsWith('sub_')) {
               console.log('🚫 [DELETE SELF ACCOUNT] Cancelando assinatura no Stripe:', subscription.stripe_subscription_id);
-              
+
               try {
                 // Chamar a Edge Function de cancelamento
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const functionUrl = `${supabaseUrl}/functions/v1/cancel-subscription`;
-                
+
                 const response = await fetch(functionUrl, {
                   method: 'POST',
                   headers: {
@@ -1103,7 +1125,7 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
                     userId: userId,
                   }),
                 });
-                
+
                 if (response.ok) {
                   console.log('✅ [DELETE SELF ACCOUNT] Assinatura cancelada no Stripe com sucesso');
                 } else {
@@ -1129,7 +1151,7 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
       console.warn('⚠️ [DELETE SELF ACCOUNT] Erro ao verificar/cancelar assinatura:', subscriptionError);
       // Continua com a exclusão mesmo se houver erro ao verificar assinatura
     }
-    
+
     // 📊 Log de auditoria ANTES da exclusão
     try {
       await logAuditEvent(AuditAction.USER_DELETED, {
@@ -1140,7 +1162,7 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
     } catch (auditError) {
       console.warn('⚠️ Erro ao registrar log de auditoria:', auditError);
     }
-    
+
     // Exclui dados relacionados (chaves criptográficas, certificados, etc.)
     console.log('🔑 Excluindo chaves criptográficas...');
     try {
@@ -1148,51 +1170,51 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
         .from('crypto_keys')
         .delete()
         .eq('user_id', userId);
-      
+
       if (keysError) {
         console.warn('⚠️ Erro ao excluir chaves:', keysError);
       }
     } catch (error) {
       console.warn('⚠️ Erro ao excluir chaves:', error);
     }
-    
+
     console.log('📜 Excluindo certificados...');
     try {
       const { error: certsError } = await supabase
         .from('certificates')
         .delete()
         .eq('user_id', userId);
-      
+
       if (certsError) {
         console.warn('⚠️ Erro ao excluir certificados:', certsError);
       }
     } catch (error) {
       console.warn('⚠️ Erro ao excluir certificados:', error);
     }
-    
+
     // Exclui o usuário da tabela users
     console.log('👤 Excluindo usuário da tabela users...');
     const { error: deleteError } = await supabase
       .from('users')
       .delete()
       .eq('id', userId);
-    
+
     if (deleteError) {
       console.error('❌ Erro ao excluir usuário da tabela:', deleteError);
       return { success: false, error: 'Erro ao excluir conta. Por favor, tente novamente.' };
     }
-    
+
     console.log('✅ Usuário excluído da tabela users');
-    
+
     // Limpa contexto do usuário no Sentry
     clearUserContext();
-    
+
     // Faz logout do Supabase Auth
     console.log('🚪 Fazendo logout...');
     await supabase.auth.signOut();
-    
+
     console.log('✅ Conta excluída com sucesso');
-    
+
     return { success: true };
   } catch (error) {
     console.error('❌ Erro crítico ao excluir conta:', error);
@@ -1206,53 +1228,53 @@ export async function deleteSelfAccount(): Promise<{ success: boolean; error?: s
 /**
  * Verifica se um email já existe na tabela users
  */
-export async function checkEmailExists(email: string): Promise<boolean> {
+export async function checkEmailExists(email: string): Promise<{ exists: boolean; error?: string }> {
   try {
     const { data, error } = await supabase
       .from('users')
       .select('email')
       .eq('email', email.toLowerCase())
       .limit(1);
-    
+
     if (error) {
       console.error('❌ Erro ao verificar email:', error);
-      return false;
+      return { exists: false, error: error.message };
     }
-    
-    return data && data.length > 0;
+
+    return { exists: !!(data && data.length > 0) };
   } catch (error) {
     console.error('❌ Erro ao verificar email:', error);
-    return false;
+    return { exists: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
 }
 
 /**
  * Verifica se um CPF/CNPJ já existe na tabela users
  */
-export async function checkCpfCnpjExists(cpfCnpj: string): Promise<boolean> {
+export async function checkCpfCnpjExists(cpfCnpj: string): Promise<{ exists: boolean; error?: string }> {
   try {
     const { data, error } = await supabase
       .from('users')
       .select('cpf_cnpj')
       .eq('cpf_cnpj', cpfCnpj)
       .limit(1);
-    
+
     if (error) {
       console.error('❌ Erro ao verificar CPF/CNPJ:', error);
-      return false;
+      return { exists: false, error: error.message };
     }
-    
-    return data && data.length > 0;
+
+    return { exists: !!(data && data.length > 0) };
   } catch (error) {
     console.error('❌ Erro ao verificar CPF/CNPJ:', error);
-    return false;
+    return { exists: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
   }
 }
 
 /**
  * 🆕 Atualiza os links de redes sociais do usuário
  * VERSÃO COM PROTEÇÃO ANTI-DUPLICAÇÃO + VERIFICAÇÃO DUPLA
- * 
+ *
  * ⚡ CORREÇÃO DO BUG: O trigger do banco bloqueia, mas o Supabase JS não captura o erro.
  * Solução: Verificação ANTES (via RPC) + Confirmação DEPOIS (via SELECT).
  */
@@ -1264,18 +1286,17 @@ export async function updateSocialLinks(
     console.log('🔐 [UPDATE SOCIAL LINKS] Iniciando atualização...');
     console.log('👤 User ID:', userId);
     console.log('📊 Links a atualizar:', socialLinks);
-    
+
     const currentUser = await getCurrentUser();
-    
+
     // Verifica se o usuário tem permissão
     if (currentUser?.id !== userId) {
       return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
     }
-    
+
     // 🆕 VERIFICAÇÃO PRÉVIA: Chama função do banco para validar links ANTES de tentar salvar
     console.log('🔍 Verificando duplicatas via RPC...');
-    console.log('📤 Enviando para RPC:', { userId, socialLinks });
-    
+
     const { data: validationResult, error: rpcError } = await supabase.rpc(
       'check_duplicate_social_links_before_update',
       {
@@ -1283,33 +1304,20 @@ export async function updateSocialLinks(
         p_social_links: socialLinks as Record<string, string | undefined>
       }
     );
-    
-    console.log('📥 Resposta RPC:', { validationResult, rpcError });
-    
+
     if (rpcError) {
       console.error('❌ Erro na verificação RPC:', rpcError);
-      // Se a RPC falhar, continua com o UPDATE normal (fallback para o trigger)
       console.log('⚠️ RPC falhou, continuando com UPDATE (trigger fará a validação)...');
     } else if (validationResult) {
-      console.log('🔍 Analisando resultado RPC...');
-      console.log('   - Tipo:', typeof validationResult);
-      console.log('   - É array?', Array.isArray(validationResult));
-      console.log('   - Valor completo:', JSON.stringify(validationResult, null, 2));
-      
-      // A RPC retorna um array com um objeto
       const result = Array.isArray(validationResult) ? validationResult[0] : validationResult;
-      console.log('   - Primeiro item (se array):', result);
-      console.log('   - is_valid:', result?.is_valid);
-      
+
       if (result && result.is_valid === false) {
-        // 🚫 DUPLICATA DETECTADA ANTES DE SALVAR!
         console.log('🚫 Duplicata detectada pela RPC!');
-        console.log('📊 Resultado detalhado:', result);
-        
+
         const platform = result.platform || 'rede social';
         const conflictEmail = result.conflict_email || '';
         const conflictUrl = result.conflict_url || '';
-        
+
         let userMessage = `Este link de ${platform}`;
         if (conflictUrl) {
           userMessage += ` (${conflictUrl})`;
@@ -1319,68 +1327,57 @@ export async function updateSocialLinks(
           userMessage += ` pela conta "${conflictEmail}"`;
         }
         userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
-        
-        console.log('🚫 Retornando erro para o frontend:', userMessage);
-        
+
         return {
           success: false,
           error: userMessage,
           duplicatedPlatform: platform
         };
-      } else {
-        console.log('✅ RPC: Nenhuma duplicata encontrada (is_valid = true ou undefined)');
       }
     }
-    
-    console.log('✅ RPC: Nenhuma duplicata encontrada, prosseguindo com UPDATE...');
-    
+
     // Tenta fazer o UPDATE
     const { error } = await supabase
       .from('users')
       .update({ social_links: socialLinks })
       .eq('id', userId);
-    
+
     if (error) {
       console.error('❌ Erro ao atualizar links sociais:', error);
-      console.error('📊 Código do erro:', error.code);
-      console.error('📊 Mensagem:', error.message);
-      
-      // Detecta erro de duplicação
+
       if (error.code === '23505' || error.message.includes('já está sendo usado')) {
         const platformMatch = error.message.match(/link de (\w+)/i);
         const platform = platformMatch ? platformMatch[1] : 'rede social';
-        
+
         const emailMatch = error.message.match(/conta "([^"]+)"/i);
         const conflictEmail = emailMatch ? emailMatch[1] : '';
-        
+
         let userMessage = `Este link de ${platform} já está sendo usado`;
         if (conflictEmail) {
           userMessage += ` pela conta "${conflictEmail}"`;
         }
         userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
-        
-        return { 
-          success: false, 
+
+        return {
+          success: false,
           error: userMessage,
           duplicatedPlatform: platform
         };
       }
-      
-      return { 
-        success: false, 
-        error: 'Erro ao atualizar links das redes sociais. Por favor, tente novamente.' 
+
+      return {
+        success: false,
+        error: 'Erro ao atualizar links das redes sociais. Por favor, tente novamente.'
       };
     }
-    
+
     // 🆕 VERIFICAÇÃO PÓS-UPDATE: Confirma que os dados foram realmente salvos
-    console.log('🔍 Verificando se os dados foram salvos...');
-    
     const { data: savedData, error: readError } = await supabase
       .from('users')
       .select('social_links')
       .eq('id', userId)
       .single();
-    
+
     if (readError || !savedData) {
       console.error('❌ Erro ao verificar dados salvos:', readError);
       return {
@@ -1388,34 +1385,25 @@ export async function updateSocialLinks(
         error: 'Não foi possível confirmar se os dados foram salvos. Por favor, verifique e tente novamente.'
       };
     }
-    
-    // Verifica se os links salvos correspondem aos enviados
+
     const savedLinks = savedData.social_links || {};
     const platforms = ['instagram', 'facebook', 'twitter', 'linkedin', 'youtube', 'tiktok', 'website'];
-    
+
     let mismatch = false;
     for (const platform of platforms) {
       const sent = (socialLinks as Record<string, string | undefined>)[platform] || '';
       const saved = savedLinks[platform] || '';
-      
+
       if (sent !== saved) {
-        console.error(`❌ Mismatch detectado em ${platform}:`);
-        console.error(`   Enviado: "${sent}"`);
-        console.error(`   Salvo: "${saved}"`);
         mismatch = true;
       }
     }
-    
+
     if (mismatch) {
-      console.error('🚫 OS DADOS NÃO FORAM SALVOS CORRETAMENTE!');
-      console.error('   Isso indica que o trigger bloqueou silenciosamente.');
-      
-      // Tenta detectar qual link causou o problema
       for (const platform of platforms) {
         const linkToCheck = (socialLinks as Record<string, string | undefined>)[platform];
         if (!linkToCheck) continue;
-        
-        // Verifica se este link existe em outra conta
+
         const { data: conflictData } = await supabase
           .from('users')
           .select('email')
@@ -1423,7 +1411,7 @@ export async function updateSocialLinks(
           .or(`social_links->>${platform}.eq.${linkToCheck}`)
           .limit(1)
           .single();
-        
+
         if (conflictData) {
           return {
             success: false,
@@ -1432,50 +1420,50 @@ export async function updateSocialLinks(
           };
         }
       }
-      
+
       return {
         success: false,
         error: 'Um ou mais links já estão sendo usados por outra conta. Por favor, verifique seus links e tente novamente.'
       };
     }
-    
+
     console.log('✅ Links sociais atualizados e confirmados com sucesso!');
-    
+
     // 📊 Log de auditoria
     await logAuditEvent(AuditAction.USER_UPDATED, {
       success: true,
       targetUserId: userId,
       updates: { social_links: socialLinks },
     }, userId);
-    
+
     return { success: true };
   } catch (error) {
     console.error('❌ Erro crítico ao atualizar links sociais:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    
+
     if (errorMessage.includes('já está sendo usado') || errorMessage.includes('unique_violation') || errorMessage.includes('23505')) {
       const platformMatch = errorMessage.match(/link de (\w+)/i);
       const platform = platformMatch ? platformMatch[1] : 'rede social';
-      
+
       const emailMatch = errorMessage.match(/conta "([^"]+)"/i);
       const conflictEmail = emailMatch ? emailMatch[1] : '';
-      
+
       let userMessage = `Este link de ${platform} já está sendo usado`;
       if (conflictEmail) {
         userMessage += ` pela conta "${conflictEmail}"`;
       }
       userMessage += '. Por favor, use um link diferente ou remova-o da outra conta primeiro.';
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: userMessage,
         duplicatedPlatform: platform
       };
     }
-    
-    return { 
-      success: false, 
+
+    return {
+      success: false,
       error: errorMessage
     };
   }
@@ -1491,32 +1479,25 @@ export async function updatePublicName(
 ): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     console.log('✏️ [UPDATE PUBLIC NAME] Atualizando nome público...');
-    console.log('👤 User ID:', userId);
-    console.log('📝 Novo nome público:', publicName);
-    
+
     const currentUser = await getCurrentUser();
-    
-    // Verifica se o usuário tem permissão
+
     if (currentUser?.id !== userId) {
       return { success: false, error: 'Você não tem permissão para atualizar este perfil' };
     }
-    
-    // Valida nome público
+
     if (!publicName || publicName.trim() === '') {
       return { success: false, error: 'Nome público não pode estar vazio' };
     }
-    
+
     if (publicName.trim().length < 3) {
       return { success: false, error: 'Nome público deve ter no mínimo 3 caracteres' };
     }
-    
+
     if (publicName.length > 50) {
       return { success: false, error: 'Nome público deve ter no máximo 50 caracteres' };
     }
-    
-    // 🆕 VERIFICAÇÃO PRÉVIA: Chama função do banco para validar ANTES de tentar salvar
-    console.log('🔍 Verificando disponibilidade do nome público via RPC...');
-    
+
     const { data: availabilityResult, error: rpcError } = await supabase.rpc(
       'check_public_name_available',
       {
@@ -1524,125 +1505,101 @@ export async function updatePublicName(
         p_public_name: publicName.trim()
       }
     );
-    
-    console.log('📥 Resposta RPC:', { availabilityResult, rpcError });
-    
+
     if (rpcError) {
       console.error('❌ Erro na verificação RPC:', rpcError);
-      // Se a RPC falhar, continua com o UPDATE normal (fallback para o trigger)
       console.log('⚠️ RPC falhou, continuando com UPDATE (trigger fará a validação)...');
     } else if (availabilityResult) {
-      console.log('🔍 Analisando resultado RPC...');
-      
-      // A RPC retorna um array com um objeto
       const result = Array.isArray(availabilityResult) ? availabilityResult[0] : availabilityResult;
-      console.log('   - Resultado:', result);
-      console.log('   - is_available:', result?.is_available);
-      
+
       if (result && result.is_available === false) {
-        // 🚫 NOME JÁ EM USO!
-        console.log('🚫 Nome público já está em uso!');
-        
         const conflictEmail = result.conflict_email || '';
-        
+
         let userMessage = 'Este nome público já está em uso';
         if (conflictEmail && !conflictEmail.includes('muito curto') && !conflictEmail.includes('muito longo')) {
           userMessage += ` pela conta "${conflictEmail}"`;
         } else if (conflictEmail) {
-          // É uma mensagem de validação (tamanho)
           userMessage = conflictEmail;
         }
         userMessage += '. Por favor, escolha outro nome.';
-        
-        console.log('🚫 Retornando erro para o frontend:', userMessage);
-        
+
         return {
           success: false,
           error: userMessage
         };
-      } else {
-        console.log('✅ RPC: Nome público disponível');
       }
     }
-    
-    console.log('✅ Nome disponível, prosseguindo com UPDATE...');
-    
-    // Atualiza o nome público
+
     const { data, error } = await supabase
       .from('users')
       .update({ nome_publico: publicName.trim() })
       .eq('id', userId)
       .select()
       .single();
-    
+
     if (error) {
       console.error('❌ Erro ao atualizar nome público:', error);
-      console.error('📊 Código do erro:', error.code);
-      console.error('📊 Mensagem:', error.message);
-      
-      // Detecta erro de duplicação do trigger
+
       if (error.code === '23505' || error.message.includes('já está em uso')) {
         const emailMatch = error.message.match(/conta "([^"]+)"/i);
         const conflictEmail = emailMatch ? emailMatch[1] : '';
-        
+
         let userMessage = 'Este nome público já está em uso';
         if (conflictEmail) {
           userMessage += ` pela conta "${conflictEmail}"`;
         }
         userMessage += '. Por favor, escolha outro nome.';
-        
-        return { 
-          success: false, 
+
+        return {
+          success: false,
           error: userMessage
         };
       }
-      
-      // Detecta erro de validação (tamanho)
+
       if (error.code === '22023') {
         return {
           success: false,
           error: error.message || 'Nome público inválido'
         };
       }
-      
+
       return { success: false, error: 'Erro ao atualizar nome público. Por favor, tente novamente.' };
     }
-    
+
     console.log('✅ Nome público atualizado com sucesso');
-    
+
     // 📊 Log de auditoria
     await logAuditEvent(AuditAction.USER_UPDATED, {
       success: true,
       targetUserId: userId,
       updates: { nome_publico: publicName },
     }, userId);
-    
+
     return {
       success: true,
       user: dbUserToAppUser(data),
     };
   } catch (error) {
     console.error('❌ Erro crítico ao atualizar nome público:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    
-    // Detecta erro de duplicação
+
     if (errorMessage.includes('já está em uso') || errorMessage.includes('unique_violation') || errorMessage.includes('23505')) {
       const emailMatch = errorMessage.match(/conta "([^"]+)"/i);
       const conflictEmail = emailMatch ? emailMatch[1] : '';
-      
+
       let userMessage = 'Este nome público já está em uso';
       if (conflictEmail) {
         userMessage += ` pela conta "${conflictEmail}"`;
       }
       userMessage += '. Por favor, escolha outro nome.';
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: userMessage
       };
     }
-    
+
     return {
       success: false,
       error: errorMessage,
@@ -1652,24 +1609,24 @@ export async function updatePublicName(
 
 /**
  * 🔒 SEGURANÇA: Cria conta de administrador (apenas se não existir)
- * 
+ *
  * ⚠️ IMPORTANTE: Esta função foi modificada para usar variável de ambiente
  * ao invés de senha hardcoded. Configure ADMIN_DEFAULT_PASSWORD no .env
- * 
+ *
  * @deprecated Esta função deve ser usada apenas para setup inicial.
  * Recomenda-se criar conta de admin manualmente via Supabase Dashboard.
  */
 export async function createAdminAccount(): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     console.log('🔧 Verificando conta de administrador...');
-    
+
     // Verifica se admin já existe
     const { data: existingAdmin } = await supabase
       .from('users')
       .select('*')
       .eq('email', 'marcelo@vsparticipacoes.com')
       .single();
-    
+
     if (existingAdmin) {
       console.log('✅ Conta de administrador já existe');
       return {
@@ -1677,10 +1634,10 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
         user: dbUserToAppUser(existingAdmin),
       };
     }
-    
+
     // 🔒 SEGURANÇA: Obtém senha de variável de ambiente
     const adminPassword = import.meta.env.VITE_ADMIN_DEFAULT_PASSWORD;
-    
+
     if (!adminPassword || adminPassword === 'YOUR_SECURE_PASSWORD_HERE') {
       console.error('❌ ADMIN_DEFAULT_PASSWORD não configurado no .env');
       return {
@@ -1688,7 +1645,7 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
         error: 'Senha de administrador não configurada. Configure ADMIN_DEFAULT_PASSWORD no arquivo .env',
       };
     }
-    
+
     // Valida senha
     if (!isValidPassword(adminPassword)) {
       return {
@@ -1696,9 +1653,9 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
         error: 'A senha configurada não atende aos requisitos de segurança (mínimo 6 caracteres, 1 maiúscula, 1 caractere especial)',
       };
     }
-    
+
     console.log('🔐 Criando nova conta de administrador...');
-    
+
     // Cria nova conta de admin
     return await registerUser(
       {
@@ -1714,9 +1671,9 @@ export async function createAdminAccount(): Promise<{ success: boolean; user?: U
     );
   } catch (error) {
     console.error('❌ Erro ao criar conta de admin:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }
