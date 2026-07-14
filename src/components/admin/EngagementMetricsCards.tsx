@@ -43,11 +43,14 @@ import {
   fetchAdminUsersInTrialDay,
   fetchAdminActivationFunnel,
   fetchAdminChurnMetrics,
+  fetchAdminUsersInFunnelStep,
   type AdminTrialCycleStatsResult,
   type AdminTrialCycleBucket,
   type AdminActivationFunnelResult,
   type AdminChurnMetricsResult,
   type AdminTrialUserRow,
+  type AdminFunnelStep,
+  type AdminFunnelUserRow,
 } from '@/lib/admin-stats';
 import { getPlanName } from '@/hooks/useSubscription';
 
@@ -548,6 +551,317 @@ function TrialCycleCard() {
   );
 }
 
+/* ------------------------- Funnel Step Drilldown ------------------------- */
+
+interface FunnelStepDrilldownDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  step: AdminFunnelStep;
+  stepLabel: string;
+  from: string | null;
+  to: string | null;
+  rangeLabel: string;
+}
+
+function FunnelStepDrilldownDialog({
+  open,
+  onOpenChange,
+  step,
+  stepLabel,
+  from,
+  to,
+  rangeLabel,
+}: FunnelStepDrilldownDialogProps) {
+  const [users, setUsers] = useState<AdminFunnelUserRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const loadFirstPage = useCallback(async (term: string) => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAdminUsersInFunnelStep(step, from, to, {
+        search: term,
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
+      setUsers(result.items);
+      setTotal(result.total);
+    } catch (err) {
+      console.error('❌ [FunnelDrilldown] Erro:', err);
+      setUsers([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [step, from, to]);
+
+  // Reset ao abrir
+  useEffect(() => {
+    if (!open) return;
+    setSearch('');
+    setSearchDebounced('');
+    setUsers([]);
+    setTotal(0);
+    void loadFirstPage('');
+  }, [open, loadFirstPage]);
+
+  // Re-busca quando search muda (e dialog está aberto)
+  useEffect(() => {
+    if (!open) return;
+    void loadFirstPage(searchDebounced);
+  }, [searchDebounced, open, loadFirstPage]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || users.length >= total) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchAdminUsersInFunnelStep(step, from, to, {
+        search: searchDebounced,
+        limit: PAGE_SIZE,
+        offset: users.length,
+      });
+      setUsers(prev => [...prev, ...result.items]);
+    } catch (err) {
+      console.error('❌ [FunnelDrilldown] loadMore:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, users.length, total, step, from, to, searchDebounced]);
+
+  const hasMore = users.length < total;
+
+  const handleExportCSV = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const result = await fetchAdminUsersInFunnelStep(step, from, to, {
+        search: searchDebounced,
+        limit: 10000,
+        offset: 0,
+      });
+
+      const rows = result.items;
+      if (rows.length === 0) {
+        console.warn('[FunnelDrilldown] Export CSV: nenhum usuário para exportar.');
+        return;
+      }
+
+      const headers = [
+        'Nome Completo',
+        'Nome Público',
+        'Email',
+        'CPF/CNPJ',
+        'Telefone',
+        'Cadastrado em',
+        'Verificado',
+        'Bloqueado',
+        'Qtd. Logins',
+        'Último Login',
+        'Qtd. Conteúdos Assinados',
+        '1º Conteúdo Assinado',
+        'Opt-in WhatsApp',
+        'Opt-in WhatsApp em',
+      ];
+
+      const escape = (val: unknown): string => {
+        if (val === null || val === undefined) return '""';
+        const s = String(val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+
+      const fmtDate = (iso: string | null | undefined): string => {
+        if (!iso) return '';
+        try {
+          return new Date(iso).toLocaleDateString('pt-BR');
+        } catch {
+          return '';
+        }
+      };
+
+      const lines = [
+        headers.map(escape).join(';'),
+        ...rows.map(u =>
+          [
+            u.nome_completo,
+            u.nome_publico,
+            u.email,
+            u.cpf_cnpj,
+            u.telefone,
+            fmtDate(u.created_at),
+            u.verified ? 'Sim' : 'Não',
+            u.blocked  ? 'Sim' : 'Não',
+            u.login_count,
+            fmtDate(u.last_login_at),
+            u.signed_content_count,
+            fmtDate(u.first_signed_at),
+            u.whatsapp_optin ? 'Sim' : 'Não',
+            fmtDate(u.whatsapp_optin_at),
+          ]
+            .map(escape)
+            .join(';')
+        ),
+      ];
+
+      const csvContent = '\ufeff' + lines.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `funil-${step}-${today}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('❌ [FunnelDrilldown] Export CSV falhou:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [step, from, to, searchDebounced, isExporting]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-600" />
+                Funil de Ativação — {stepLabel}
+              </DialogTitle>
+              <DialogDescription>
+                {isLoading
+                  ? 'Carregando...'
+                  : `${users.length} de ${total} usuário(s)${searchDebounced ? ' filtrado(s)' : ''}. Período: ${rangeLabel}.`}
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={isExporting || isLoading || total === 0}
+              className="flex-shrink-0"
+              title="Baixa TODOS os usuários desta etapa (não apenas a página visível)"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email, CPF/CNPJ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : users.length === 0 ? (
+            <div className="text-center py-12">
+              <UsersIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Nenhum usuário nesta etapa/filtro.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {users.map(u => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border bg-white hover:bg-slate-50 transition"
+                >
+                  <Avatar className="h-10 w-10 border-2 border-blue-600 flex-shrink-0">
+                    <AvatarImage src={u.selfie_url} alt={u.nome_completo} />
+                    <AvatarFallback className="bg-blue-600 text-white text-sm">
+                      {getInitials(u.nome_completo)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium truncate">{u.nome_completo}</span>
+                      {u.login_count > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {u.login_count} login(s)
+                        </Badge>
+                      )}
+                      {u.signed_content_count > 0 && (
+                        <Badge className="bg-purple-100 text-purple-800 text-xs">
+                          {u.signed_content_count} conteúdo(s)
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                      <span className="flex items-center gap-1 truncate">
+                        <Mail className="h-3 w-3" />
+                        {u.email}
+                      </span>
+                      {u.telefone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {u.telefone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground text-right flex-shrink-0">
+                    Cadastro<br />
+                    <span className="font-medium">
+                      {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <Button variant="outline" onClick={loadMore} disabled={isLoadingMore}>
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>Carregar mais ({total - users.length} restantes)</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ------------------------- 02) Activation Funnel Card ------------------------- */
 
 function ActivationFunnelCard() {
@@ -556,6 +870,13 @@ function ActivationFunnelCard() {
   const [customTo, setCustomTo] = useState('');
   const [funnel, setFunnel] = useState<AdminActivationFunnelResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 🆕 Drilldown do funil — abre ao clicar em uma etapa
+  const [drilldown, setDrilldown] = useState<{
+    open: boolean;
+    step: AdminFunnelStep;
+    label: string;
+  }>({ open: false, step: 'registered', label: '' });
 
   const range = useMemo(
     () => getRangeForPreset(preset, customFrom, customTo),
@@ -581,28 +902,28 @@ function ActivationFunnelCard() {
     if (!funnel) return [];
     return [
       {
-        key: 'registered',
+        key: 'registered' as AdminFunnelStep,
         label: 'Cadastrados',
         qtd: funnel.registered,
         pct: 100,
         color: 'bg-blue-500',
       },
       {
-        key: 'logged_in',
+        key: 'logged_in' as AdminFunnelStep,
         label: 'Logaram',
         qtd: funnel.logged_in,
         pct: funnel.rate_logged_in,
         color: 'bg-indigo-500',
       },
       {
-        key: 'activated',
+        key: 'activated' as AdminFunnelStep,
         label: 'Ativaram (1º conteúdo)',
         qtd: funnel.activated,
         pct: funnel.rate_activated,
         color: 'bg-purple-500',
       },
       {
-        key: 'engaged',
+        key: 'engaged' as AdminFunnelStep,
         label: 'Engajaram (3+ conteúdos)',
         qtd: funnel.engaged,
         pct: funnel.rate_engaged,
@@ -620,112 +941,145 @@ function ActivationFunnelCard() {
   ];
 
   return (
-    <Card className="border-l-4 border-blue-500">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Activity className="h-5 w-5 text-blue-600" />
-          Taxa de Ativação
-        </CardTitle>
-        <CardDescription>
-          Funil: Cadastrados → Logaram → Ativaram (1º conteúdo) → Engajaram (3+)
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {/* Filtros de período */}
-        <div className="flex flex-wrap gap-1 mb-3">
-          {presetButtons.map(p => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setPreset(p.key)}
-              className={`px-2 py-0.5 rounded-md text-xs font-medium transition ${
-                preset === p.key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {preset === 'custom' && (
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div>
-              <Label htmlFor="funnel-from" className="text-[10px] text-muted-foreground">
-                De
-              </Label>
-              <Input
-                id="funnel-from"
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
-            <div>
-              <Label htmlFor="funnel-to" className="text-[10px] text-muted-foreground">
-                Até
-              </Label>
-              <Input
-                id="funnel-to"
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
+    <>
+      <Card className="border-l-4 border-blue-500">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-5 w-5 text-blue-600" />
+            Taxa de Ativação
+          </CardTitle>
+          <CardDescription>
+            Funil: Cadastrados → Logaram → Ativaram (1º conteúdo) → Engajaram (3+)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filtros de período */}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {presetButtons.map(p => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setPreset(p.key)}
+                className={`px-2 py-0.5 rounded-md text-xs font-medium transition ${
+                  preset === p.key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {isLoading ? (
-          <div className="py-8 flex justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-          </div>
-        ) : !funnel || funnel.registered === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">
-            Nenhum cadastro neste período.
-          </div>
-        ) : (
-          <>
-            <div className="space-y-2">
-              {steps.map(step => (
-                <div key={step.key}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-medium">{step.label}</span>
-                    <span className="tabular-nums">
-                      <span className="font-bold">{step.qtd}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {step.pct.toFixed(1)}%
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className={`h-full ${step.color} transition-all`}
-                      style={{ width: `${Math.min(100, Math.max(2, step.pct))}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {funnel.avg_days_to_activate !== null && (
-              <div className="mt-3 pt-3 border-t flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                Tempo médio até a 1ª ativação:{' '}
-                <span className="font-semibold text-slate-700">
-                  {funnel.avg_days_to_activate} dia(s)
-                </span>
+          {preset === 'custom' && (
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <Label htmlFor="funnel-from" className="text-[10px] text-muted-foreground">
+                  De
+                </Label>
+                <Input
+                  id="funnel-from"
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="h-7 text-xs"
+                />
               </div>
-            )}
-            <p className="mt-2 text-[10px] text-muted-foreground">
-              Período: {range.label}
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+              <div>
+                <Label htmlFor="funnel-to" className="text-[10px] text-muted-foreground">
+                  Até
+                </Label>
+                <Input
+                  id="funnel-to"
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="py-8 flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            </div>
+          ) : !funnel || funnel.registered === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum cadastro neste período.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {steps.map(step => {
+                  const disabled = step.qtd === 0;
+                  return (
+                    <button
+                      key={step.key}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() =>
+                        setDrilldown({ open: true, step: step.key, label: step.label })
+                      }
+                      className={`w-full text-left group transition rounded-md p-1 -m-1 ${
+                        disabled
+                          ? 'opacity-60 cursor-not-allowed'
+                          : 'hover:bg-blue-50 cursor-pointer'
+                      }`}
+                      title={disabled ? 'Nenhum usuário nesta etapa' : 'Clique para ver os usuários e exportar CSV'}
+                    >
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium flex items-center gap-1">
+                          {step.label}
+                          {!disabled && (
+                            <ChevronRight className="h-3 w-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </span>
+                        <span className="tabular-nums">
+                          <span className="font-bold">{step.qtd}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {step.pct.toFixed(1)}%
+                          </span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className={`h-full ${step.color} transition-all`}
+                          style={{ width: `${Math.min(100, Math.max(2, step.pct))}%` }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {funnel.avg_days_to_activate !== null && (
+                <div className="mt-3 pt-3 border-t flex items-center gap-2 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  Tempo médio até a 1ª ativação:{' '}
+                  <span className="font-semibold text-slate-700">
+                    {funnel.avg_days_to_activate} dia(s)
+                  </span>
+                </div>
+              )}
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Período: {range.label} · Clique em uma etapa para ver os usuários.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <FunnelStepDrilldownDialog
+        open={drilldown.open}
+        onOpenChange={(o) => setDrilldown(prev => ({ ...prev, open: o }))}
+        step={drilldown.step}
+        stepLabel={drilldown.label}
+        from={range.from}
+        to={range.to}
+        rangeLabel={range.label}
+      />
+    </>
   );
 }
 
@@ -865,6 +1219,3 @@ export default function EngagementMetricsCards() {
   );
 }
 
-/* Workaround: ChevronRight é importado mas não usado no momento; mantido para
-   futuras evoluções. ESLint não acusa pois é referenciado no JSDoc abaixo. */
-void ChevronRight;
