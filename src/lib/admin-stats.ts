@@ -542,6 +542,40 @@ export interface AdminActivationFunnelResult {
   to: string | null;
 }
 
+/* ----- Funnel step drilldown types ----- */
+
+export type AdminFunnelStep = 'registered' | 'logged_in' | 'activated' | 'engaged';
+
+export interface AdminFunnelUserRow {
+  id: string;
+  nome_completo: string;
+  nome_publico: string;
+  email: string;
+  cpf_cnpj: string;
+  telefone: string;
+  selfie_url: string;
+  verified: boolean;
+  is_admin: boolean;
+  blocked: boolean;
+  created_at: string;
+  // 🆕 Opt-in WhatsApp (LGPD). Opcionais para preservar compatibilidade.
+  whatsapp_optin?: boolean;
+  whatsapp_optin_at?: string | null;
+  // Métricas úteis para cada etapa do funil
+  login_count: number;
+  signed_content_count: number;
+  first_signed_at: string | null;
+  last_login_at: string | null;
+}
+
+export interface AdminListUsersInFunnelStepResult {
+  items: AdminFunnelUserRow[];
+  total: number;
+  step: AdminFunnelStep;
+  from: string | null;
+  to: string | null;
+}
+
 export interface AdminChurnBucketResult {
   qtd: number;
   base: number;
@@ -653,6 +687,44 @@ export async function fetchAdminActivationFunnel(
     avg_days_to_activate: payload.avg_days_to_activate ?? null,
     from:                 payload.from ?? from ?? null,
     to:                   payload.to   ?? to   ?? null,
+  };
+}
+
+/**
+ * Drilldown: lista paginada de usuários em uma etapa do funil de ativação.
+ * step ∈ 'registered' | 'logged_in' | 'activated' | 'engaged'.
+ * from/to = mesmo range aplicado ao card do funil.
+ */
+export async function fetchAdminUsersInFunnelStep(
+  step: AdminFunnelStep,
+  from: string | null,
+  to: string | null,
+  filters: { search?: string; limit?: number; offset?: number } = {}
+): Promise<AdminListUsersInFunnelStepResult> {
+  const params = {
+    p_step:   step,
+    p_from:   from ?? null,
+    p_to:     to   ?? null,
+    p_search: filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_limit:  filters.limit  ?? 25,
+    p_offset: filters.offset ?? 0,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersInFunnelStep()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_in_funnel_step', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_in_funnel_step falhou:', error);
+    return { items: [], total: 0, step, from, to };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminListUsersInFunnelStepResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total: Number(payload.total ?? 0),
+    step:  (payload.step as AdminFunnelStep) ?? step,
+    from:  payload.from ?? from,
+    to:    payload.to   ?? to,
   };
 }
 
