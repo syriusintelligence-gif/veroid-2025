@@ -87,6 +87,24 @@ async function captureWebcamPhoto(video: HTMLVideoElement): Promise<string> {
 
 // Função removida - validação de selfie agora é feita via Gemini AI no momento da captura
 
+// Icone oficial do WhatsApp (SVG inline em verde #25D366).
+// Componente local, adicionado em 2026-07-16 exclusivamente para o bloco
+// de opt-in de WhatsApp. Nao substitui nenhum outro icone do arquivo.
+function WhatsappIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="#25D366"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.571-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.04 2.003C6.579 2.003 2.129 6.454 2.126 11.916c0 1.746.457 3.45 1.325 4.955L2.05 21.949a.5.5 0 0 0 .614.614l5.115-1.402a9.87 9.87 0 0 0 4.259.972h.004c5.462 0 9.911-4.451 9.914-9.913 0-2.647-1.03-5.135-2.9-7.006A9.844 9.844 0 0 0 12.04 2.003z" />
+    </svg>
+  );
+}
+
 export default function Cadastro() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -1071,18 +1089,22 @@ export default function Cadastro() {
                     </p>
                   </div>
                   
-                  {/* 🆕 Opt-in WhatsApp (LGPD-friendly, opcional).
+                  {/* Opt-in WhatsApp (LGPD-friendly, opcional).
                        Bloco visualmente distinto (verde WhatsApp) para
-                       transmitir confiança e destacar que é opcional.
-                       Toda a auditoria (timestamp + IP + user-agent) é
-                       gravada apenas se o checkbox for marcado. */}
-                  <div className="space-y-3 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
+                       transmitir confianca e destacar que e opcional.
+                       Toda a auditoria (timestamp + IP + user-agent) e
+                       gravada apenas se o checkbox for marcado.
+                       Ajuste visual (2026-07-16): checkbox maior, cor de
+                       destaque mais viva, icone oficial do WhatsApp em verde
+                       #25D366 e texto reescrito para foco em beneficio.
+                       NENHUMA logica/state/envio foi alterado - apenas UI/texto. */}
+                  <div className="space-y-3 p-4 bg-green-100/70 border-2 border-green-300 rounded-xl shadow-sm">
                     <div className="flex items-start space-x-3">
                       <Checkbox
                         id="whatsappOptin"
                         checked={whatsappOptin}
                         onCheckedChange={(checked) => setWhatsappOptin(checked === true)}
-                        className="mt-0.5"
+                        className="mt-0.5 h-5 w-5"
                         disabled={isLoading}
                       />
                       <div className="space-y-1 flex-1">
@@ -1090,11 +1112,11 @@ export default function Cadastro() {
                           htmlFor="whatsappOptin"
                           className="text-sm font-semibold text-green-900 cursor-pointer flex items-center gap-2"
                         >
-                          <MessageCircle className="h-4 w-4 text-green-700" />
-                          Aceite receber comunicações pelo WhatsApp <span className="text-xs font-normal text-green-700">(opcional)</span>
+                          <WhatsappIcon className="h-5 w-5 flex-shrink-0" />
+                          Receber pelo WhatsApp <span className="text-xs font-normal text-green-700">(opcional)</span>
                         </Label>
                         <p className="text-xs text-green-800 leading-relaxed">
-                          Aceito receber comunicações do Vero iD pelo WhatsApp sobre novidades, atualizações e informações relevantes da minha conta. Posso cancelar a qualquer momento.
+                          Sim, quero acompanhar meu progresso, receber alertas importantes e dicas personalizadas pelo WhatsApp. Posso cancelar a qualquer momento.
                         </p>
                       </div>
                     </div>
