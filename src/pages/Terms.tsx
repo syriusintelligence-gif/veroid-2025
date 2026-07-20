@@ -139,50 +139,100 @@ export default function Terms() {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                8. Planos e Pagamentos
+                8. Comunicações Eletrônicas — WhatsApp, E-mail e SMS
               </h2>
               <div className="space-y-3">
                 <p>
-                  <strong>8.1. Planos Disponíveis:</strong> O Vero iD oferece diferentes planos de assinatura (Gratuito, Básico, Premium, Enterprise) com recursos e limites variados.
+                  <strong>8.1. Consentimento e Bases Legais:</strong> Ao aderir a estes Termos e concluir seu cadastro, o Usuário manifesta consentimento livre, informado e inequívoco, nos termos dos arts. 7º, incisos I e IX, e 8º da Lei nº 13.709/2018 (LGPD), com o recebimento de comunicações eletrônicas emitidas pelo Vero iD por meio dos canais <strong>WhatsApp, e-mail e SMS</strong>, observadas as bases legais de execução contratual, cumprimento de obrigação regulatória, exercício regular de direitos e legítimo interesse, conforme a natureza da comunicação.
+                </p>
+                <div>
+                  <p className="mb-2">
+                    <strong>8.2. Categorias de Comunicação:</strong> As comunicações abrangidas por esta cláusula compreendem:
+                  </p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>
+                      <strong>8.2.1. Comunicações Operacionais e de Segurança:</strong> mensagens indispensáveis à prestação do serviço, incluindo confirmação de cadastro, verificação de identidade, alertas de segurança, notificação de acessos, redefinição de credenciais, avisos de cobrança, faturamento e comunicações regulatórias obrigatórias;
+                    </li>
+                    <li>
+                      <strong>8.2.2. Comunicações Informativas:</strong> avisos sobre atualizações da Plataforma, alterações destes Termos ou da Política de Privacidade, novas funcionalidades e informações técnicas relevantes ao uso do serviço;
+                    </li>
+                    <li>
+                      <strong>8.2.3. Comunicações Promocionais:</strong> mensagens de natureza publicitária, ofertas e novidades comerciais, cujo envio depende de opt-in específico e apartado, manifestado em campo próprio no cadastro ou nas preferências da conta.
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-2">
+                    <strong>8.3. Revogação do Consentimento:</strong> O consentimento para comunicações informativas e promocionais poderá ser revogado a qualquer tempo, sem qualquer ônus ao titular, mediante:
+                  </p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>alteração das preferências de comunicação na conta do Usuário;</li>
+                    <li>utilização do link de descadastramento presente nos e-mails;</li>
+                    <li>resposta com as expressões <strong>"SAIR"</strong> ou <strong>"PARE"</strong> às mensagens recebidas via WhatsApp ou SMS;</li>
+                    <li>solicitação encaminhada ao Encarregado de Proteção de Dados no endereço <strong>contato@veroid.com.br</strong>.</li>
+                  </ul>
+                </div>
+                <p>
+                  <strong>8.4. Persistência de Comunicações Obrigatórias:</strong> Independentemente de revogação de consentimento, o Vero iD manterá o envio das comunicações operacionais, de segurança e daquelas legalmente exigidas, por serem indispensáveis à execução contratual e ao cumprimento de deveres regulatórios, nos termos do art. 7º, incisos V, VI e IX, da LGPD.
                 </p>
                 <p>
-                  <strong>8.2. Pagamentos:</strong> Os pagamentos são processados através do Stripe. Ao assinar um plano pago, você concorda com os termos de pagamento do Stripe.
+                  <strong>8.5. Registro Probatório do Consentimento:</strong> Em atendimento ao disposto no art. 8º, §6º, da LGPD, o Vero iD registrará, para fins de comprovação e auditoria, a data, hora, endereço IP, identificador de sessão e user-agent do dispositivo utilizado no ato do consentimento, podendo tais registros ser apresentados às autoridades competentes quando requeridos.
                 </p>
                 <p>
-                  <strong>8.3. Renovação Automática:</strong> Planos pagos são renovados automaticamente, a menos que você cancele antes do final do período de cobrança.
+                  <strong>8.6. Veracidade dos Dados de Contato:</strong> O Usuário é integralmente responsável pela veracidade, atualização e exatidão dos dados de contato informados (número de telefone, e-mail e demais identificadores), respondendo pelas consequências decorrentes de eventual imprecisão ou desatualização, inclusive quanto ao recebimento indevido de mensagens por terceiros.
                 </p>
                 <p>
-                  <strong>8.4. Cancelamento:</strong> Você pode cancelar sua assinatura a qualquer momento através das configurações da conta. O cancelamento entrará em vigor no final do período de cobrança atual.
-                </p>
-                <p>
-                  <strong>8.5. Reembolsos:</strong> Não oferecemos reembolsos para períodos de assinatura já pagos, exceto quando exigido por lei.
+                  <strong>8.7. Direitos do Titular:</strong> Ficam integralmente preservados todos os direitos do titular previstos no art. 18 da LGPD, incluindo confirmação, acesso, correção, eliminação, portabilidade, oposição e informação acerca dos tratamentos de dados realizados no âmbito das comunicações aqui disciplinadas.
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                9. Limitação de Responsabilidade
+                9. Planos e Pagamentos
               </h2>
               <div className="space-y-3">
                 <p>
-                  <strong>9.1. Serviço "Como Está":</strong> O Vero iD é fornecido "como está" e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas.
+                  <strong>9.1. Planos Disponíveis:</strong> O Vero iD oferece diferentes planos de assinatura (Gratuito, Básico, Premium, Enterprise) com recursos e limites variados.
                 </p>
                 <p>
-                  <strong>9.2. Exclusão de Garantias:</strong> Não garantimos que o serviço será ininterrupto, seguro ou livre de erros.
+                  <strong>9.2. Pagamentos:</strong> Os pagamentos são processados através do Stripe. Ao assinar um plano pago, você concorda com os termos de pagamento do Stripe.
                 </p>
                 <p>
-                  <strong>9.3. Limitação de Danos:</strong> Em nenhuma circunstância o Vero iD será responsável por danos indiretos, incidentais, especiais, consequenciais ou punitivos, incluindo perda de lucros, dados, uso, boa vontade ou outras perdas intangíveis.
+                  <strong>9.3. Renovação Automática:</strong> Planos pagos são renovados automaticamente, a menos que você cancele antes do final do período de cobrança.
                 </p>
                 <p>
-                  <strong>9.4. Limite Máximo:</strong> Nossa responsabilidade total não excederá o valor pago por você ao Vero iD nos últimos 12 meses.
+                  <strong>9.4. Cancelamento:</strong> Você pode cancelar sua assinatura a qualquer momento através das configurações da conta. O cancelamento entrará em vigor no final do período de cobrança atual.
+                </p>
+                <p>
+                  <strong>9.5. Reembolsos:</strong> Não oferecemos reembolsos para períodos de assinatura já pagos, exceto quando exigido por lei.
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                10. Indenização
+                10. Limitação de Responsabilidade
+              </h2>
+              <div className="space-y-3">
+                <p>
+                  <strong>10.1. Serviço "Como Está":</strong> O Vero iD é fornecido "como está" e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas.
+                </p>
+                <p>
+                  <strong>10.2. Exclusão de Garantias:</strong> Não garantimos que o serviço será ininterrupto, seguro ou livre de erros.
+                </p>
+                <p>
+                  <strong>10.3. Limitação de Danos:</strong> Em nenhuma circunstância o Vero iD será responsável por danos indiretos, incidentais, especiais, consequenciais ou punitivos, incluindo perda de lucros, dados, uso, boa vontade ou outras perdas intangíveis.
+                </p>
+                <p>
+                  <strong>10.4. Limite Máximo:</strong> Nossa responsabilidade total não excederá o valor pago por você ao Vero iD nos últimos 12 meses.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
+                11. Indenização
               </h2>
               <p>
                 Você concorda em indenizar, defender e isentar o Vero iD, seus diretores, funcionários e agentes de todas as reivindicações, responsabilidades, danos, perdas e despesas (incluindo honorários advocatícios) decorrentes de:
@@ -197,41 +247,41 @@ export default function Terms() {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                11. Modificações do Serviço e dos Termos
+                12. Modificações do Serviço e dos Termos
               </h2>
               <div className="space-y-3">
                 <p>
-                  <strong>11.1. Alterações no Serviço:</strong> Reservamo-nos o direito de modificar ou descontinuar o serviço (ou qualquer parte dele) a qualquer momento, com ou sem aviso prévio.
+                  <strong>12.1. Alterações no Serviço:</strong> Reservamo-nos o direito de modificar ou descontinuar o serviço (ou qualquer parte dele) a qualquer momento, com ou sem aviso prévio.
                 </p>
                 <p>
-                  <strong>11.2. Alterações nos Termos:</strong> Podemos revisar estes Termos de Uso periodicamente. Notificaremos você sobre alterações significativas através de e-mail ou aviso na plataforma.
+                  <strong>12.2. Alterações nos Termos:</strong> Podemos revisar estes Termos de Uso periodicamente. Notificaremos você sobre alterações significativas através de e-mail ou aviso na plataforma.
                 </p>
                 <p>
-                  <strong>11.3. Aceitação de Alterações:</strong> Seu uso continuado do serviço após alterações constitui aceitação dos novos termos.
+                  <strong>12.3. Aceitação de Alterações:</strong> Seu uso continuado do serviço após alterações constitui aceitação dos novos termos.
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                12. Rescisão
+                13. Rescisão
               </h2>
               <div className="space-y-3">
                 <p>
-                  <strong>12.1. Rescisão por Você:</strong> Você pode encerrar sua conta a qualquer momento através das configurações da conta.
+                  <strong>13.1. Rescisão por Você:</strong> Você pode encerrar sua conta a qualquer momento através das configurações da conta.
                 </p>
                 <p>
-                  <strong>12.2. Rescisão por Nós:</strong> Podemos suspender ou encerrar sua conta imediatamente, sem aviso prévio, se você violar estes Termos ou por qualquer outro motivo, a nosso exclusivo critério.
+                  <strong>13.2. Rescisão por Nós:</strong> Podemos suspender ou encerrar sua conta imediatamente, sem aviso prévio, se você violar estes Termos ou por qualquer outro motivo, a nosso exclusivo critério.
                 </p>
                 <p>
-                  <strong>12.3. Efeitos da Rescisão:</strong> Após a rescisão, seu direito de usar o serviço cessará imediatamente. Podemos reter certas informações conforme exigido por lei ou para fins legítimos de negócios.
+                  <strong>13.3. Efeitos da Rescisão:</strong> Após a rescisão, seu direito de usar o serviço cessará imediatamente. Podemos reter certas informações conforme exigido por lei ou para fins legítimos de negócios.
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                13. Lei Aplicável e Jurisdição
+                14. Lei Aplicável e Jurisdição
               </h2>
               <p>
                 Estes Termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa decorrente destes Termos será submetida à jurisdição exclusiva dos tribunais brasileiros.
@@ -240,27 +290,27 @@ export default function Terms() {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                14. Disposições Gerais
+                15. Disposições Gerais
               </h2>
               <div className="space-y-3">
                 <p>
-                  <strong>14.1. Acordo Integral:</strong> Estes Termos, juntamente com a Política de Privacidade, constituem o acordo integral entre você e o Vero iD.
+                  <strong>15.1. Acordo Integral:</strong> Estes Termos, juntamente com a Política de Privacidade, constituem o acordo integral entre você e o Vero iD.
                 </p>
                 <p>
-                  <strong>14.2. Renúncia:</strong> A falha em fazer cumprir qualquer direito ou disposição destes Termos não constituirá uma renúncia a esse direito ou disposição.
+                  <strong>15.2. Renúncia:</strong> A falha em fazer cumprir qualquer direito ou disposição destes Termos não constituirá uma renúncia a esse direito ou disposição.
                 </p>
                 <p>
-                  <strong>14.3. Divisibilidade:</strong> Se qualquer disposição destes Termos for considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.
+                  <strong>15.3. Divisibilidade:</strong> Se qualquer disposição destes Termos for considerada inválida ou inexequível, as demais disposições permanecerão em pleno vigor e efeito.
                 </p>
                 <p>
-                  <strong>14.4. Cessão:</strong> Você não pode ceder ou transferir estes Termos sem nosso consentimento prévio por escrito. Podemos ceder estes Termos sem restrições.
+                  <strong>15.4. Cessão:</strong> Você não pode ceder ou transferir estes Termos sem nosso consentimento prévio por escrito. Podemos ceder estes Termos sem restrições.
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
-                15. Contato
+                16. Contato
               </h2>
               <p className="mb-2">
                 Se você tiver dúvidas sobre estes Termos de Uso, entre em contato conosco:

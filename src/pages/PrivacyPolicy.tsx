@@ -502,6 +502,95 @@ export default function PrivacyPolicy() {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">
+                PARTE IX-A — COMUNICAÇÕES ELETRÔNICAS AO TITULAR
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-A. Finalidade e Bases Legais
+                  </h3>
+                  <p>
+                    O Vero iD realiza o tratamento de dados de contato do titular (número de telefone, endereço de e-mail e identificadores associados) para o envio de comunicações eletrônicas por meio dos canais <strong>WhatsApp, e-mail e SMS</strong>, fundamentado nas hipóteses do art. 7º, incisos I, V, VI, IX e X, da Lei nº 13.709/2018 (LGPD), conforme a natureza da comunicação, e observado o consentimento manifestado no ato do cadastro para as comunicações informativas e promocionais.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-B. Modalidades de Comunicação
+                  </h3>
+                  <p className="mb-2">As comunicações eletrônicas emitidas pelo Vero iD classificam-se em:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>
+                      <strong>I — Operacionais e de Segurança:</strong> essenciais à execução contratual, incluindo confirmações de cadastro, verificação de identidade, alertas de acesso e segurança, cobranças, avisos regulatórios e demais comunicações imprescindíveis à prestação do serviço;
+                    </li>
+                    <li>
+                      <strong>II — Informativas:</strong> atualizações da Plataforma, alterações destes documentos, novas funcionalidades e conteúdos correlatos ao uso da conta;
+                    </li>
+                    <li>
+                      <strong>III — Promocionais:</strong> conteúdos publicitários, ofertas comerciais e campanhas, condicionados a opt-in específico e apartado, revogável a qualquer tempo.
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-C. Revogação e Gestão de Preferências
+                  </h3>
+                  <p className="mb-2">
+                    O titular poderá revogar, a qualquer tempo e sem custo, o consentimento para comunicações informativas e promocionais, mediante:
+                  </p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>alteração das preferências de comunicação no painel da sua conta;</li>
+                    <li>utilização do link de descadastramento nos e-mails recebidos;</li>
+                    <li>resposta com as expressões <strong>"SAIR"</strong> ou <strong>"PARE"</strong> às mensagens recebidas via WhatsApp ou SMS;</li>
+                    <li>solicitação dirigida ao Encarregado de Proteção de Dados por meio do endereço <strong>contato@veroid.com.br</strong>.</li>
+                  </ul>
+                  <p className="mt-2">
+                    As comunicações operacionais, de segurança e as legalmente obrigatórias serão mantidas independentemente da revogação, por estarem lastreadas em bases legais autônomas ao consentimento, notadamente a execução contratual, o cumprimento de obrigação regulatória e o exercício regular de direitos.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-D. Prova do Consentimento
+                  </h3>
+                  <p>
+                    Nos termos do art. 8º, §6º, da LGPD, o Vero iD conserva registros técnicos hábeis a comprovar a manifestação de vontade do titular, contemplando data, hora, endereço IP, identificador de sessão e user-agent do dispositivo empregado no momento do consentimento, os quais poderão ser exibidos às autoridades regulatórias mediante requisição fundamentada.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-E. Compartilhamento com Operadores
+                  </h3>
+                  <p>
+                    O envio efetivo das mensagens poderá ser executado por operadores contratados sob acordo de tratamento de dados (DPA), tais como plataformas de mensageria transacional (WhatsApp Business Platform, provedores de e-mail e gateways SMS), aos quais se transmite exclusivamente o dado mínimo necessário à entrega da comunicação, vedada qualquer utilização adicional ou secundária.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-F. Responsabilidade do Titular pelos Dados Informados
+                  </h3>
+                  <p>
+                    O titular é responsável pela veracidade, atualização e exatidão dos dados de contato fornecidos, respondendo integralmente pelas consequências advindas de imprecisão, desatualização ou compartilhamento involuntário dos referidos dados com terceiros.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold text-blue-300 mb-2">
+                    Art. 21-G. Preservação dos Direitos do Titular
+                  </h3>
+                  <p>
+                    Permanecem íntegros todos os direitos previstos no art. 18 da LGPD, incluindo, mas não se limitando a, confirmação, acesso, correção, eliminação, portabilidade, oposição, revogação de consentimento e informação sobre operadores envolvidos no tratamento.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-4">
                 PARTE X — GOVERNANÇA E COMPLIANCE
               </h2>
               
