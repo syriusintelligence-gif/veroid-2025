@@ -552,17 +552,13 @@ export const SubscriptionSettings = () => {
               <dt className="text-gray-500">Data de Início</dt>
               <dd>{formatDate(subscription.current_period_start)}</dd>
             </div>
-            <Separator />
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Criado em</dt>
-              <dd>{formatDate(subscription.created_at)}</dd>
-            </div>
-            {subscription.trial_end && (
+            {/* ✅ Mudança 2/2: usar trialStatus.trialEndsAt (mesma fonte do card "Plano Atual") em vez de subscription.trial_end */}
+            {trialStatus?.trialEndsAt && (
               <>
                 <Separator />
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Período de Teste até</dt>
-                  <dd>{formatDate(subscription.trial_end)}</dd>
+                  <dd>{formatDate(trialStatus.trialEndsAt)}</dd>
                 </div>
               </>
             )}
