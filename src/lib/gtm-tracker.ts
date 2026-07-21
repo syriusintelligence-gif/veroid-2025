@@ -121,6 +121,12 @@ export function trackCadastroStep(
 export function trackCadastroSuccess(params: {
   whatsappOptin: boolean;
   ageDeclarationAccepted: boolean;
+  // 🆕 Aceite de Termos de Uso e Política de Privacidade.
+  //    Opcional para preservar 100% de compatibilidade com chamadas
+  //    legadas do evento `sign_up`. A agência de tráfego pode continuar
+  //    usando o evento exatamente como hoje; este campo aparece apenas
+  //    como metadado adicional no payload.
+  termsAccepted?: boolean;
 }): void {
   safePush({
     event: 'sign_up',
@@ -128,6 +134,10 @@ export function trackCadastroSuccess(params: {
     method: 'email',
     whatsapp_optin: params.whatsappOptin,
     age_declaration_accepted: params.ageDeclarationAccepted,
+    // 🆕 Campo aditivo: `terms_accepted` no payload de conversão.
+    //    NÃO altera nenhum campo existente. Se a agência não usar,
+    //    é inofensivo. Se quiser segmentar (ex.: GA4/Meta), já está disponível.
+    terms_accepted: params.termsAccepted ?? false,
   });
 }
 

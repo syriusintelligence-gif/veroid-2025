@@ -53,6 +53,10 @@ import {
   trackCadastroError,
   CadastroStep,
 } from '@/lib/gtm-tracker';
+// 📄 Versões dos documentos de consentimento (Termos de Uso e Política
+//    de Privacidade). Enviadas para a Edge Function register-user para
+//    gravar auditoria da versão aceita pelo usuário no momento do cadastro.
+import { TERMS_VERSION, PRIVACY_VERSION } from '@/lib/consent-versions';
 
 // Última atualização: 2026-07-14 - Adiciona opt-in WhatsApp + tela intermediária de boas-vindas + GTM tracking
 
@@ -139,6 +143,10 @@ export default function Cadastro() {
   const [fileValidationError, setFileValidationError] = useState<string>('');
   // 🆕 Opt-in WhatsApp (LGPD) — checkbox opcional no Step 1
   const [whatsappOptin, setWhatsappOptin] = useState(false);
+  // 🆕 Aceite de Termos de Uso e Política de Privacidade (LGPD) —
+  //    checkbox OBRIGATÓRIO no Step 2, exibido logo abaixo da declaração
+  //    de maioridade. Bloqueia o avanço enquanto não for marcado.
+  const [termsAccepted, setTermsAccepted] = useState(false);
   // 🆕 Tela intermediária de boas-vindas entre Step 1 e Step 2.
   //    Não é um novo `step` numerado porque não queremos criar conta
   //    prematuramente (o trigger de trial no INSERT dispararia).
@@ -699,6 +707,13 @@ export default function Cadastro() {
       return false;
     }
     
+    // 🆕 Validação do aceite de Termos de Uso e Política de Privacidade (LGPD).
+    //    Bloqueia o avanço quando o checkbox não está marcado.
+    if (!termsAccepted) {
+      setError('Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar');
+      return false;
+    }
+    
     return true;
   };
   
@@ -834,6 +849,12 @@ export default function Cadastro() {
           //    default é false — nenhuma coluna de auditoria é preenchida.
           whatsappOptin,
           ageDeclarationAccepted,
+          // 🆕 Aceite de Termos de Uso e Política de Privacidade (LGPD).
+          //    Envia flag + versões dos documentos aceitos. A Edge Function
+          //    resolve timestamp + IP + user-agent no servidor.
+          termsAccepted,
+          termsVersion: TERMS_VERSION,
+          privacyVersion: PRIVACY_VERSION,
         },
         senha
       );
@@ -860,6 +881,10 @@ export default function Cadastro() {
       trackCadastroSuccess({
         whatsappOptin,
         ageDeclarationAccepted,
+        // 🆕 Repassa aceite de Termos/Privacidade para a agência poder
+        //    segmentar campanhas (GA4/Meta) se desejar. Campo aditivo:
+        //    não altera o evento `sign_up` existente.
+        termsAccepted,
       });
 
       navigate(`/email-confirmation?email=${encodeURIComponent(sanitizedData.email)}`);
@@ -1343,6 +1368,51 @@ export default function Cadastro() {
                     </div>
                   </div>
                   
+                  {/* 🆕 ACEITE DE TERMOS DE USO E POLÍTICA DE PRIVACIDADE (LGPD).
+                       Checkbox obrigatório: bloqueia o avanço enquanto não
+                       for marcado. Auditoria (timestamp + IP + user-agent +
+                       versões dos documentos) é gravada no servidor pela
+                       Edge Function register-user. */}
+                  <div className="space-y-3 p-6 bg-blue-50 border-2 border-blue-300 rounded-xl">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="termsAcceptance"
+                        checked={termsAccepted}
+                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                        className="mt-1"
+                      />
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="termsAcceptance"
+                          className="text-sm font-semibold text-blue-900 cursor-pointer"
+                        >
+                          Termos de Uso e Política de Privacidade *
+                        </Label>
+                        <p className="text-xs text-blue-800 leading-relaxed">
+                          Li e concordo com os{' '}
+                          <a
+                            href="/terms"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline font-semibold hover:text-blue-700"
+                          >
+                            Termos de Uso
+                          </a>
+                          {' '}e com a{' '}
+                          <a
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline font-semibold hover:text-blue-700"
+                          >
+                            Política de Privacidade
+                          </a>
+                          {' '}da Vero iD, incluindo o tratamento dos meus dados pessoais conforme a Lei Geral de Proteção de Dados (LGPD) e o recebimento de comunicações eletrônicas relacionadas à minha conta e aos serviços contratados.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
@@ -1355,7 +1425,7 @@ export default function Cadastro() {
                     <Button 
                       onClick={handleNextStep} 
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                      disabled={!ageDeclarationAccepted || isLoading}
+                      disabled={!ageDeclarationAccepted || !termsAccepted || isLoading}
                     >
                       {isLoading ? (
                         <>

@@ -212,6 +212,14 @@ export async function registerUser(
     // 🆕 Campos opcionais aditivos — não quebra chamadas existentes
     whatsappOptin?: boolean;
     ageDeclarationAccepted?: boolean;
+    // 🆕 Aceite de Termos de Uso e Política de Privacidade (LGPD).
+    //    Todos opcionais para preservar compatibilidade com chamadas
+    //    legadas (ex.: createAdminAccount neste mesmo arquivo).
+    //    A auditoria (timestamp + IP + user-agent) é resolvida no
+    //    servidor pela Edge Function register-user.
+    termsAccepted?: boolean;
+    termsVersion?: string;
+    privacyVersion?: string;
   },
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
@@ -349,6 +357,13 @@ export async function registerUser(
         //    timestamp e user-agent também são resolvidos no servidor.
         whatsapp_optin: user.whatsappOptin ?? false,
         whatsapp_optin_user_agent: userAgent,
+        // 🆕 Aceite de Termos/Privacidade (LGPD) — mesmo padrão dos demais
+        //    consentimentos: flag + timestamp + IP + user-agent + versões
+        //    dos documentos. IP/timestamp/UA são resolvidos no servidor.
+        terms_accepted: user.termsAccepted ?? false,
+        terms_accepted_user_agent: userAgent,
+        terms_version: user.termsVersion,
+        privacy_version: user.privacyVersion,
       }),
     });
 
