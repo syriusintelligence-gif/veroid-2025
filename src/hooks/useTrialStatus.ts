@@ -207,10 +207,50 @@ export function useTrialStatus(): UseTrialStatusReturn {
         return;
       }
 
+      // 🆕 Busca também os dados do trial em subscriptions (fonte de verdade real de 30 dias).
+      // A tabela `subscriptions` é a MESMA fonte usada pelo gate de assinaturas em
+      // `get_signature_status` (RPC) e pelo card "Plano Atual" em SubscriptionSettings.
+      // Assim, TrialBanner e TrialModal ficam sincronizados com o card visual e com o
+      // bloqueio real. Se por qualquer motivo não houver linha em `subscriptions`, caímos
+      // no fallback histórico em `users.trial_ends_at` (comportamento legado preservado).
+      let effectiveTrialStartsAt: string | null = userData.trial_starts_at;
+      let effectiveTrialEndsAt: string | null = userData.trial_ends_at;
+
+      try {
+        const { data: subData, error: subError } = await supabase
+          .from('subscriptions')
+          .select('trial_start, trial_end, plan_type, status')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!subError && subData && subData.trial_end) {
+          // Só usa a fonte de subscriptions quando a assinatura ainda é do tipo trial/free.
+          // Para assinantes pagos (creator/creator_pro/creator_elite), a lógica de
+          // subscription_tier (mais abaixo em calculateTrialStatus) já retorna hasNoTrial.
+          const planIsFreeOrTrial =
+            subData.plan_type === 'trial' || subData.plan_type === 'free';
+          if (planIsFreeOrTrial) {
+            effectiveTrialStartsAt = subData.trial_start ?? effectiveTrialStartsAt;
+            effectiveTrialEndsAt = subData.trial_end;
+            console.log('✅ Trial sincronizado com subscriptions:', {
+              trialStart: subData.trial_start,
+              trialEnd: subData.trial_end,
+              planType: subData.plan_type,
+              status: subData.status,
+            });
+          }
+        }
+      } catch (subFallbackErr) {
+        // Falha ao ler subscriptions é não-crítica; usamos os valores de users como fallback.
+        console.warn('⚠️ Falha ao ler subscriptions para trial (usando fallback users):', subFallbackErr);
+      }
+
       // Calcula status do trial
       const status = calculateTrialStatus(
-        userData.trial_starts_at,
-        userData.trial_ends_at,
+        effectiveTrialStartsAt,
+        effectiveTrialEndsAt,
         userData.subscription_tier || 'free'
       );
 
