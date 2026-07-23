@@ -43,20 +43,17 @@ export async function addWatermarkToImage(
         const QRCode = (await import('qrcode')).default;
         const { generateQRData } = await import('./qrcode');
         const qrData = generateQRData(certificateData);
-        // 🔍 [QR FIX v2 2026-07-23] Opção A + Opção C:
-        // - width 1024 (era 512): matriz em alta resolução → módulos ainda mais nítidos após downscale
-        // - margin 2: quiet zone dentro do mínimo ISO/IEC 18004 (preservada)
-        // - errorCorrectionLevel 'H' (era 'M'): recuperação de erro alta (~30%) → tolera compressão do Instagram/Facebook
-        // - dark '#000000': preto puro (já estava, mantido) — contraste máximo p/ leitura em qualquer dispositivo
-        const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
-          width: 1024,
-          margin: 2,
-          errorCorrectionLevel: 'H',
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF',
-          },
-        });
+
+        // 🔍 [QR FIX v3 2026-07-23] Opção I + Opção J (SOMENTE watermark.ts, PDF intocado):
+        // - Opção I: renderizar o QR DIRETAMENTE em um canvas offscreen via QRCode.toCanvas(),
+        //   eliminando o intermediário PNG/Image que estava causando a proporção
+        //   retangular (200 × 104 medido em 13_07.PNG). QRCode.toCanvas produz um canvas
+        //   nativo com módulos pixel-perfect, sem passo de decodificação de dataURL.
+        // - Opção J: usar Math.floor nas dimensões do canvas final e Math.round nas posições
+        //   do QR, para blindar contra dimensões fracionárias que causariam renderização
+        //   desalinhada/deformada.
+        // - Preservados: watermarkHeight=130, qrSize=110, padding=15, layout, textos,
+        //   selo, cores, imageSmoothingEnabled=false apenas em torno do QR, errorCorrection 'H'.
         
         // Criar canvas
         const canvas = document.createElement('canvas');
@@ -75,84 +72,96 @@ export async function addWatermarkToImage(
         const padding = 15;
         const qrSize = 110;
         
-        // Definir tamanho do canvas (imagem + barra)
-        canvas.width = img.width;
-        canvas.height = img.height + watermarkHeight;
+        // 🔍 [QR FIX v3 — Opção J] Dimensões inteiras garantidas (Math.floor) para evitar
+        // canvas com largura/altura fracionárias que gerariam interpolação/deformação.
+        const imgW = Math.floor(img.width);
+        const imgH = Math.floor(img.height);
+        canvas.width = imgW;
+        canvas.height = imgH + watermarkHeight;
         
         // Desenhar imagem original no topo
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, imgW, imgH);
         
         // Fundo branco da barra
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, img.height, canvas.width, watermarkHeight);
+        ctx.fillRect(0, imgH, canvas.width, watermarkHeight);
         
         // Linha superior da barra
         ctx.strokeStyle = '#b0b0b0';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, img.height);
-        ctx.lineTo(canvas.width, img.height);
+        ctx.moveTo(0, imgH);
+        ctx.lineTo(canvas.width, imgH);
         ctx.stroke();
         
-        // Carregar QR code
-        const qrImg = new Image();
-        qrImg.onload = () => {
-          // 🔍 [QR FIX v2 2026-07-23] Desliga suavização apenas para o QR,
-          // para preservar bordas retas dos módulos ao reduzir 1024 → 110 px.
-          // Restaurado logo depois para não afetar o desenho da imagem/fontes.
-          const prevSmoothing = ctx.imageSmoothingEnabled;
-          ctx.imageSmoothingEnabled = false;
-          // Desenhar QR code no canto esquerdo, verticalmente centralizado na nova barra de 130 px
-          const qrY = img.height + Math.round((watermarkHeight - qrSize) / 2);
-          ctx.drawImage(qrImg, padding, qrY, qrSize, qrSize);
-          ctx.imageSmoothingEnabled = prevSmoothing;
-          
-          // 🔍 [QR FIX v2 2026-07-23] Textos e selo reposicionados/reescalados proporcionalmente
-          // à nova barra (130 px). Tudo alinhado à direita do QR, mesmo layout do original.
-          const textLeft = padding + qrSize + 20;
-          
-          // Título
-          ctx.fillStyle = '#000000';
-          ctx.font = 'bold 22px Arial, sans-serif';
-          ctx.fillText('Verificado by Vero iD', textLeft, img.height + 40);
-          
-          // Informações
-          const dateTime = new Date(certificateData.createdAt);
-          const dateStr = dateTime.toLocaleDateString('pt-BR');
-          const timeStr = dateTime.toLocaleTimeString('pt-BR');
-          const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
-          
-          ctx.fillStyle = '#333333';
-          ctx.font = '18px Arial, sans-serif';
-          ctx.fillText(infoLine, textLeft, img.height + 72);
-          
-          // URL
-          ctx.fillStyle = '#666666';
-          ctx.font = '16px Arial, sans-serif';
-          ctx.fillText('www.veroid.com.br', textLeft, img.height + 100);
-          
-          // Selo "VERIFICADO" no canto direito, verticalmente alinhado com a linha central da barra
-          ctx.fillStyle = '#3399ff';
-          ctx.font = 'bold 24px Arial, sans-serif';
-          const verifiedText = 'VERIFICADO';
-          const textWidth = ctx.measureText(verifiedText).width;
-          ctx.fillText(verifiedText, canvas.width - textWidth - padding, img.height + 72);
-          
-          // Converter para blob
-          canvas.toBlob((blob) => {
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error('Erro ao criar blob da imagem'));
-            }
-          }, 'image/png');
-        };
+        // 🔍 [QR FIX v3 — Opção I] Renderizar o QR diretamente em um canvas offscreen.
+        // QRCode.toCanvas desenha os módulos pixel-perfect, sem decodificar dataURL/Image,
+        // e permite escolhermos o tamanho exato de saída em pixels via `width`.
+        // Mantemos errorCorrectionLevel 'H' (recuperação ~30%) e margin 2 (quiet zone segura).
+        const qrCanvas = document.createElement('canvas');
+        await QRCode.toCanvas(qrCanvas, qrData, {
+          width: qrSize,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
         
-        qrImg.onerror = () => {
-          reject(new Error('Erro ao carregar QR code'));
-        };
+        // Desenhar QR code no canto esquerdo, verticalmente centralizado na barra de 130 px.
+        // Suavização desligada apenas em torno do QR (preserva bordas retas dos módulos).
+        const prevSmoothing = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        const qrX = Math.round(padding);
+        const qrY = Math.round(imgH + (watermarkHeight - qrSize) / 2);
+        // Fonte quadrada explícita (qrCanvas.width x qrCanvas.height) → destino quadrado explícito.
+        ctx.drawImage(
+          qrCanvas,
+          0, 0, qrCanvas.width, qrCanvas.height,
+          qrX, qrY, qrSize, qrSize
+        );
+        ctx.imageSmoothingEnabled = prevSmoothing;
         
-        qrImg.src = qrCodeDataUrl;
+        // 🔍 [QR FIX v2 2026-07-23] Textos e selo reposicionados/reescalados proporcionalmente
+        // à nova barra (130 px). Tudo alinhado à direita do QR, mesmo layout do original.
+        const textLeft = padding + qrSize + 20;
+        
+        // Título
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 22px Arial, sans-serif';
+        ctx.fillText('Verificado by Vero iD', textLeft, imgH + 40);
+        
+        // Informações
+        const dateTime = new Date(certificateData.createdAt);
+        const dateStr = dateTime.toLocaleDateString('pt-BR');
+        const timeStr = dateTime.toLocaleTimeString('pt-BR');
+        const infoLine = `${dateStr} ${timeStr} | ${certificateData.verificationCode} | ${certificateData.creatorName}`;
+        
+        ctx.fillStyle = '#333333';
+        ctx.font = '18px Arial, sans-serif';
+        ctx.fillText(infoLine, textLeft, imgH + 72);
+        
+        // URL
+        ctx.fillStyle = '#666666';
+        ctx.font = '16px Arial, sans-serif';
+        ctx.fillText('www.veroid.com.br', textLeft, imgH + 100);
+        
+        // Selo "VERIFICADO" no canto direito, verticalmente alinhado com a linha central da barra
+        ctx.fillStyle = '#3399ff';
+        ctx.font = 'bold 24px Arial, sans-serif';
+        const verifiedText = 'VERIFICADO';
+        const textWidth = ctx.measureText(verifiedText).width;
+        ctx.fillText(verifiedText, canvas.width - textWidth - padding, imgH + 72);
+        
+        // Converter para blob
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Erro ao criar blob da imagem'));
+          }
+        }, 'image/png');
         
       } catch (error) {
         reject(error);
