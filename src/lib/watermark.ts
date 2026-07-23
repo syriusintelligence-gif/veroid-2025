@@ -43,9 +43,14 @@ export async function addWatermarkToImage(
         const QRCode = (await import('qrcode')).default;
         const { generateQRData } = await import('./qrcode');
         const qrData = generateQRData(certificateData);
+        // 🔍 [QR FIX 2026-07-23] Ajustes de leitura do QR sem alterar a barra:
+        // - width 512 (era 200): matriz gerada em alta resolução → módulos nítidos
+        // - margin 2 (era 1): quiet zone dentro do mínimo recomendado pelo ISO/IEC 18004
+        // - errorCorrectionLevel 'M': explicita o padrão, mais tolerante a leitura em ângulos/luz
         const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
-          width: 200,
-          margin: 1,
+          width: 512,
+          margin: 2,
+          errorCorrectionLevel: 'M',
           color: {
             dark: '#000000',
             light: '#FFFFFF',
@@ -61,6 +66,8 @@ export async function addWatermarkToImage(
         }
         
         // Configurar dimensões da barra
+        // ⚠️ Mantidos idênticos ao original para NÃO alterar o visual da barra:
+        //    watermarkHeight = 80, padding = 15, qrSize = 60.
         const watermarkHeight = 80;
         const padding = 15;
         const qrSize = 60;
@@ -87,8 +94,14 @@ export async function addWatermarkToImage(
         // Carregar QR code
         const qrImg = new Image();
         qrImg.onload = () => {
+          // 🔍 [QR FIX 2026-07-23] Desliga suavização apenas para o QR,
+          // para preservar bordas retas dos módulos ao reduzir 512 → 60 px.
+          // Restaurado logo depois para não afetar o desenho da imagem/fontes.
+          const prevSmoothing = ctx.imageSmoothingEnabled;
+          ctx.imageSmoothingEnabled = false;
           // Desenhar QR code no canto esquerdo
           ctx.drawImage(qrImg, padding, img.height + 10, qrSize, qrSize);
+          ctx.imageSmoothingEnabled = prevSmoothing;
           
           // Título
           ctx.fillStyle = '#000000';
