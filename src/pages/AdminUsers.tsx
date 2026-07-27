@@ -753,6 +753,78 @@ export default function AdminUsers() {
                     <p className="font-medium">{formatDate(selectedUser.createdAt)}</p>
                   </div>
                 </div>
+
+                {/*
+                 * 🆕 Documento de Identidade (aditivo, 2026-07-27)
+                 * - Exibe preview compacto (JPEG) ou botão de abrir (PDF) para o admin.
+                 * - Fonte de dados: selectedUser.documentoUrl (data URL base64 já vinda do backend via `admin_list_users`).
+                 * - Nenhuma alteração de backend/RLS/SQL: apenas renderiza o dado que já chega no payload.
+                 * - "Ver em tamanho grande" / "Abrir PDF" usam window.open(dataUrl) em nova aba (evita X-Frame-Options).
+                 * - "Baixar documento" usa <a download> com nome amigável baseado no nome do usuário.
+                 */}
+                {selectedUser.documentoUrl && (() => {
+                  const docUrl = selectedUser.documentoUrl;
+                  const isPdf = docUrl.startsWith('data:application/pdf');
+                  const isImage = docUrl.startsWith('data:image/');
+                  const formatoLabel = isPdf ? 'PDF' : (isImage ? 'JPEG' : 'Documento');
+                  const safeName = selectedUser.nomeCompleto
+                    ? selectedUser.nomeCompleto.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase()
+                    : 'usuario';
+                  const downloadName = `documento_${safeName}.${isPdf ? 'pdf' : 'jpg'}`;
+                  return (
+                    <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-semibold">Documento de Identidade</Label>
+                          <Badge variant="secondary" className="text-xs">{formatoLabel}</Badge>
+                        </div>
+                      </div>
+
+                      <Alert className="border-yellow-200 bg-yellow-50 py-2">
+                        <Lock className="h-4 w-4 text-yellow-700" />
+                        <AlertDescription className="text-yellow-900 text-xs">
+                          <strong>Dado pessoal sensível — LGPD aplicável.</strong> Acesso restrito a administradores.
+                        </AlertDescription>
+                      </Alert>
+
+                      {isImage && (
+                        <div className="flex justify-center bg-white rounded border overflow-hidden">
+                          <img
+                            src={docUrl}
+                            alt="Documento de identidade"
+                            className="max-h-48 w-auto object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+
+                      {isPdf && (
+                        <div className="flex items-center justify-center bg-white rounded border py-6 text-sm text-muted-foreground">
+                          Documento em formato PDF — use os botões abaixo para visualizar ou baixar.
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(docUrl, '_blank', 'noopener,noreferrer')}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          {isPdf ? 'Abrir PDF em nova aba' : 'Ver em tamanho grande'}
+                        </Button>
+                        <a
+                          href={docUrl}
+                          download={downloadName}
+                          className="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                        >
+                          ↓ Baixar documento
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             <DialogFooter>
