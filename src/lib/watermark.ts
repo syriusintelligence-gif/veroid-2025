@@ -106,12 +106,20 @@ export async function addWatermarkToImage(
         // 🔍 [QR FIX v3 — Opção I] Renderizar o QR diretamente em um canvas offscreen.
         // QRCode.toCanvas desenha os módulos pixel-perfect, sem decodificar dataURL/Image,
         // e permite escolhermos o tamanho exato de saída em pixels via `width`.
-        // Mantemos errorCorrectionLevel 'H' (recuperação ~30%) e margin 2 (quiet zone segura).
+        // 🔍 [QR FIX v5 2026-07-28 — Opção J3/J2] errorCorrectionLevel alterado de 'H' → 'Q'.
+        // Motivo: análise em zoom máximo confirmou que os módulos são pixel-perfect (preto puro,
+        // sem anti-aliasing), então o problema de leitura em monitores comuns 24" NÃO é qualidade
+        // de renderização, e sim DENSIDADE FÍSICA de módulos. Nível 'H' (recuperação ~30%) forçava
+        // versão de QR com ~37 módulos por lado; caindo para 'Q' (~25%) reduz o número de módulos
+        // para ~29-33 por lado, tornando cada módulo ~15-20% maior no mesmo espaço físico de 150 px.
+        // Nível 'Q' ainda é seguro para redes sociais/impressos (recuperação de ~25%). O payload
+        // já é ultra-compacto (apenas i/v/n em base64url, ~150 chars), portanto NÃO é necessário
+        // encurtar URL adicionalmente. Margin 4 (quiet zone ISO) e resto do fluxo preservados 1:1.
         const qrCanvas = document.createElement('canvas');
         await QRCode.toCanvas(qrCanvas, qrData, {
           width: qrSize,
           margin: 4, // [QR FIX v4 - C1] Quiet zone padrao ISO/IEC 18004 (2 -> 4 modulos)
-          errorCorrectionLevel: 'H',
+          errorCorrectionLevel: 'Q', // [QR FIX v5 2026-07-28] H → Q: menos módulos, cada módulo maior → melhor leitura à distância
           color: {
             dark: '#000000',
             light: '#FFFFFF',
