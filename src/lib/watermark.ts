@@ -68,9 +68,18 @@ export async function addWatermarkToImage(
         //   • Densidade estimada: ~3.3 px/módulo (era ~1.8) → à prova de compressão do Instagram/Facebook
         //   • Barra proporcionalmente maior mantém o mesmo layout (QR à esquerda + textos ao lado + selo à direita)
         //   • Padding preservado em 15 px para não deslocar bordas
-        const watermarkHeight = 130;
+        // 🔍 [QR FIX v4 2026-07-27] Combo A1 + C1 aplicado para melhorar sobrevivência à recompressão
+        // do Instagram/LinkedIn (feed comprime para ~1080 px + JPEG q~85, e o QR de 110 px caía
+        // para ~50-80 px reais no output). Ajustes:
+        //   • watermarkHeight 130 → 170 px (barra ~30% maior, ainda proporcional em fotos/carrossel)
+        //   • qrSize 110 → 150 px (densidade estimada sobe de ~3.3 → ~4.5 px/módulo, cruza limite ISO)
+        //   • margin do QR 2 → 4 módulos (quiet zone padrão ISO/IEC 18004 — mais tolerante a artefatos JPEG)
+        // Layout preservado 1:1: QR à esquerda + textos ao lado + selo à direita, mesmo padding=15,
+        // mesmas fontes e cores, mesmos textos e URL, mesma linha superior cinza, mesmo fundo branco.
+        // PDF (`pdf-watermark.ts`) intocado — este fix aplica-se APENAS a imagens.
+        const watermarkHeight = 170;
         const padding = 15;
-        const qrSize = 110;
+        const qrSize = 150;
         
         // 🔍 [QR FIX v3 — Opção J] Dimensões inteiras garantidas (Math.floor) para evitar
         // canvas com largura/altura fracionárias que gerariam interpolação/deformação.
@@ -101,7 +110,7 @@ export async function addWatermarkToImage(
         const qrCanvas = document.createElement('canvas');
         await QRCode.toCanvas(qrCanvas, qrData, {
           width: qrSize,
-          margin: 2,
+          margin: 4, // [QR FIX v4 - C1] Quiet zone padrao ISO/IEC 18004 (2 -> 4 modulos)
           errorCorrectionLevel: 'H',
           color: {
             dark: '#000000',
