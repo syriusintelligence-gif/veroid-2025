@@ -1308,6 +1308,19 @@ ${content}
                       ORIGINAL SINGLE FILE UPLOAD UI
                       ======================================== */
                   <div className="space-y-3">
+                    {/* ========================================
+                        📄 AVISO INSTITUCIONAL — PDFs com assinatura externa
+                        (Opção F: comunicação de expectativa — não altera lógica)
+                        Exibido apenas quando o tipo de conteúdo é "document"
+                        ======================================== */}
+                    {contentType === 'document' && !uploadedFile && (
+                      <Alert className="border-amber-400 bg-amber-50">
+                        <AlertCircle className="h-4 w-4 text-amber-700" />
+                        <AlertDescription className="text-amber-900 text-sm">
+                          <strong>Atenção — PDFs com assinatura externa:</strong> se o seu PDF já contém assinatura digital de outra plataforma (ex.: <strong>gov.br</strong>, <strong>ICP-Brasil</strong>, <strong>Adobe Sign</strong>, <strong>DocuSign</strong>, <strong>D4Sign</strong>), o selo visual dessas assinaturas <strong>não será preservado</strong> no arquivo baixado a partir do certificado Vero iD. A autenticidade do documento original permanece garantida pela hash criptográfica registrada no Vero iD, mas a validação automática em portais externos (como <em>validar.iti.gov.br</em>) pode ficar indisponível no arquivo com watermark.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     {!uploadedFile && !showCameraCapture ? (
                       <>
                         <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-muted-foreground/50 transition-colors">
