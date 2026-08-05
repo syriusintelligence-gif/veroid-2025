@@ -257,7 +257,7 @@ export default function Index() {
             variants={itemVariants}
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
           >
-            <span className="text-white">Conteúdo Digital Falso em Seu Nome? </span>
+            <span className="text-white">Como seus clientes sabem que uma comunicação veio </span>
             <motion.span 
               className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
               animate={shouldReduceMotion ? {} : {
@@ -272,13 +272,13 @@ export default function Index() {
                 backgroundSize: '200% 200%'
               }}
             >
-              Nunca Mais!
+              realmente de você?
             </motion.span>
           </motion.h1>
           
           <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Mantenha a sua <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">reputação protegida</strong> contra falsificações. Assine digitalmente todo seu conteúdo, e tenha certificação e autoria comprovada de maneira instantânea.
+              Com o VeroID, profissionais e organizações certificam documentos, mensagens e conteúdos, permitindo que qualquer pessoa <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">verifique sua origem</strong> antes de tomar uma decisão.
             </p>
           </motion.div>
           
