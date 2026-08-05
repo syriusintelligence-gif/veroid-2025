@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
@@ -60,14 +60,6 @@ export default function Index() {
     }, 6000);
     return () => clearInterval(timer);
   }, [isCarouselPaused, shouldReduceMotion]);
-
-  const goToPrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
-  };
-
-  const goToNextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
-  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -281,26 +273,6 @@ export default function Index() {
             onFocus={() => setIsCarouselPaused(true)}
             onBlur={() => setIsCarouselPaused(false)}
           >
-            {/* Prev button - Glass floating, hidden on very small screens */}
-            <button
-              type="button"
-              onClick={() => { goToPrevSlide(); setIsCarouselPaused(true); }}
-              aria-label="Slide anterior"
-              className="hidden sm:flex absolute left-0 md:-left-4 lg:-left-6 top-1/2 -translate-y-1/2 z-20 items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-full backdrop-blur-md bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 hover:scale-110 transition-all duration-300 shadow-lg shadow-cyan-500/10"
-            >
-              <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-            </button>
-
-            {/* Next button - Glass floating, hidden on very small screens */}
-            <button
-              type="button"
-              onClick={() => { goToNextSlide(); setIsCarouselPaused(true); }}
-              aria-label="Próximo slide"
-              className="hidden sm:flex absolute right-0 md:-right-4 lg:-right-6 top-1/2 -translate-y-1/2 z-20 items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-full backdrop-blur-md bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 hover:scale-110 transition-all duration-300 shadow-lg shadow-cyan-500/10"
-            >
-              <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-            </button>
-
             {/* Carousel content wrapper with stable min-height to avoid layout jumps */}
             <div className="relative min-h-[220px] sm:min-h-[240px] md:min-h-[260px] lg:min-h-[280px] flex flex-col items-center justify-start px-4 sm:px-10 md:px-16">
               <AnimatePresence mode="wait">
