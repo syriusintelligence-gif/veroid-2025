@@ -12,7 +12,7 @@ export const heroSlides: HeroSlide[] = [
   {
     titleLead: 'Como seus clientes sabem que uma comunica\u00e7\u00e3o veio',
     titleAccent: 'realmente de voc\u00ea?',
-    subtitleLead: 'Com o VeroID, profissionais e organiza\u00e7\u00f5es certificam documentos, mensagens e conte\u00fados, permitindo que qualquer pessoa ',
+    subtitleLead: 'Com o Vero iD, profissionais e organiza\u00e7\u00f5es certificam documentos, mensagens e conte\u00fados, permitindo que qualquer pessoa ',
     subtitleAccent: 'verifique sua origem',
     subtitleTail: ' antes de tomar uma decis\u00e3o.',
   },
@@ -26,7 +26,7 @@ export const heroSlides: HeroSlide[] = [
   {
     titleLead: 'Parecer verdadeiro j\u00e1 n\u00e3o basta.',
     titleAccent: '\u00c9 preciso poder verificar.',
-    subtitleLead: 'O VeroID cria uma ',
+    subtitleLead: 'O Vero iD cria uma ',
     subtitleAccent: 'camada de confian\u00e7a',
     subtitleTail: ' para as rela\u00e7\u00f5es digitais, comprovando a origem, a autoria e a integridade das comunica\u00e7\u00f5es de profissionais, empresas e criadores.',
   },
