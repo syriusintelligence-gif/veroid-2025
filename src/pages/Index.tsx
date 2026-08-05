@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail } from 'lucide-react';
+import { Shield, Lock, QrCode, CheckCircle, Zap, Globe, BarChart3, CreditCard, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin } from '@/lib/auth';
 import { useEffect, useState, useRef } from 'react';
-import { motion, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollProgressBar } from '@/components/ScrollProgressBar';
+import { heroSlides } from './heroSlides';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -48,7 +49,26 @@ export default function Index() {
       setIsAdmin(true);
     }
   }, []);
-  
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+
+  useEffect(() => {
+    if (isCarouselPaused || shouldReduceMotion) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isCarouselPaused, shouldReduceMotion]);
+
+  const goToPrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+  };
+
+  const goToNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -253,33 +273,90 @@ export default function Index() {
             </span>
           </motion.div>
           
-          <motion.h1 
+          <motion.div
             variants={itemVariants}
-            className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black leading-snug md:leading-tight tracking-tight mb-8 md:mb-12 px-2 max-w-4xl mx-auto"
+            className="relative"
+            onMouseEnter={() => setIsCarouselPaused(true)}
+            onMouseLeave={() => setIsCarouselPaused(false)}
+            onFocus={() => setIsCarouselPaused(true)}
+            onBlur={() => setIsCarouselPaused(false)}
           >
-            <span className="text-white">Como seus clientes sabem que uma comunicação veio </span>
-            <motion.span 
-              className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
-              animate={shouldReduceMotion ? {} : {
-                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
-              }}
-              transition={shouldReduceMotion ? {} : {
-                duration: 5,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-              style={{
-                backgroundSize: '200% 200%'
-              }}
+            {/* Prev button - Glass floating, hidden on very small screens */}
+            <button
+              type="button"
+              onClick={() => { goToPrevSlide(); setIsCarouselPaused(true); }}
+              aria-label="Slide anterior"
+              className="hidden sm:flex absolute left-0 md:-left-4 lg:-left-6 top-1/2 -translate-y-1/2 z-20 items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-full backdrop-blur-md bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 hover:scale-110 transition-all duration-300 shadow-lg shadow-cyan-500/10"
             >
-              realmente de você?
-            </motion.span>
-          </motion.h1>
-          
-          <motion.div variants={itemVariants} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
-            <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
-              Com o VeroID, profissionais e organizações certificam documentos, mensagens e conteúdos, permitindo que qualquer pessoa <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">verifique sua origem</strong> antes de tomar uma decisão.
-            </p>
+              <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+            </button>
+
+            {/* Next button - Glass floating, hidden on very small screens */}
+            <button
+              type="button"
+              onClick={() => { goToNextSlide(); setIsCarouselPaused(true); }}
+              aria-label="Próximo slide"
+              className="hidden sm:flex absolute right-0 md:-right-4 lg:-right-6 top-1/2 -translate-y-1/2 z-20 items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-full backdrop-blur-md bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 hover:scale-110 transition-all duration-300 shadow-lg shadow-cyan-500/10"
+            >
+              <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+            </button>
+
+            {/* Carousel content wrapper with stable min-height to avoid layout jumps */}
+            <div className="relative min-h-[280px] sm:min-h-[300px] md:min-h-[340px] lg:min-h-[380px] flex flex-col items-center justify-start px-4 sm:px-10 md:px-16">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSlide}
+                  initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -20 }}
+                  transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="w-full"
+                >
+                  <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black leading-snug md:leading-tight tracking-tight mb-6 md:mb-8 px-2 max-w-4xl mx-auto">
+                    <span className="text-white">{heroSlides[currentSlide].titleLead} </span>
+                    <motion.span
+                      className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent"
+                      animate={shouldReduceMotion ? {} : {
+                        backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                      }}
+                      transition={shouldReduceMotion ? {} : {
+                        duration: 5,
+                        repeat: Infinity,
+                        ease: "linear"
+                      }}
+                      style={{
+                        backgroundSize: '200% 200%'
+                      }}
+                    >
+                      {heroSlides[currentSlide].titleAccent}
+                    </motion.span>
+                  </h1>
+
+                  <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
+                    <p className="text-base md:text-xl lg:text-2xl text-gray-300 leading-relaxed text-center px-4">
+                      {heroSlides[currentSlide].subtitleLead}
+                      <strong className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">{heroSlides[currentSlide].subtitleAccent}</strong>
+                      {heroSlides[currentSlide].subtitleTail}
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Bullets indicators */}
+              <div className="flex items-center justify-center gap-2 mt-6 md:mt-8" role="tablist" aria-label="Selecionar slide">
+                {heroSlides.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    role="tab"
+                    aria-selected={currentSlide === idx}
+                    aria-label={`Ir para o slide ${idx + 1}`}
+                    onClick={() => { setCurrentSlide(idx); setIsCarouselPaused(true); }}
+                    className={`h-2 rounded-full transition-all duration-300 ${currentSlide === idx ? 'w-8 bg-gradient-to-r from-cyan-400 to-blue-500' : 'w-2 bg-white/30 hover:bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            </div>
           </motion.div>
           
           <motion.div 
