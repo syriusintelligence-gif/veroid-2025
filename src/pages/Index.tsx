@@ -302,7 +302,7 @@ export default function Index() {
             </button>
 
             {/* Carousel content wrapper with stable min-height to avoid layout jumps */}
-            <div className="relative min-h-[280px] sm:min-h-[300px] md:min-h-[340px] lg:min-h-[380px] flex flex-col items-center justify-start px-4 sm:px-10 md:px-16">
+            <div className="relative min-h-[220px] sm:min-h-[240px] md:min-h-[260px] lg:min-h-[280px] flex flex-col items-center justify-start px-4 sm:px-10 md:px-16">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSlide}
@@ -343,7 +343,7 @@ export default function Index() {
               </AnimatePresence>
 
               {/* Bullets indicators */}
-              <div className="flex items-center justify-center gap-2 mt-6 md:mt-8" role="tablist" aria-label="Selecionar slide">
+              <div className="flex items-center justify-center gap-2 mt-3 md:mt-4" role="tablist" aria-label="Selecionar slide">
                 {heroSlides.map((_, idx) => (
                   <button
                     key={idx}
@@ -352,8 +352,13 @@ export default function Index() {
                     aria-selected={currentSlide === idx}
                     aria-label={`Ir para o slide ${idx + 1}`}
                     onClick={() => { setCurrentSlide(idx); setIsCarouselPaused(true); }}
-                    className={`h-2 rounded-full transition-all duration-300 ${currentSlide === idx ? 'w-8 bg-gradient-to-r from-cyan-400 to-blue-500' : 'w-2 bg-white/30 hover:bg-white/50'}`}
-                  />
+                    className="!min-h-0 !min-w-0 p-2 bg-transparent border-0 appearance-none flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded-full"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`block h-2 rounded-full transition-all duration-300 ${currentSlide === idx ? 'w-8 bg-gradient-to-r from-cyan-400 to-blue-500' : 'w-2 bg-white/30 hover:bg-white/50'}`}
+                    />
+                  </button>
                 ))}
               </div>
             </div>
@@ -361,7 +366,7 @@ export default function Index() {
           
           <motion.div 
             variants={itemVariants}
-            className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center pt-4 px-4"
+            className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center pt-2 px-4"
           >
             <motion.div
               whileHover={shouldReduceMotion ? {} : { scale: 1.08, y: -5 }}
