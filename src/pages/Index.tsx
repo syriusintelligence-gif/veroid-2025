@@ -255,7 +255,7 @@ export default function Index() {
           
           <motion.h1 
             variants={itemVariants}
-            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight mb-8 md:mb-12 px-2"
+            className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black leading-snug md:leading-tight tracking-tight mb-8 md:mb-12 px-2 max-w-4xl mx-auto"
           >
             <span className="text-white">Como seus clientes sabem que uma comunicação veio </span>
             <motion.span 
