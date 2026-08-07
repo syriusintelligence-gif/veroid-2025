@@ -32,10 +32,26 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle, Lock, Edit, Ban, Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Shield, ArrowLeft, Users, Search, Eye, Trash2, CheckCircle, AlertCircle,
+  Lock, Edit, Ban, Loader2, Download, TrendingUp,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, isCurrentUserAdmin, updateUser, toggleBlockUser, deleteUser, type User } from '@/lib/supabase-auth-v2';
-import { fetchAdminUsers, type AdminUserRow } from '@/lib/admin-stats';
+import {
+  fetchAdminUsersV2,
+  fetchAdminUtmSourceOptions,
+  fetchAdminUsersForExport,
+  type AdminUserRow,
+  type AdminUtmSourceOption,
+} from '@/lib/admin-stats';
 import { getCSRFToken } from '@/lib/csrf-protection';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,10 +59,26 @@ import { useToast } from '@/hooks/use-toast';
 const PAGE_SIZE = 25;
 
 /**
- * Converte uma linha do payload da RPC `admin_list_users` (snake_case)
- * para o formato `User` (camelCase) usado pelo resto do app.
+ * User estendido com campos UTM (Fase 2). Mantém 100% de compatibilidade
+ * com o tipo `User` do resto do app — os campos UTM são opcionais.
  */
-function adaptAdminUser(row: AdminUserRow): User {
+type UserWithUtm = User & {
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmTerm?: string | null;
+  utmContent?: string | null;
+  utmCapturedAt?: string | null;
+  utmReferrer?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
+};
+
+/**
+ * Converte uma linha do payload da RPC `admin_list_users_v2` (snake_case)
+ * para o formato `UserWithUtm` (camelCase) usado pelo componente.
+ */
+function adaptAdminUser(row: AdminUserRow): UserWithUtm {
   return {
     id: row.id,
     nomeCompleto: row.nome_completo,
@@ -60,25 +92,115 @@ function adaptAdminUser(row: AdminUserRow): User {
     verified: row.verified,
     isAdmin: row.is_admin,
     blocked: row.blocked,
+    // UTM (opcionais)
+    utmSource: row.utm_source ?? null,
+    utmMedium: row.utm_medium ?? null,
+    utmCampaign: row.utm_campaign ?? null,
+    utmTerm: row.utm_term ?? null,
+    utmContent: row.utm_content ?? null,
+    utmCapturedAt: row.utm_captured_at ?? null,
+    utmReferrer: row.utm_referrer ?? null,
+    gclid: row.gclid ?? null,
+    fbclid: row.fbclid ?? null,
   };
+}
+
+/**
+ * Escape seguro para valores de célula CSV.
+ * - Envolve em aspas duplas
+ * - Duplica aspas duplas internas
+ * - Trata null/undefined como string vazia
+ */
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  const needsQuote = /[",\n\r;]/.test(str);
+  const escaped = str.replace(/"/g, '""');
+  return needsQuote ? `"${escaped}"` : escaped;
+}
+
+/**
+ * Constrói CSV pronto para Excel (BOM UTF-8 + separador ; que o Excel BR entende
+ * sem precisar de "Text to Columns"). Cabeçalho em português.
+ */
+function buildUsersCsv(rows: AdminUserRow[]): string {
+  const headers = [
+    'ID', 'Nome Completo', 'Nome Público', 'Email', 'CPF/CNPJ', 'Telefone',
+    'Verificado', 'Admin', 'Bloqueado', 'Data de Cadastro',
+    // UTM columns
+    'UTM Source (Origem)', 'UTM Medium (Mídia)', 'UTM Campaign (Campanha)',
+    'UTM Term (Termo)', 'UTM Content (Conteúdo)',
+    'UTM Capturado em', 'UTM Referrer', 'Google Click ID (gclid)', 'Facebook Click ID (fbclid)',
+  ];
+
+  const lines: string[] = [];
+  lines.push(headers.map(csvEscape).join(';'));
+
+  for (const r of rows) {
+    lines.push([
+      r.id,
+      r.nome_completo,
+      r.nome_publico,
+      r.email,
+      r.cpf_cnpj,
+      r.telefone,
+      r.verified ? 'Sim' : 'Não',
+      r.is_admin ? 'Sim' : 'Não',
+      r.blocked ? 'Sim' : 'Não',
+      r.created_at,
+      r.utm_source ?? '',
+      r.utm_medium ?? '',
+      r.utm_campaign ?? '',
+      r.utm_term ?? '',
+      r.utm_content ?? '',
+      r.utm_captured_at ?? '',
+      r.utm_referrer ?? '',
+      r.gclid ?? '',
+      r.fbclid ?? '',
+    ].map(csvEscape).join(';'));
+  }
+
+  // BOM UTF-8 para Excel BR reconhecer acentos
+  return '\uFEFF' + lines.join('\r\n');
+}
+
+/**
+ * Faz o download do CSV como arquivo local.
+ */
+function downloadCsv(filename: string, csv: string): void {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export default function AdminUsers() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithUtm[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [verifiedCount, setVerifiedCount] = useState(0);
   const [adminCount, setAdminCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
+  const [withUtmCount, setWithUtmCount] = useState(0);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermDebounced, setSearchTermDebounced] = useState('');
 
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  // 🆕 Fase 2: filtro por origem (utm_source)
+  const [utmSourceFilter, setUtmSourceFilter] = useState<string>('all');
+  const [utmSourceOptions, setUtmSourceOptions] = useState<AdminUtmSourceOption[]>([]);
+
+  const [selectedUser, setSelectedUser] = useState<UserWithUtm | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -111,7 +233,7 @@ export default function AdminUsers() {
       } catch (error) {
         console.error('❌ [AdminUsers] Erro ao carregar token CSRF:', error);
         if (mounted) {
-          setCsrfReady(true); // Marca como pronto mesmo com erro
+          setCsrfReady(true);
         }
       }
     }
@@ -150,15 +272,29 @@ export default function AdminUsers() {
     checkAuth();
   }, [navigate]);
 
+  // 🆕 Carrega opções de UTM source apenas uma vez após autorização
+  useEffect(() => {
+    if (!isAuthorized) return;
+    (async () => {
+      try {
+        const opts = await fetchAdminUtmSourceOptions();
+        setUtmSourceOptions(opts);
+      } catch (err) {
+        console.error('❌ [AdminUsers] Erro ao carregar utm_source options:', err);
+      }
+    })();
+  }, [isAuthorized]);
+
   /**
    * Carrega a PRIMEIRA página da lista (zera offset).
-   * Chamado no carregamento inicial e a cada mudança de filtro de busca.
    */
   const loadFirstPage = useCallback(async () => {
     setIsLoadingList(true);
     try {
-      const result = await fetchAdminUsers({
+      const utmSource = utmSourceFilter === 'all' ? null : utmSourceFilter;
+      const result = await fetchAdminUsersV2({
         search: searchTermDebounced,
+        utmSource,
         limit: PAGE_SIZE,
         offset: 0,
       });
@@ -167,6 +303,7 @@ export default function AdminUsers() {
       setVerifiedCount(result.verified_count);
       setAdminCount(result.admin_count);
       setTodayCount(result.today_count);
+      setWithUtmCount(result.with_utm_count ?? 0);
     } catch (err) {
       console.error('❌ [AdminUsers] Erro ao carregar usuários:', err);
       setUsers([]);
@@ -174,15 +311,17 @@ export default function AdminUsers() {
     } finally {
       setIsLoadingList(false);
     }
-  }, [searchTermDebounced]);
+  }, [searchTermDebounced, utmSourceFilter]);
 
   // Botão "Carregar mais"
   const loadMore = useCallback(async () => {
     if (isLoadingMore || users.length >= totalUsers) return;
     setIsLoadingMore(true);
     try {
-      const result = await fetchAdminUsers({
+      const utmSource = utmSourceFilter === 'all' ? null : utmSourceFilter;
+      const result = await fetchAdminUsersV2({
         search: searchTermDebounced,
+        utmSource,
         limit: PAGE_SIZE,
         offset: users.length,
       });
@@ -192,9 +331,9 @@ export default function AdminUsers() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [users.length, totalUsers, isLoadingMore, searchTermDebounced]);
+  }, [users.length, totalUsers, isLoadingMore, searchTermDebounced, utmSourceFilter]);
 
-  // Carrega lista quando autorizado ou quando filtro muda
+  // Carrega lista quando autorizado ou quando filtros mudam
   useEffect(() => {
     if (!isAuthorized) return;
     void loadFirstPage();
@@ -205,6 +344,45 @@ export default function AdminUsers() {
     await loadFirstPage();
   }, [loadFirstPage]);
 
+  // 🆕 Handler: exportar CSV (respeita filtros atuais)
+  const handleExportCsv = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const utmSource = utmSourceFilter === 'all' ? null : utmSourceFilter;
+      const rows = await fetchAdminUsersForExport({
+        search: searchTermDebounced,
+        utmSource,
+      });
+
+      if (rows.length === 0) {
+        toast({
+          title: 'Nenhum usuário para exportar',
+          description: 'Ajuste os filtros e tente novamente.',
+        });
+        return;
+      }
+
+      const csv = buildUsersCsv(rows);
+      const ts = new Date().toISOString().slice(0, 10);
+      const suffix = utmSource ? `_${utmSource}` : '';
+      downloadCsv(`vero_usuarios${suffix}_${ts}.csv`, csv);
+
+      toast({
+        title: '✅ Exportação concluída',
+        description: `${rows.length} usuário(s) exportado(s) para CSV.`,
+      });
+    } catch (err) {
+      console.error('❌ [AdminUsers] Erro ao exportar CSV:', err);
+      toast({
+        title: '❌ Erro ao exportar',
+        description: 'Não foi possível gerar o CSV. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [searchTermDebounced, utmSourceFilter, toast]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -214,12 +392,12 @@ export default function AdminUsers() {
       .slice(0, 2);
   };
 
-  const handleViewDetails = (user: User) => {
+  const handleViewDetails = (user: UserWithUtm) => {
     setSelectedUser(user);
     setIsDialogOpen(true);
   };
 
-  const handleOpenEditDialog = (user: User) => {
+  const handleOpenEditDialog = (user: UserWithUtm) => {
     setSelectedUser(user);
     setEditNomeCompleto(user.nomeCompleto);
     setEditNomePublico(user.nomePublico);
@@ -228,7 +406,6 @@ export default function AdminUsers() {
     setIsEditDialogOpen(true);
   };
 
-  // 🔒 Handler para salvar edição (COM CSRF)
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
 
@@ -244,8 +421,6 @@ export default function AdminUsers() {
     setIsLoading(true);
 
     try {
-      console.log('🔒 [AdminUsers] Atualizando usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-
       const result = await updateUser(selectedUser.id, {
         nomeCompleto: editNomeCompleto,
         nomePublico: editNomePublico,
@@ -278,12 +453,11 @@ export default function AdminUsers() {
     }
   };
 
-  const handleOpenBlockDialog = (user: User) => {
+  const handleOpenBlockDialog = (user: UserWithUtm) => {
     setSelectedUser(user);
     setIsBlockDialogOpen(true);
   };
 
-  // 🔒 Handler para bloquear/desbloquear (COM CSRF)
   const handleToggleBlock = async () => {
     if (!selectedUser) return;
 
@@ -299,8 +473,6 @@ export default function AdminUsers() {
     setIsLoading(true);
 
     try {
-      console.log('🔒 [AdminUsers] Alternando bloqueio com CSRF Token:', csrfToken.substring(0, 20) + '...');
-
       const newBlockedStatus = !selectedUser.blocked;
       const result = await toggleBlockUser(selectedUser.id, newBlockedStatus);
 
@@ -331,12 +503,11 @@ export default function AdminUsers() {
     }
   };
 
-  const handleOpenDeleteDialog = (user: User) => {
+  const handleOpenDeleteDialog = (user: UserWithUtm) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
 
-  // 🔒 Handler para excluir usuário (COM CSRF)
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
@@ -352,8 +523,6 @@ export default function AdminUsers() {
     setIsLoading(true);
 
     try {
-      console.log('🔒 [AdminUsers] Excluindo usuário com CSRF Token:', csrfToken.substring(0, 20) + '...');
-
       const result = await deleteUser(selectedUser.id);
 
       if (result.success) {
@@ -393,7 +562,11 @@ export default function AdminUsers() {
 
   const hasMore = useMemo(() => users.length < totalUsers, [users.length, totalUsers]);
 
-  // Se não autorizado, não renderiza nada (já redirecionou)
+  const hasActiveFilter = useMemo(
+    () => searchTermDebounced.length > 0 || utmSourceFilter !== 'all',
+    [searchTermDebounced, utmSourceFilter]
+  );
+
   if (!currentUser || !isAuthorized) {
     return null;
   }
@@ -427,7 +600,6 @@ export default function AdminUsers() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Alerta de Segurança */}
         <Alert className="mb-6 border-red-200 bg-red-50">
           <Lock className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
@@ -436,7 +608,6 @@ export default function AdminUsers() {
           </AlertDescription>
         </Alert>
 
-        {/* CSRF Loading Alert */}
         {!csrfReady && (
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
@@ -446,7 +617,6 @@ export default function AdminUsers() {
           </Alert>
         )}
 
-        {/* Título */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
             <Users className="h-10 w-10 text-blue-600" />
@@ -455,8 +625,8 @@ export default function AdminUsers() {
           <p className="text-muted-foreground">Visualize e gerencie todos os usuários cadastrados no sistema</p>
         </div>
 
-        {/* Estatísticas (vêm prontas do backend num único request) */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        {/* Estatísticas — agora com card de "Com UTM" */}
+        <div className="grid md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
@@ -508,37 +678,96 @@ export default function AdminUsers() {
               <p className="text-xs text-muted-foreground">Novos usuários</p>
             </CardContent>
           </Card>
+
+          {/* 🆕 Card de rastreamento UTM */}
+          <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Com Rastreamento (UTM)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {isLoadingList ? <Loader2 className="h-6 w-6 animate-spin" /> : withUtmCount}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Origem identificada
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Filtros */}
+        {/* Filtros + Exportar */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              Buscar Usuários
+              Buscar e Filtrar Usuários
             </CardTitle>
             <CardDescription>
-              Pesquise por nome, email, CPF/CNPJ ou nome público
+              Pesquise por nome, email, CPF/CNPJ, nome público, campanha ou origem UTM
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4">
-              <div className="flex-1">
+            <div className="grid md:grid-cols-[1fr_240px_auto] gap-3 items-end">
+              <div>
+                <Label htmlFor="search-users" className="text-xs mb-1 block">Buscar</Label>
                 <Input
+                  id="search-users"
                   placeholder="Digite para buscar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              {searchTerm && (
-                <Button variant="outline" onClick={() => setSearchTerm('')}>
-                  Limpar
+
+              <div>
+                <Label htmlFor="utm-filter" className="text-xs mb-1 block">Origem (UTM Source)</Label>
+                <Select value={utmSourceFilter} onValueChange={setUtmSourceFilter}>
+                  <SelectTrigger id="utm-filter">
+                    <SelectValue placeholder="Todas as origens" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as origens</SelectItem>
+                    <SelectItem value="__none__">Sem UTM (orgânico/direto)</SelectItem>
+                    {utmSourceOptions.map((opt) => (
+                      <SelectItem key={opt.utm_source} value={opt.utm_source}>
+                        {opt.utm_source} ({opt.total})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2">
+                {(searchTerm || utmSourceFilter !== 'all') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => { setSearchTerm(''); setUtmSourceFilter('all'); }}
+                  >
+                    Limpar
+                  </Button>
+                )}
+                <Button
+                  variant="default"
+                  onClick={handleExportCsv}
+                  disabled={isExporting || isLoadingList}
+                  className="bg-green-600 hover:bg-green-700"
+                  title="Exportar todos os usuários (respeitando filtros) para CSV"
+                >
+                  {isExporting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exportando...</>
+                  ) : (
+                    <><Download className="h-4 w-4 mr-2" /> Exportar CSV</>
+                  )}
                 </Button>
-              )}
+              </div>
             </div>
-            {searchTermDebounced && (
-              <p className="text-sm text-muted-foreground mt-2">
+
+            {hasActiveFilter && (
+              <p className="text-sm text-muted-foreground mt-3">
                 Encontrados: {users.length} de {totalUsers} usuários
+                {utmSourceFilter !== 'all' && (
+                  <> · Filtro de origem: <Badge variant="secondary" className="ml-1">{utmSourceFilter}</Badge></>
+                )}
               </p>
             )}
           </CardContent>
@@ -562,7 +791,7 @@ export default function AdminUsers() {
               <div className="text-center py-12">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  {searchTermDebounced ? 'Nenhum usuário encontrado com os critérios de busca' : 'Nenhum usuário cadastrado ainda'}
+                  {hasActiveFilter ? 'Nenhum usuário encontrado com os critérios de busca' : 'Nenhum usuário cadastrado ainda'}
                 </p>
               </div>
             ) : (
@@ -575,6 +804,7 @@ export default function AdminUsers() {
                         <TableHead>Email</TableHead>
                         <TableHead>CPF/CNPJ</TableHead>
                         <TableHead>Telefone</TableHead>
+                        <TableHead>Origem</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Cadastro</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
@@ -614,6 +844,23 @@ export default function AdminUsers() {
                           <TableCell>{user.email}</TableCell>
                           <TableCell className="font-mono text-sm">{user.cpfCnpj}</TableCell>
                           <TableCell>{user.telefone}</TableCell>
+                          {/* 🆕 Coluna de Origem UTM */}
+                          <TableCell>
+                            {user.utmSource ? (
+                              <div className="flex flex-col gap-0.5">
+                                <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-xs w-fit">
+                                  {user.utmSource}
+                                </Badge>
+                                {user.utmCampaign && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={user.utmCampaign}>
+                                    {user.utmCampaign}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Direto/Orgânico</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             {user.verified ? (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
@@ -702,7 +949,7 @@ export default function AdminUsers() {
 
         {/* Dialog de Detalhes */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalhes do Usuário</DialogTitle>
               <DialogDescription>
@@ -754,14 +1001,85 @@ export default function AdminUsers() {
                   </div>
                 </div>
 
-                {/*
-                 * 🆕 Documento de Identidade (aditivo, 2026-07-27)
-                 * - Exibe preview compacto (JPEG) ou botão de abrir (PDF) para o admin.
-                 * - Fonte de dados: selectedUser.documentoUrl (data URL base64 já vinda do backend via `admin_list_users`).
-                 * - Nenhuma alteração de backend/RLS/SQL: apenas renderiza o dado que já chega no payload.
-                 * - "Ver em tamanho grande" / "Abrir PDF" usam window.open(dataUrl) em nova aba (evita X-Frame-Options).
-                 * - "Baixar documento" usa <a download> com nome amigável baseado no nome do usuário.
-                 */}
+                {/* 🆕 Bloco de rastreamento UTM (Fase 2) */}
+                <div className="border rounded-lg p-4 bg-purple-50/50 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-purple-600" />
+                      Origem do Lead (UTM Tracking)
+                    </Label>
+                    {selectedUser.utmSource ? (
+                      <Badge className="bg-purple-100 text-purple-800">Rastreado</Badge>
+                    ) : (
+                      <Badge variant="secondary">Sem rastreamento</Badge>
+                    )}
+                  </div>
+
+                  {selectedUser.utmSource ? (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Origem (utm_source)</Label>
+                        <p className="font-medium">{selectedUser.utmSource}</p>
+                      </div>
+                      {selectedUser.utmMedium && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Mídia (utm_medium)</Label>
+                          <p className="font-medium">{selectedUser.utmMedium}</p>
+                        </div>
+                      )}
+                      {selectedUser.utmCampaign && (
+                        <div className="col-span-2">
+                          <Label className="text-xs text-muted-foreground">Campanha (utm_campaign)</Label>
+                          <p className="font-medium break-all">{selectedUser.utmCampaign}</p>
+                        </div>
+                      )}
+                      {selectedUser.utmTerm && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Termo (utm_term)</Label>
+                          <p className="font-medium">{selectedUser.utmTerm}</p>
+                        </div>
+                      )}
+                      {selectedUser.utmContent && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Conteúdo (utm_content)</Label>
+                          <p className="font-medium">{selectedUser.utmContent}</p>
+                        </div>
+                      )}
+                      {selectedUser.utmCapturedAt && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Capturado em</Label>
+                          <p className="font-medium">{formatDate(selectedUser.utmCapturedAt)}</p>
+                        </div>
+                      )}
+                      {selectedUser.utmReferrer && (
+                        <div className="col-span-2">
+                          <Label className="text-xs text-muted-foreground">Referrer</Label>
+                          <p className="font-medium text-xs break-all">{selectedUser.utmReferrer}</p>
+                        </div>
+                      )}
+                      {(selectedUser.gclid || selectedUser.fbclid) && (
+                        <div className="col-span-2 flex flex-wrap gap-2 pt-2 border-t">
+                          {selectedUser.gclid && (
+                            <Badge variant="outline" className="text-xs" title={selectedUser.gclid}>
+                              🔵 Google Ads (gclid)
+                            </Badge>
+                          )}
+                          {selectedUser.fbclid && (
+                            <Badge variant="outline" className="text-xs" title={selectedUser.fbclid}>
+                              🔷 Meta Ads (fbclid)
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      Este usuário se cadastrou por acesso direto ou orgânico (sem parâmetros UTM na URL).
+                    </p>
+                  )}
+                </div>
+
+                {/* Documento de Identidade */}
                 {selectedUser.documentoUrl && (() => {
                   const docUrl = selectedUser.documentoUrl;
                   const isPdf = docUrl.startsWith('data:application/pdf');
@@ -835,7 +1153,7 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
 
-        {/* Dialog de Edição (COM CSRF) */}
+        {/* Dialog de Edição */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -894,7 +1212,7 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
 
-        {/* Dialog de Bloqueio (COM CSRF) */}
+        {/* Dialog de Bloqueio */}
         <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -917,7 +1235,7 @@ export default function AdminUsers() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Dialog de Exclusão (COM CSRF) */}
+        {/* Dialog de Exclusão */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>

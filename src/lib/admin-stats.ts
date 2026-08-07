@@ -89,6 +89,17 @@ export interface AdminUserRow {
   verified: boolean;
   is_admin: boolean;
   blocked: boolean;
+  // 🆕 Campos UTM (Fase 2). Opcionais para preservar compatibilidade
+  //    com a RPC v1 (`admin_list_users`) que não retorna esses campos.
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  utm_captured_at?: string | null;
+  utm_referrer?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
 }
 
 export interface AdminListUsersResult {
@@ -97,6 +108,17 @@ export interface AdminListUsersResult {
   verified_count: number;
   admin_count: number;
   today_count: number;
+  /** 🆕 Fase 2 UTM: contagem de usuários com utm_source != null (só v2). */
+  with_utm_count?: number;
+}
+
+/**
+ * 🆕 Fase 2 UTM: item retornado por `admin_utm_source_options` — usado
+ * no dropdown de filtro "Origem" da planilha ADM.
+ */
+export interface AdminUtmSourceOption {
+  utm_source: string;
+  total: number;
 }
 
 export interface AdminAuditLogRow {
@@ -317,6 +339,104 @@ export async function fetchAdminUsers(
     admin_count: Number(payload.admin_count ?? 0),
     today_count: Number(payload.today_count ?? 0),
   };
+}
+
+/**
+ * 🆕 Fase 2 UTM: filtros da RPC `admin_list_users_v2`.
+ * Extende `AdminListUsersFilters` com o filtro opcional por utm_source.
+ */
+export interface AdminListUsersV2Filters extends AdminListUsersFilters {
+  /**
+   * Filtra por origem exata (ex.: 'instagram', 'google').
+   * Use o valor especial '__none__' para "sem UTM".
+   * null/undefined = sem filtro.
+   */
+  utmSource?: string | null;
+}
+
+/**
+ * 🆕 Fase 2 UTM: versão v2 de `fetchAdminUsers` que também retorna os 9
+ * campos UTM (utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+ * utm_captured_at, utm_referrer, gclid, fbclid) e aceita filtro por origem.
+ *
+ * IMPORTANTE: a v1 (`fetchAdminUsers`) continua funcionando exatamente
+ * como antes — este helper é ADITIVO e usa uma RPC nova (`admin_list_users_v2`).
+ */
+export async function fetchAdminUsersV2(
+  filters: AdminListUsersV2Filters = {}
+): Promise<AdminListUsersResult> {
+  const params = {
+    p_search:     filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_utm_source: filters.utmSource && filters.utmSource.length > 0  ? filters.utmSource      : null,
+    p_limit:      filters.limit  ?? 25,
+    p_offset:     filters.offset ?? 0,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersV2()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_v2', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_v2 falhou:', error);
+    return {
+      items: [],
+      total: 0,
+      verified_count: 0,
+      admin_count: 0,
+      today_count: 0,
+      with_utm_count: 0,
+    };
+  }
+
+  const payload = (data ?? {}) as Partial<AdminListUsersResult>;
+  return {
+    items: Array.isArray(payload.items) ? payload.items : [],
+    total: Number(payload.total ?? 0),
+    verified_count: Number(payload.verified_count ?? 0),
+    admin_count: Number(payload.admin_count ?? 0),
+    today_count: Number(payload.today_count ?? 0),
+    with_utm_count: Number(payload.with_utm_count ?? 0),
+  };
+}
+
+/**
+ * 🆕 Fase 2 UTM: lista de origens (utm_source) presentes na base,
+ * ordenadas por total de usuários (desc). Alimenta o dropdown de
+ * filtro "Origem" na planilha ADM.
+ */
+export async function fetchAdminUtmSourceOptions(): Promise<AdminUtmSourceOption[]> {
+  console.log('📊 [admin-stats] fetchAdminUtmSourceOptions()');
+  const { data, error } = await supabase.rpc('admin_utm_source_options');
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_utm_source_options falhou:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? (data as AdminUtmSourceOption[]) : [];
+}
+
+/**
+ * 🆕 Fase 2 UTM: retorna TODOS os usuários (respeitando filtros) sem
+ * paginação, com limite de segurança de 10.000 linhas — usado pelo
+ * botão "Exportar CSV" da planilha ADM.
+ */
+export async function fetchAdminUsersForExport(
+  filters: Omit<AdminListUsersV2Filters, 'limit' | 'offset'> = {}
+): Promise<AdminUserRow[]> {
+  const params = {
+    p_search:     filters.search && filters.search.trim().length > 0 ? filters.search.trim() : null,
+    p_utm_source: filters.utmSource && filters.utmSource.length > 0  ? filters.utmSource      : null,
+  };
+
+  console.log('📊 [admin-stats] fetchAdminUsersForExport()', params);
+  const { data, error } = await supabase.rpc('admin_list_users_for_export', params);
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_list_users_for_export falhou:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? (data as AdminUserRow[]) : [];
 }
 
 export interface AdminListAuditLogsFilters {
