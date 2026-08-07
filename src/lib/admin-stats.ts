@@ -641,6 +641,17 @@ export interface AdminTrialUserRow {
   trial_end: string;
   day_of_cycle: number;
   days_remaining: number;
+  // 🆕 Fase 3 UTM. Opcionais para preservar compatibilidade com RPCs
+  //    antigas que não retornam esses campos.
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  utm_captured_at?: string | null;
+  utm_referrer?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
 }
 
 export interface AdminListUsersInTrialDayResult {
@@ -686,6 +697,16 @@ export interface AdminFunnelUserRow {
   signed_content_count: number;
   first_signed_at: string | null;
   last_login_at: string | null;
+  // 🆕 Fase 3 UTM. Opcionais para preservar compatibilidade.
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  utm_captured_at?: string | null;
+  utm_referrer?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
 }
 
 export interface AdminListUsersInFunnelStepResult {
@@ -973,6 +994,145 @@ export function adaptAdminSignedContent(
     storageBucket: row.storage_bucket ?? undefined,
     carouselMetadata: (parsedCarouselMetadata as Record<string, unknown>) ?? undefined,
     totalImages: row.total_images ?? undefined,
+  };
+}
+
+/* ============================================================= */
+/* ===== UTM Analytics (Fase 3 — métricas cruzadas por UTM) ==== */
+/* ============================================================= */
+/**
+ * Helpers para as RPCs `admin_utm_conversion_overview` e
+ * `admin_utm_breakdown_by_dimension` definidas em
+ * `supabase/sql/admin_utm_analytics_fase3.sql`.
+ *
+ * 100% aditivos: não substituem nenhum helper existente.
+ */
+
+export interface AdminUtmSourceStats {
+  utm_source: string;
+  registered: number;
+  logged_in: number;
+  activated: number;
+  engaged: number;
+  rate_logged_in: number;
+  rate_activated: number;
+  rate_engaged: number;
+  avg_days_to_activate: number | null;
+}
+
+export interface AdminUtmConversionOverviewResult {
+  total_registered: number;
+  with_utm_registered: number;
+  without_utm_registered: number;
+  avg_activation_rate: number;
+  by_source: AdminUtmSourceStats[];
+  from: string | null;
+  to: string | null;
+}
+
+export type AdminUtmDimension = 'source' | 'medium' | 'campaign';
+
+export interface AdminUtmBreakdownItem {
+  bucket: string;
+  registered: number;
+  logged_in: number;
+  activated: number;
+  engaged: number;
+  rate_logged_in: number;
+  rate_activated: number;
+  rate_engaged: number;
+}
+
+export interface AdminUtmBreakdownResult {
+  dimension: AdminUtmDimension;
+  total_registered: number;
+  items: AdminUtmBreakdownItem[];
+  from: string | null;
+  to: string | null;
+  utm_source_filter: string | null;
+}
+
+/**
+ * 🆕 Fase 3: visão-geral do funil segmentado por origem (utm_source).
+ * Retorna um breakdown com registered/logged_in/activated/engaged
+ * por bucket de utm_source (incluindo `(sem utm)` para direto/orgânico).
+ */
+export async function fetchAdminUtmConversionOverview(
+  from?: string | null,
+  to?: string | null
+): Promise<AdminUtmConversionOverviewResult> {
+  console.log('📊 [admin-stats] fetchAdminUtmConversionOverview()', { from, to });
+  const { data, error } = await supabase.rpc('admin_utm_conversion_overview', {
+    p_from: from ?? null,
+    p_to:   to   ?? null,
+  });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_utm_conversion_overview falhou:', error);
+    return {
+      total_registered: 0,
+      with_utm_registered: 0,
+      without_utm_registered: 0,
+      avg_activation_rate: 0,
+      by_source: [],
+      from: from ?? null,
+      to: to ?? null,
+    };
+  }
+
+  const p = (data ?? {}) as Partial<AdminUtmConversionOverviewResult>;
+  return {
+    total_registered:       Number(p.total_registered ?? 0),
+    with_utm_registered:    Number(p.with_utm_registered ?? 0),
+    without_utm_registered: Number(p.without_utm_registered ?? 0),
+    avg_activation_rate:    Number(p.avg_activation_rate ?? 0),
+    by_source:              Array.isArray(p.by_source) ? p.by_source : [],
+    from:                   p.from ?? from ?? null,
+    to:                     p.to   ?? to   ?? null,
+  };
+}
+
+/**
+ * 🆕 Fase 3: breakdown genérico por dimensão (source/medium/campaign).
+ * Aceita filtro opcional por `utm_source` para deep-dive (ex: quais
+ * campanhas dentro do Instagram convertem melhor?).
+ */
+export async function fetchAdminUtmBreakdown(
+  dimension: AdminUtmDimension = 'source',
+  from?: string | null,
+  to?: string | null,
+  utmSource?: string | null,
+  limit = 50
+): Promise<AdminUtmBreakdownResult> {
+  console.log('📊 [admin-stats] fetchAdminUtmBreakdown()', { dimension, from, to, utmSource });
+  const { data, error } = await supabase.rpc('admin_utm_breakdown_by_dimension', {
+    p_dimension:  dimension,
+    p_from:       from ?? null,
+    p_to:         to   ?? null,
+    p_utm_source: utmSource ?? null,
+    p_limit:      limit,
+  });
+
+  if (error) {
+    console.error('❌ [admin-stats] admin_utm_breakdown_by_dimension falhou:', error);
+    return {
+      dimension,
+      total_registered: 0,
+      items: [],
+      from: from ?? null,
+      to: to ?? null,
+      utm_source_filter: utmSource ?? null,
+    };
+  }
+
+  const p = (data ?? {}) as Partial<AdminUtmBreakdownResult>;
+  return {
+    dimension:         (p.dimension as AdminUtmDimension) ?? dimension,
+    total_registered:  Number(p.total_registered ?? 0),
+    items:             Array.isArray(p.items) ? p.items : [],
+    from:              p.from ?? from ?? null,
+    to:                p.to   ?? to   ?? null,
+    utm_source_filter: p.utm_source_filter ?? utmSource ?? null,
   };
 }
 

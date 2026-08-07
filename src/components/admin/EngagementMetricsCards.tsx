@@ -253,6 +253,16 @@ function TrialDrilldownDialog({
         // 🆕 Opt-in WhatsApp (LGPD) — coluna aditiva no CSV
         'Opt-in WhatsApp',
         'Opt-in WhatsApp em',
+        // 🆕 Fase 3 UTM: origem/tráfego
+        'UTM Source (Origem)',
+        'UTM Medium (Mídia)',
+        'UTM Campaign (Campanha)',
+        'UTM Term',
+        'UTM Content',
+        'UTM Capturado em',
+        'UTM Referrer',
+        'gclid (Google)',
+        'fbclid (Meta)',
       ];
 
       // Escapa um valor para CSV: envolve em aspas e duplica aspas internas
@@ -292,6 +302,16 @@ function TrialDrilldownDialog({
             //    o campo não vem, para ambientes sem a migração aplicada).
             u.whatsapp_optin ? 'Sim' : 'Não',
             fmtDate(u.whatsapp_optin_at),
+            // 🆕 Fase 3 UTM — 9 colunas de origem/tráfego
+            u.utm_source     ?? '',
+            u.utm_medium     ?? '',
+            u.utm_campaign   ?? '',
+            u.utm_term       ?? '',
+            u.utm_content    ?? '',
+            u.utm_captured_at ?? '',
+            u.utm_referrer   ?? '',
+            u.gclid          ?? '',
+            u.fbclid         ?? '',
           ]
             .map(escape)
             .join(';')
@@ -670,6 +690,16 @@ function FunnelStepDrilldownDialog({
         '1º Conteúdo Assinado',
         'Opt-in WhatsApp',
         'Opt-in WhatsApp em',
+        // 🆕 Fase 3 UTM: origem/tráfego
+        'UTM Source (Origem)',
+        'UTM Medium (Mídia)',
+        'UTM Campaign (Campanha)',
+        'UTM Term',
+        'UTM Content',
+        'UTM Capturado em',
+        'UTM Referrer',
+        'gclid (Google)',
+        'fbclid (Meta)',
       ];
 
       const escape = (val: unknown): string => {
@@ -705,6 +735,16 @@ function FunnelStepDrilldownDialog({
             fmtDate(u.first_signed_at),
             u.whatsapp_optin ? 'Sim' : 'Não',
             fmtDate(u.whatsapp_optin_at),
+            // 🆕 Fase 3 UTM — 9 colunas de origem/tráfego
+            u.utm_source     ?? '',
+            u.utm_medium     ?? '',
+            u.utm_campaign   ?? '',
+            u.utm_term       ?? '',
+            u.utm_content    ?? '',
+            u.utm_captured_at ?? '',
+            u.utm_referrer   ?? '',
+            u.gclid          ?? '',
+            u.fbclid         ?? '',
           ]
             .map(escape)
             .join(';')

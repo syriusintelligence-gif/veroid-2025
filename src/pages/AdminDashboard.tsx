@@ -54,6 +54,7 @@ import ContentCard from '@/components/ContentCard';
 import PlanDistributionCard from '@/components/admin/PlanDistributionCard';
 import UsersRegisteredCard from '@/components/admin/UsersRegisteredCard';
 import EngagementMetricsCards from '@/components/admin/EngagementMetricsCards';
+import UtmAnalyticsCard from '@/components/admin/UtmAnalyticsCard';
 import RevenueSubcardsInline from '@/components/admin/RevenueSubcardsInline';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -732,6 +733,9 @@ export default function AdminDashboard() {
 
         {/* Métricas de Engajamento — Dia do Ciclo, Ativação, Abandono */}
         <EngagementMetricsCards />
+
+        {/* 🆕 Fase 3 UTM — Análise cruzada por origem/canal de tráfego */}
+        <UtmAnalyticsCard />
 
         {/* Distribuição por Tipo de Plano (drilldown clicável) */}
         <PlanDistributionCard />
