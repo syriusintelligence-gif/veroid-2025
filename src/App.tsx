@@ -36,6 +36,11 @@ import { initializeCSRF } from './lib/csrf-protection';
 // import { initializeCSRFMiddleware } from './lib/csrf-middleware';
 import { logAuditEvent, AuditAction } from './lib/audit-logger';
 import { clearAllKeys } from './lib/crypto';
+// 📊 UTM Tracker (Fase 1 - Fundação) — captura first-touch com janela 90 dias.
+//    Chamada 100% defensiva no mount: nunca lança exceção, nunca bloqueia
+//    a UI. Se a URL não tiver UTM, o cadastro fica com NULL nas colunas
+//    de origem (correto para tráfego direto/orgânico).
+import { initializeUtmTracking } from './lib/utm-tracker';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -97,6 +102,16 @@ function AppContent() {
     
     setupCSRFProtection();
   }, []); // Executa apenas uma vez ao montar
+
+  // 📊 Inicializa a captura de UTM tracking (first-touch, janela 90 dias).
+  //    Roda UMA VEZ no mount da aplicação, independente da rota atual, para
+  //    que qualquer URL de entrada (?utm_source=..., ?gclid=..., ?fbclid=...)
+  //    seja capturada. A função é 100% defensiva — se falhar, não afeta
+  //    o app. Se já existe atribuição válida (< 90 dias), respeita
+  //    first-touch e NÃO sobrescreve.
+  useEffect(() => {
+    initializeUtmTracking();
+  }, []);
 
   // 🔐 SESSION TIMEOUT - Auto-logout por inatividade (15 minutos) + Modal de aviso (1 minuto antes)
   // ✅ CORRIGIDO: Removido showTimeoutWarning das dependências e usado useCallback

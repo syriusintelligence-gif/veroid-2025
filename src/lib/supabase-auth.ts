@@ -220,6 +220,22 @@ export async function registerUser(
     termsAccepted?: boolean;
     termsVersion?: string;
     privacyVersion?: string;
+    // 🆕 UTM Tracking (Fase 1 - Fundação) — first-touch, janela 90 dias.
+    //    Todos OPCIONAIS: chamadas legadas (ex.: createAdminAccount) e
+    //    usuários que chegaram sem UTM continuam funcionando normalmente.
+    //    Os valores vêm de src/lib/utm-tracker.ts (getStoredUtm).
+    //    NÃO gera side effects: quando ausentes, viram NULL no banco.
+    utm?: {
+      utm_source: string | null;
+      utm_medium: string | null;
+      utm_campaign: string | null;
+      utm_term: string | null;
+      utm_content: string | null;
+      gclid: string | null;
+      fbclid: string | null;
+      utm_captured_at: string | null;
+      utm_referrer: string | null;
+    };
   },
   senha: string
 ): Promise<{ success: boolean; user?: User; error?: string }> {
@@ -364,6 +380,20 @@ export async function registerUser(
         terms_accepted_user_agent: userAgent,
         terms_version: user.termsVersion,
         privacy_version: user.privacyVersion,
+        // 🆕 UTM Tracking (Fase 1 - Fundação) — first-touch, janela 90 dias.
+        //    Repassa cada campo do objeto `user.utm` para a Edge Function.
+        //    Quando `user.utm` está ausente (chamadas legadas), todos os
+        //    campos vão como null — a Edge Function grava NULL no banco.
+        //    A Edge Function faz sanitização final antes de persistir.
+        utm_source:      user.utm?.utm_source      ?? null,
+        utm_medium:      user.utm?.utm_medium      ?? null,
+        utm_campaign:    user.utm?.utm_campaign    ?? null,
+        utm_term:        user.utm?.utm_term        ?? null,
+        utm_content:     user.utm?.utm_content     ?? null,
+        utm_captured_at: user.utm?.utm_captured_at ?? null,
+        utm_referrer:    user.utm?.utm_referrer    ?? null,
+        gclid:           user.utm?.gclid           ?? null,
+        fbclid:          user.utm?.fbclid          ?? null,
       }),
     });
 

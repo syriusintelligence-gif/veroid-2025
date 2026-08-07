@@ -57,6 +57,11 @@ import {
 //    de Privacidade). Enviadas para a Edge Function register-user para
 //    gravar auditoria da versão aceita pelo usuário no momento do cadastro.
 import { TERMS_VERSION, PRIVACY_VERSION } from '@/lib/consent-versions';
+// 📊 UTM Tracker (Fase 1 - Fundação) — first-touch, janela 90 dias.
+//    Recupera os UTMs capturados anteriormente pelo App.tsx (mount global)
+//    e envia junto do cadastro. Se nada foi capturado, retorna todos NULL —
+//    não afeta o fluxo do cadastro em hipótese alguma.
+import { getStoredUtm } from '@/lib/utm-tracker';
 
 // Última atualização: 2026-07-14 - Adiciona opt-in WhatsApp + tela intermediária de boas-vindas + GTM tracking
 
@@ -838,6 +843,20 @@ export default function Cadastro() {
         email: sanitizedData.email,
       });
       
+      // 📊 UTM Tracking (Fase 1 - Fundação): recupera a atribuição
+      //    first-touch capturada pelo App.tsx no mount da aplicação.
+      //    Se o usuário chegou sem UTM na URL de entrada, todos os
+      //    campos vêm como null — comportamento correto (tráfego direto).
+      //    Nunca falha: getStoredUtm() é 100% defensiva.
+      const utmPayload = getStoredUtm();
+      console.log('📊 [CADASTRO] UTM Tracking a enviar:', {
+        source:   utmPayload.utm_source   ?? '(direct)',
+        medium:   utmPayload.utm_medium   ?? '(none)',
+        campaign: utmPayload.utm_campaign ?? '(none)',
+        hasGclid:  Boolean(utmPayload.gclid),
+        hasFbclid: Boolean(utmPayload.fbclid),
+      });
+
       const result = await registerUser(
         {
           ...sanitizedData,
@@ -855,6 +874,10 @@ export default function Cadastro() {
           termsAccepted,
           termsVersion: TERMS_VERSION,
           privacyVersion: PRIVACY_VERSION,
+          // 📊 UTM Tracking (Fase 1 - Fundação): repassa o payload da
+          //    atribuição first-touch para o backend. Ausência = tráfego
+          //    direto/orgânico (todos os campos são null).
+          utm: utmPayload,
         },
         senha
       );
