@@ -7,6 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useInView, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollProgressBar } from '@/components/ScrollProgressBar';
 import { heroSlides } from './heroSlides';
+import PartnersSection from '@/components/partners/PartnersSection';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -385,6 +386,9 @@ export default function Index() {
         </motion.div>
       </section>
       
+      {/* Parceiros — faixa de órgãos parceiros (aditivo) */}
+      <PartnersSection />
+
       {/* Como Funciona with Parallax */}
       <section ref={howItWorksRef} className="relative bg-gradient-to-b from-slate-900 to-slate-950 py-12 md:py-16 lg:py-20 overflow-hidden">
         {/* Grid pattern with parallax */}

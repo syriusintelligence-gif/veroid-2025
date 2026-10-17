@@ -26,6 +26,8 @@ import ChangePassword from './pages/ChangePassword';
 import ShortUrlRedirect from './pages/ShortUrlRedirect';
 import Pricing from './pages/Pricing';
 import EmailConfirmation from './pages/EmailConfirmation';
+import PartnersAll from './pages/PartnersAll';
+import PartnerOrg from './pages/PartnerOrg';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import GTMRouteTracker from './components/analytics/GTMRouteTracker';
 import { Toaster } from '@/components/ui/toaster';
@@ -380,6 +382,8 @@ function AppContent() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/verify" element={<Verify />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/parceiros/todos" element={<PartnersAll />} />
+        <Route path="/parceiros/:slug" element={<PartnerOrg />} />
         <Route path="/certificate" element={<Certificate />} />
         <Route path="/c/:shortCode" element={<ShortUrlRedirect />} />
         <Route path="/certificate-debug" element={<CertificateDebug />} />
