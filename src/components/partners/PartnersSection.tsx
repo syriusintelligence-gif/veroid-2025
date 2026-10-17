@@ -13,13 +13,13 @@ function PartnerLogoLink({ org, large }: { org: PartnerOrg; large: boolean }) {
     <Link
       to={`/parceiros/${org.slug}`}
       aria-label={`Ver parceria ${org.shortName}`}
-      className="group flex shrink-0 items-center justify-center rounded-xl px-6 py-3 transition-colors duration-300 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+      className="flex shrink-0 items-center justify-center rounded-xl bg-white/5 px-6 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
     >
       <img
         src={org.logo}
         alt={org.logoAlt}
         loading="lazy"
-        className={`${large ? 'h-20 md:h-28' : 'h-12 md:h-16'} w-auto object-contain opacity-80 brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:brightness-100 group-hover:invert-0 group-focus-visible:brightness-100 group-focus-visible:invert-0`}
+        className={`${large ? 'h-20 md:h-28' : 'h-12 md:h-16'} w-auto object-contain`}
       />
     </Link>
   );
