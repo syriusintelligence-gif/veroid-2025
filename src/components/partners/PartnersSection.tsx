@@ -13,7 +13,7 @@ function PartnerLogoLink({ org, large }: { org: PartnerOrg; large: boolean }) {
     <Link
       to={`/parceiros/${org.slug}`}
       aria-label={`Ver parceria ${org.shortName}`}
-      className="flex shrink-0 items-center justify-center rounded-xl bg-white/5 px-6 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+      className="group flex shrink-0 flex-col items-center justify-center gap-3 rounded-xl bg-white/5 px-6 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
     >
       <img
         src={org.logo}
@@ -21,6 +21,10 @@ function PartnerLogoLink({ org, large }: { org: PartnerOrg; large: boolean }) {
         loading="lazy"
         className={`${large ? 'h-20 md:h-28' : 'h-12 md:h-16'} w-auto object-contain`}
       />
+      <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition-opacity group-hover:opacity-90">
+        Ver parceria
+        <ArrowRight className="h-4 w-4" />
+      </span>
     </Link>
   );
 }
