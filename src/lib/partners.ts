@@ -154,6 +154,15 @@ export const partnerOrgs: PartnerOrg[] = [
         logo: '/images/parceiros/caa-rr.png',
         website: 'https://www.caarr.org.br/',
       },
+      {
+        id: 'caa-pi',
+        name: 'Caixa de Assistência dos Advogados do Piauí',
+        shortName: 'CAA/PI',
+        uf: 'PI',
+        state: 'Piauí',
+        logo: '/images/parceiros/caa-pi.png',
+        website: 'https://caapi.org.br',
+      },
     ],
   },
 ];
