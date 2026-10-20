@@ -161,7 +161,7 @@ export const partnerOrgs: PartnerOrg[] = [
         uf: 'PI',
         state: 'Piauí',
         logo: '/images/parceiros/caa-pi.png',
-        website: 'https://caapi.org.br',
+        website: 'https://caapi.org.br/clube_de_convenios/vero-id-sistema-de-autenticacao-digital-tecnologia-seguranca-digital/',
       },
     ],
   },
