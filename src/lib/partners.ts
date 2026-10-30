@@ -164,6 +164,15 @@ export const partnerOrgs: PartnerOrg[] = [
         website: 'https://caarn.org.br/',
       },
       {
+        id: 'caa-rs',
+        name: 'Caixa de Assistência dos Advogados do Rio Grande do Sul',
+        shortName: 'CAA/RS',
+        uf: 'RS',
+        state: 'Rio Grande do Sul',
+        logo: '/images/parceiros/caa-rs.png',
+        website: 'https://www.caars.org.br/Home',
+      },
+      {
         id: 'caa-rr',
         name: 'Caixa de Assistência dos Advogados de Roraima',
         shortName: 'CAA/RR',
