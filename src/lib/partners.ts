@@ -181,6 +181,15 @@ export const partnerOrgs: PartnerOrg[] = [
         logo: '/images/parceiros/caa-rr.png',
         website: 'https://www.caarr.org.br/',
       },
+      {
+        id: 'caa-se',
+        name: 'Caixa de Assistência dos Advogados de Sergipe',
+        shortName: 'CAA/SE',
+        uf: 'SE',
+        state: 'Sergipe',
+        logo: '/images/parceiros/caa-se.png',
+        website: 'https://caase.com.br/',
+      },
     ],
   },
 ];
